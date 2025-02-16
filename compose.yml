@@ -3,7 +3,7 @@ services:
   socialapp:
     image: socialapp:latest
     build: ./app
-    command: gunicorn lab4.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn app.wsgi:application --bind 0.0.0.0:8000
     ports:
       - "8000:8000"
     env_file:
