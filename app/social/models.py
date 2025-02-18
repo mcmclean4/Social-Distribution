@@ -10,7 +10,7 @@ from django.db import models
 class Author(models.Model):
     type = models.CharField(max_length=50)
     # The full API URL for the author. This is unique.
-    id = models.URLField(unique=True)
+    id = models.URLField(primary_key=True, unique=True)
     host = models.URLField(unique=True)
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
@@ -26,8 +26,9 @@ class Author(models.Model):
 class Follow(models.Model):
     type = models.CharField(max_length=50)
     summary = models.CharField()
-    actor = models.ForeignKey(Author, on_delete=models.CASCADE)
-    objects = models.ForeignKey(Author, on_delete=models.CASCADE)
+
+    follower = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='follower')
+    followee = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='followee')
 
 class Comment(models.Model):
     type = models.CharField(max_length=50)
@@ -41,16 +42,10 @@ class Like(models.Model):
 class Likes(models.Model):
     type = models.CharField(max_length=50)
 
-class Visibility(Enum):
-    PUBLIC = "PUBLIC"
-    PRIVATE = "PRIVATE"
-    UNLISTED = "UNLISTED"
-    DELETED = "DELETED"
-
 class Post(models.Model):
     type = models.CharField(max_length=50)
     title = models.CharField(max_length=255)
-    id = models.URLField(unique=True)
+    id = models.URLField(primary_key=True, unique=True)
     page = models.URLField(blank=True, null=True)
     description = models.CharField()
     contentType = models.CharField()
@@ -59,7 +54,7 @@ class Post(models.Model):
     comments = models.ForeignKey(Comments, on_delete=models.CASCADE)
     likes = models.ForeignKey(Likes, on_delete=models.CASCADE)
     published = models.DateTimeField()
-    visibility = models.Choices(Visibility)
+    visibility = models.CharField()
 
 class Posts(models.Model):
     type = models.CharField(max_length=50)
