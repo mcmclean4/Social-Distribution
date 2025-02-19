@@ -1,1 +1,48 @@
-<p>Social Distribution</p>
+{% extends 'social/base.html' %}
+
+{% block content %}
+<h1>Stream</h1>
+<a href="{% url 'social:create_post' %}" class="btn btn-primary mb-3">Add New Post</a>
+<div id="posts" class="row">
+    {% for post in posts %}
+        <div class="col-md-12 mb-4 position-relative">
+            <div class="card">
+                <div class="card-header d-flex justify-content-end">
+                    <a href="{% url 'social:update_post' post.auto_id %}" class="btn btn-warning btn-sm mx-1">Edit</a>
+                    <a href="{% url 'social:delete_post' post.auto_id %}" class="btn btn-danger btn-sm mx-1">Delete</a>
+                </div>
+                {% if post.image %}
+                    <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}" style="height: 250px; object-fit: cover;">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ post.title }}</h5>
+                    <p class="card-text">{{ post.description }}</p>
+                </div>
+            </div>
+            <!-- Link Overlay -->
+            <a href="{% url 'social:post_detail' post.auto_id %}" class="stretched-link"></a>
+            <div class="card-footer d-flex justify-content-between mt-2">
+                <a href="#"><i class="bi bi-hand-thumbs-up"></i> Like</a>
+                <a href="#"><i class="bi bi-chat"></i> Comment</a>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+<div class="pagination">
+    <span class="step-links">
+        {% if posts.has_previous %}
+            <a href="?page=1">&laquo; first</a>
+            <a href="?page={{ posts.previous_page_number }}">previous</a>
+        {% endif %}
+
+        <span class="current">
+            Page {{ posts.number }} of {{ posts.paginator.num_pages }}.
+        </span>
+
+        {% if posts.has_next %}
+            <a href="?page={{ posts.next_page_number }}">next</a>
+            <a href="?page={{ posts.paginator.num_pages }}">last &raquo;</a>
+        {% endif %}
+    </span>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+<h1>{{ post.title }}</h1>
+<p><strong>Description:</strong> {{ post.description }}</p>
+{% if post.image %}
+    <img src="{{ post.image.url }}" alt="{{ post.title }}">
+{% endif %}
+<p><strong>Content:</strong> {{ post.content }}</p>
+<p><strong>Published on:</strong> {{ post.published }}</p>
+<p><strong>By:</strong> {{ post.author.displayName }}</p>
+<a href="{% url 'social:update_post' post.auto_id %}" class="btn btn-warning">Edit</a>
+<a href="{% url 'social:delete_post' post.auto_id %}" class="btn btn-danger">Delete</a>
+<a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
+{% endblock %}
