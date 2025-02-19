@@ -139,3 +139,46 @@ class Follow(models.Model):
 
     def __str__(self):
         return f"{self.follower.displayName} follows {self.followee.displayName}"
+    STATUS_CHOICES = [
+    ('pending', 'Pending'),
+    ('accepted', 'Accepted'),
+    ('rejected', 'Rejected'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+
+    class Meta:
+        unique_together = ("follower", "followee")  # Prevent duplicate follow requests
+
+class Comment(models.Model):
+    type = models.CharField(max_length=50)
+
+class Comments(models.Model):
+    type = models.CharField(max_length=50)
+
+class Like(models.Model):
+    type = models.CharField(max_length=50)
+
+class Likes(models.Model):
+    type = models.CharField(max_length=50)
+
+class Post(models.Model):
+    type = models.CharField(max_length=50)
+    title = models.CharField(max_length=255)
+    id = models.URLField(primary_key=True, unique=True)
+    page = models.URLField(blank=True, null=True)
+    description = models.CharField()
+    contentType = models.CharField()
+    content = models.CharField()
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    comments = models.ForeignKey(Comments, on_delete=models.CASCADE)
+    likes = models.ForeignKey(Likes, on_delete=models.CASCADE)
+    published = models.DateTimeField()
+    visibility = models.CharField()
+
+class Posts(models.Model):
+    type = models.CharField(max_length=50)
+    pageNumber = models.IntegerField()
+    size = models.IntegerField()
+    count = models.IntegerField()
+    src = models.ForeignKey(Post, on_delete=models.CASCADE)
+

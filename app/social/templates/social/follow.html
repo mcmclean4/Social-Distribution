@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Follow Authors</title>
+</head>
+<body>
+
+    <h2>Follow Authors</h2>
+
+    <h3>Click an Author to Follow</h3>
+    <ul>
+        {% for author in authors %}
+            <li>
+                <button class="follow-button" data-author-id="{{ author.id }}" data-author-name="{{ author.display_name }}">
+                    Follow {{ author.display_name }} ({{ author.id }})
+                </button>
+            </li>
+        {% empty %}
+            <li>No authors available</li>
+        {% endfor %}
+    </ul>
+
+    <script>
+        document.querySelectorAll(".follow-button").forEach(button => {
+            button.onclick = async function() {
+                let authorId = this.getAttribute("data-author-id");
+                let authorName = this.getAttribute("data-author-name");
+
+                // ✅ Show confirmation prompt before following
+                let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
+                if (!confirmFollow) {
+                    return; // User clicked "Cancel", so do nothing
+                }
+
+                let response = await fetch(`/api/authors/{{ request.user.id }}/follow/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        type: "follow",
+                        summary: "{{ request.user.username }} wants to follow " + authorName,
+                        actor: {
+                            id: "{{ request.user.id }}", 
+                            displayName: "{{ request.user.username }}",
+                            host: "{{ request.build_absolute_uri }}",
+                            github: "{{ request.user.profile.github }}",
+                            profileImage: "{{ request.user.profile.profileImage }}",
+                            page: "{{ request.user.profile.page }}"
+                        },
+                        object: {
+                            id: authorId
+                        }
+                    })
+                });
+
+                let result = await response.json();
+                alert(result.message || result.error);
+            };
+        });
+    </script>
+
+</body>
+</html>
