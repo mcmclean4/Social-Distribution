@@ -29,6 +29,9 @@ class AuthorSerializer(serializers.Serializer):
         fields = ['title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility']
 
 
+
+
+
 class FollowRequestSerializer(serializers.ModelSerializer):
     """
     Serializes follow requests into the required format for sending to remote nodes' inboxes.

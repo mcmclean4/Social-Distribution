@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {% extends "social/base.html" %}
 
 {% block content %}
@@ -31,3 +32,35 @@
     document.addEventListener("DOMContentLoaded", loadFollowers);
 </script>
 {% endblock %}
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Followers</title>
+</head>
+<body>
+
+    <h2>My Followers</h2>
+    <ul id="followers-list"></ul>
+
+    <script>
+        async function loadFollowers() {
+            let response = await fetch(`/api/authors/{{ request.user.id }}/followers/`);
+            let data = await response.json();
+            let followersList = document.getElementById("followers-list");
+
+            data.followers.forEach(follower => {
+                let li = document.createElement("li");
+                li.textContent = `${follower.displayName} (${follower.id})`;
+                followersList.appendChild(li);
+            });
+        }
+
+        loadFollowers();
+    </script>
+
+</body>
+</html>
+>>>>>>> c60352a (First)

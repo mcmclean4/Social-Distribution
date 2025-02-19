@@ -3,6 +3,7 @@ from .views import PostListCreateAPIView, create_post, update_post, delete_post,
 from . import views
 from django.urls import path, re_path 
 from . import views
+from .views import *
 
 app_name = 'social'
 

@@ -18,8 +18,12 @@ class Author(models.Model):
     type = models.CharField(
         max_length=50, choices=TYPE_CHOICES, default='Author')
     # The full API URL for the author. This is unique.
-    id = models.URLField(primary_key=True, unique=True, db_index=True)
-    host = models.URLField()
+    id = models.URLField(primary_key=True, unique=True)
+
+    #host is not unique
+    #host = models.URLField(unique=True)
+    host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
+
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
