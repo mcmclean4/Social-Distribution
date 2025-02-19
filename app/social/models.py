@@ -1,11 +1,19 @@
+import uuid
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.utils.text import slugify
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
 class Author(models.Model):
-    type = models.CharField(max_length=50)
+
+    TYPE_CHOICES = [
+        ('Author', 'Author'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='Author')
     # The full API URL for the author. This is unique.
     id = models.URLField(primary_key=True, unique=True, db_index=True)
     host = models.URLField(unique=True)
@@ -25,42 +33,53 @@ class Author(models.Model):
 # Post: Represents a social media post with likes, comments, etc.
 # =============================================================================
 class Post(models.Model):
-    CONTENT_TYPE_CHOICES = [
-        ('text', 'Text'),
-        ('markdown', 'Markdown'),
-        ('image', 'Image'),
-        ('video', 'Video'),
+    POST_CHOICES = [
+        ('Post', 'Post'),
     ]
 
-    CONTENT_VISBILITY_CHOICES = [
-        ('public', 'Public'),
-        ('friends', 'Friends'),
+    CONTENT_TYPE_CHOICES = [
+        ('text/plain', 'Paintext'),
+        ('text/markdown', 'Markdown'),
+        ('image/png;base64', 'PNG'),
+        ('image/jpeg;base64', 'JPEG'),
     ]
-    
-    type = models.CharField(max_length=50)
+
+    CONTENT_VISIBILITY_CHOICES = [
+        ('PUBLIC', 'Public'),
+        ('FRIENDS', 'Friends'),
+        ('UNLISTED', 'Unlisted'),
+        ('DELETED', 'Deleted'),
+    ]
+
+    auto_id = models.AutoField(primary_key=True)
+
+    type = models.CharField(max_length=50, choices=POST_CHOICES, default='Post')
     title = models.CharField(max_length=255)
-    id = models.URLField(primary_key=True, unique=True, db_index=True)
+    id = models.URLField(unique=True, db_index=True)
     page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
-    content = models.CharField(max_length=255)
+    content = models.TextField()
     image = models.ImageField(upload_to='images/', blank=True, null=True)
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    author = models.ForeignKey('Author', on_delete=models.CASCADE)
     published = models.DateTimeField()
-    visibility = models.CharField(max_length=50, choices=CONTENT_VISBILITY_CHOICES)
+    visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
+    is_deleted = models.BooleanField(default=False)
 
-    # Many-to-many relationship for likes with Author
-    likes = models.ManyToManyField(Author, related_name='liked_posts', blank=True, through='PostLike')
+    likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
+    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     class Meta:
         ordering = ['-published']
 
     def __str__(self):
         return self.title
-    
+
     def save(self, *args, **kwargs):
-        if self.pk is not None:  # Check if this is an update
-            self.edited = timezone.now()
+        if not self.id:
+            self.id = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        if not self.page:
+            self.page = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
         super().save(*args, **kwargs)
 
 
@@ -81,6 +100,7 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ['-published']
+        
 
     def __str__(self):
         return f"Comment by {self.author.displayName} on {self.post.title}"
