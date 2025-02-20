@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        {% if messages %}
+        <ul>
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="register">
+            <form method="POST" action="{% url 'social:register' %}">
+                {% csrf_token %}
+                <input
+                    type="text"
+                    placeholder="Enter Username"
+                    name="username"
+                    required
+                />
+                <input
+                    type="text"
+                    placeholder="Enter Password"
+                    name="password"
+                    required
+                />
+                <input
+                    type="text"
+                    placeholder="Enter Display Name"
+                    name="displayName"
+                    required
+                />
+                <button type="submit">Register</button>
+            </form>
+        </div>
+    </body>
+</html>

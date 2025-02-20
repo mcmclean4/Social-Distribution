@@ -7,16 +7,19 @@ from django.utils.text import slugify
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
+
+
 class Author(models.Model):
 
     TYPE_CHOICES = [
         ('Author', 'Author'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='Author')
+    type = models.CharField(
+        max_length=50, choices=TYPE_CHOICES, default='Author')
     # The full API URL for the author. This is unique.
     id = models.URLField(primary_key=True, unique=True, db_index=True)
-    host = models.URLField(unique=True)
+    host = models.URLField()
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
@@ -24,6 +27,18 @@ class Author(models.Model):
     page = models.URLField(blank=True, null=True)  # HTML profile page
     # Flag to indicate if the author is a node administrator.
     isAdmin = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+
+            last_author = Author.objects.order_by('id').first()
+            try:
+                largest_current_id = int(last_author.id.split('/')[-1])
+            except:
+                largest_current_id = 1
+
+            self.id = f"http://localhost:8000/social/api/authors/{largest_current_id+1}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.displayName
@@ -53,7 +68,8 @@ class Post(models.Model):
 
     auto_id = models.AutoField(primary_key=True)
 
-    type = models.CharField(max_length=50, choices=POST_CHOICES, default='Post')
+    type = models.CharField(
+        max_length=50, choices=POST_CHOICES, default='Post')
     title = models.CharField(max_length=255)
     id = models.URLField(unique=True, db_index=True)
     page = models.URLField(blank=True, null=True)
@@ -63,11 +79,14 @@ class Post(models.Model):
     image = models.ImageField(upload_to='images/', blank=True, null=True)
     author = models.ForeignKey('Author', on_delete=models.CASCADE)
     published = models.DateTimeField()
-    visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
+    visibility = models.CharField(
+        max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     is_deleted = models.BooleanField(default=False)
 
-    likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
+    likes = models.ManyToManyField(
+        'Author', related_name='liked_posts', blank=True, through='PostLike')
+    comments = models.ManyToManyField(
+        'Comment', related_name='post_comments', blank=True)
 
     class Meta:
         ordering = ['-published']
@@ -93,14 +112,14 @@ class PostLike(models.Model):
 # =============================================================================
 class Comment(models.Model):
     type = models.CharField(max_length=50)
-    post = models.ForeignKey(Post, related_name='comments_on_post', on_delete=models.CASCADE)
+    post = models.ForeignKey(
+        Post, related_name='comments_on_post', on_delete=models.CASCADE)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     content = models.TextField()
     published = models.DateTimeField()
 
     class Meta:
         ordering = ['-published']
-        
 
     def __str__(self):
         return f"Comment by {self.author.displayName} on {self.post.title}"
@@ -113,8 +132,10 @@ class Follow(models.Model):
     type = models.CharField(max_length=50)
     summary = models.CharField(max_length=255)
 
-    follower = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='follower')
-    followee = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='followee')
+    follower = models.ForeignKey(
+        Author, on_delete=models.CASCADE, related_name='follower')
+    followee = models.ForeignKey(
+        Author, on_delete=models.CASCADE, related_name='followee')
 
     def __str__(self):
         return f"{self.follower.displayName} follows {self.followee.displayName}"
