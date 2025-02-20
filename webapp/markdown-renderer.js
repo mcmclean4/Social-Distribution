@@ -1,11 +1,11 @@
 import { marked } from "marked"; // Import the markdown converter
 
 // Handle rendering
-window.addEventListener('load', () => {
-    const contentDivs = document.getElementsByClassName('content');
-    for (const contentDiv of contentDivs) {
-        const markdownText = contentDiv.innerHTML;
-        const htmlOutput = marked(markdownText);
-        contentDiv.innerHTML = htmlOutput;
+document.addEventListener("DOMContentLoaded", function () {
+    const contentDiv = document.querySelector('.content'); // Target only content block
+    if (contentDiv) {
+        console.log("Before Markdown Parsing:", contentDiv.innerHTML);
+        contentDiv.innerHTML = marked.parse(contentDiv.textContent.trim());
+        console.log("After Markdown Parsing:", contentDiv.innerHTML);
     }
 });
