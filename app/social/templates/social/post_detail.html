@@ -8,7 +8,7 @@
     <img src="{{ post.image.url }}" alt="{{ post.title }}">
 {% endif %}
 <p><strong>Content:</strong></p>
-<div class="content">
+<div class="content" data-content-type="{{ post.contentType }}">
     {{ post.content | safe }}
 </div>
 <p><strong>Published on:</strong> {{ post.published }}</p>

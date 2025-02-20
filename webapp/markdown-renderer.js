@@ -1,11 +1,16 @@
 import { marked } from "marked"; // Import the markdown converter
 
-// Handle rendering
 document.addEventListener("DOMContentLoaded", function () {
     const contentDiv = document.querySelector('.content'); // Target only content block
+
     if (contentDiv) {
-        console.log("Before Markdown Parsing:", contentDiv.innerHTML);
-        contentDiv.innerHTML = marked.parse(contentDiv.textContent.trim());
-        console.log("After Markdown Parsing:", contentDiv.innerHTML);
+        const contentType = contentDiv.getAttribute('data-content-type');
+
+        if (contentType === "text/markdown") { // Only apply markdown if contentType is markdown
+            console.log("Applying Markdown Parsing:", contentDiv.textContent.trim());
+            contentDiv.innerHTML = marked.parse(contentDiv.textContent.trim());
+        } else {
+            console.log("Markdown not applied. Content type is:", contentType);
+        }
     }
 });
