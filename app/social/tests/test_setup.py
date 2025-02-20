@@ -12,6 +12,9 @@ class TestSetUp(APITestCase):
     def setUp(self):
         # urls of endpoints from urls.py
         self.posts_url = reverse('social:post_list_create')
+        # inlcude auto_id argument for paths with variable
+        self.post_update_url = lambda post_id: reverse('social:update_post', kwargs={'auto_id': post_id})
+        self.post_detail_url = lambda post_id: reverse('social:post_detail', kwargs={'auto_id': post_id})
 
          # Create a user for the author
         self.user = User.objects.create_user(username="anonymous_user", password="password")
@@ -28,7 +31,7 @@ class TestSetUp(APITestCase):
         self.client.force_login(self.user)  # Ensures the client is authenticated
 
         # data for a plain text post
-        self.post_data = {
+        self.plaintext_post_data = {
             "type":"Post",
             "title":"A post title about a post about web dev",
             "id":"http://nodebbbb/api/authors/222/posts/249",
@@ -36,6 +39,20 @@ class TestSetUp(APITestCase):
             "description":"This post discusses stuff -- brief",
             "contentType":"text/plain",
             "content":"Þā wæs on burgum Bēowulf Scyldinga",
+            "author": self.author.id,
+            "published":"2015-03-09T13:07:04+00:00",
+            "visibility":"PUBLIC"
+        }
+
+        # data for a CommonMark post
+        self.markdown_post_data = {
+            "type":"Post",
+            "title":"A post title about a post about web dev",
+            "id":"http://nodebbbb/api/authors/222/posts/249",
+            "page": "http://nodebbbb/authors/222/posts/293",
+            "description":"This post discusses stuff -- brief",
+            "contentType":"text/markdown",
+            "content":"**Bold text**",
             "author": self.author.id,
             "published":"2015-03-09T13:07:04+00:00",
             "visibility":"PUBLIC"
