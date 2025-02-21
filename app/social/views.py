@@ -30,17 +30,26 @@ def login_page(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-    # if not User.objects.filter(username=username).exists():
-        # return Response(status=400)
+        if not User.objects.filter(username=username).exists():
+            messages.error(request, 'Username does not exist')
+            return redirect('social:login')
 
-    # user =
+        user = authenticate(username=username, password=password)
+
+        if user is None:
+            messages.error(request, 'Password does not match username')
+            return redirect('social:login')
+
+        else:
+            login(request, user)
+            return redirect('social:index')
 
     return render(request, 'social/login.html')
 
 
 def logout_page(request):
     logout(request)
-    return redirect('login')
+    return redirect('social:login')
 
 
 def register(request):
@@ -66,7 +75,7 @@ def register(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            redirect('index')
+            return redirect('social:index')
 
         # create_author()
 

@@ -31,7 +31,7 @@ class Author(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding:
 
-            last_author = Author.objects.order_by('id').first()
+            last_author = Author.objects.order_by('id').last()
             try:
                 largest_current_id = int(last_author.id.split('/')[-1])
             except:

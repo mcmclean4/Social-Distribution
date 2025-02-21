@@ -7,7 +7,8 @@
     </head>
     <body>
         <div class="login">
-            <form action="POST">
+            <form method="POST" action="{% url 'social:login' %}">
+                {% csrf_token %}
                 <input
                     type="text"
                     placeholder="Enter Username"
@@ -23,6 +24,8 @@
                 <button>login</button>
             </form>
         </div>
-        <button>Create a new account</button>
+        <form action="{% url 'social:register' %}">
+            <button type="submit">Create a new account</button>
+        </form>
     </body>
 </html>
