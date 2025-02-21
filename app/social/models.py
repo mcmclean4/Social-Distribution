@@ -183,3 +183,10 @@ class Posts(models.Model):
     count = models.IntegerField()
     src = models.ForeignKey(Post, on_delete=models.CASCADE)
 
+class Inbox(models.Model):
+    author = models.ForeignKey('Author', on_delete=models.CASCADE)
+    type = models.CharField(max_length=30, default='inbox')
+    inbox_posts = models.ManyToManyField(Posts,blank = True)
+    inbox_likes = models.ManyToManyField(Like, blank=True)
+    inbox_follows = models.ManyToManyField(FollowRequest, blank=True)
+    inbox_comments = models.ManyToManyField(Comments,  blank=True)
