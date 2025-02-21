@@ -124,6 +124,7 @@ def delete_post(request, auto_id):
     post = get_object_or_404(Post, auto_id=auto_id)
     if request.method == 'POST':
         post.is_deleted = True
+        post.visibility = 'DELETED'
         post.save()
         return redirect('social:index')
     return render(request, 'social/delete_post.html', {'post': post})
