@@ -12,11 +12,11 @@ from django.utils.text import slugify
 class Author(models.Model):
 
     TYPE_CHOICES = [
-        ('Author', 'Author'),
+        ('author', 'author'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     type = models.CharField(
-        max_length=50, choices=TYPE_CHOICES, default='Author')
+        max_length=50, choices=TYPE_CHOICES, default='author')
     # The full API URL for the author. This is unique.
     id = models.URLField(primary_key=True, unique=True, db_index=True)
     host = models.URLField()
@@ -49,11 +49,11 @@ class Author(models.Model):
 # =============================================================================
 class Post(models.Model):
     POST_CHOICES = [
-        ('Post', 'Post'),
+        ('post', 'post'),
     ]
 
     CONTENT_TYPE_CHOICES = [
-        ('text/plain', 'Paintext'),
+        ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
@@ -66,12 +66,9 @@ class Post(models.Model):
         ('DELETED', 'Deleted'),
     ]
 
-    auto_id = models.AutoField(primary_key=True)
-
-    type = models.CharField(
-        max_length=50, choices=POST_CHOICES, default='Post')
+    type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(unique=True, db_index=True)
+    id = models.URLField(primary_key=True,unique=True, db_index=True)
     page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
@@ -79,14 +76,11 @@ class Post(models.Model):
     image = models.ImageField(upload_to='images/', blank=True, null=True)
     author = models.ForeignKey('Author', on_delete=models.CASCADE)
     published = models.DateTimeField()
-    visibility = models.CharField(
-        max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
-    is_deleted = models.BooleanField(default=False)
+    visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
+    # is_deleted = models.BooleanField(default=False)
 
-    likes = models.ManyToManyField(
-        'Author', related_name='liked_posts', blank=True, through='PostLike')
-    comments = models.ManyToManyField(
-        'Comment', related_name='post_comments', blank=True)
+    likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
+    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     class Meta:
         ordering = ['-published']
@@ -100,6 +94,7 @@ class Post(models.Model):
         if not self.page:
             self.page = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
         super().save(*args, **kwargs)
+
 
 
 class PostLike(models.Model):

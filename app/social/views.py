@@ -18,7 +18,7 @@ from django.contrib import messages
 
 @login_required
 def stream(request):
-    post_list = Post.objects.filter(is_deleted=False).order_by('-published')
+    post_list = Post.objects.filter().order_by('-published')
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
@@ -117,8 +117,8 @@ def create_post(request):
     return render(request, 'social/create_post.html', {'form': form})
 
 
-def update_post(request, auto_id):
-    post = get_object_or_404(Post, auto_id=auto_id)
+def update_post(request, id):
+    post = get_object_or_404(Post, id=id)
     if request.method == 'POST':
         form = PostForm(request.POST, request.FILES, instance=post)
         if form.is_valid():
@@ -129,8 +129,8 @@ def update_post(request, auto_id):
     return render(request, 'social/update_post.html', {'form': form, 'post': post})
 
 
-def delete_post(request, auto_id):
-    post = get_object_or_404(Post, auto_id=auto_id)
+def delete_post(request, id):
+    post = get_object_or_404(Post, id=id)
     if request.method == 'POST':
         post.is_deleted = True
         post.visibility = 'DELETED'
