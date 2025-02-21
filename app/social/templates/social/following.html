@@ -1,25 +1,21 @@
-{% extends "social/base.html" %}
+{% extends "social/base.html" %} {% block content %}
 
-{% block content %}
 <div class="container mt-4">
-    <h2>Users You're Following</h2>
-
-    <ul>
-        {% for author in following_authors %}
+	<h2>Users You're Following</h2>
+    {%if following_authors%}
+        {%for author in following_authors%}
+        <ul>
             <li>
-                <strong>{{ author.displayName }}</strong> ({{ author.id }})
-                <button class="unfollow-button btn btn-danger btn-sm"
-                        data-author-id="{{ author.id }}"
-                        data-author-name="{{ author.displayName }}">
-                    Unfollow ❌
-                </button>
+                <strong>{{ author.displayName }}</strong> ({{ author.id }}) 
+                <button class="unfollow-button btn btn-danger btn-sm" aria-label="Unfollow {{ author.displayName }}" data-author-id="{{ author.id }}" data-author-name="{{ author.displayName }}">Unfollow ❌</button>
             </li>
-        {% empty %}
-            <li>You're not following anyone yet.</li>
-        {% endfor %}
-    </ul>
-</div>
+        </ul>
+        {% endfor%}
+    {% else%}
+  
+	<p>You're not following anyone yet.</p>{% endif %}
 
+</div>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".unfollow-button").forEach(button => {
@@ -53,5 +49,4 @@
             };
         });
     });
-</script>
-{% endblock %}
+</script> {% endblock %}

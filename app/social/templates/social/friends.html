@@ -4,8 +4,9 @@
 <div class="container mt-4">
     <h2>Friends</h2>
 
-    <ul>
+    {% if friends %}
         {% for friend in friends %}
+        <ul>
             <li>
                 <strong>{{ friend.displayName }}</strong> ({{ friend.id }})
                 <button class="unfriend-button btn btn-danger btn-sm"
@@ -13,10 +14,11 @@
                     Unfriend ❌
                 </button>
             </li>
-        {% empty %}
-            <li>No friends yet.</li>
+        </ul>
         {% endfor %}
-    </ul>
+    {% else %}
+        <p>No friends yet.</p>  <!-- ✅ Correctly outside <ul> -->
+    {% endif %}
 </div>
 
 <script>

@@ -4,20 +4,23 @@
 <div class="container mt-4">
     <h2>My Followers</h2>
 
-    <ul>
+    {% if followers %}
         {% for follower in followers %}
+        <ul>
             <li>
                 <strong>{{ follower.displayName }}</strong> ({{ follower.id }})
                 <button class="delete-follower btn btn-danger btn-sm"
-                data-follower-id="{{ follower.id }}">
-                Remove ❌
-            </button>
+                        data-follower-id="{{ follower.id }}">
+                    Remove ❌
+                </button>
             </li>
-        {% empty %}
-            <li>No followers yet.</li>
+        </ul>
         {% endfor %}
-    </ul>
+    {% else %}
+        <p>No followers yet.</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
 </div>
+
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {

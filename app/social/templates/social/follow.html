@@ -4,10 +4,11 @@
 <div class="container mt-4">
     <h2>Follow Authors</h2>
 
-
     <h3>Click an Author to Follow</h3>
-    <ul>
+
+    {% if authors %}
         {% for author in authors %}
+        <ul>
             <li>
                 <button class="follow-button btn btn-primary btn-sm" 
                         data-author-id="{{ author.id }}" 
@@ -19,10 +20,11 @@
                     Follow {{ author.displayName }} ({{ author.id }})
                 </button>
             </li>
-        {% empty %}
-            <li>No authors available</li>
+        </ul>
         {% endfor %}
-    </ul>
+    {% else %}
+        <p>No authors available</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
 </div>
 
 <script>

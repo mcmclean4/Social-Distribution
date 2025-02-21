@@ -2,10 +2,10 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Follow Requests for You</h2>
-
-    <ul>
+    <h2>Follow Requests for You</h2> 
+    {% if follow_requests %}
         {% for request in follow_requests %}
+        <ul>
             <li>
                 <strong>{{ request.actor.id }}</strong> wants to follow you.
                 <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}">
@@ -15,10 +15,11 @@
                     Deny
                 </button>
             </li>
-        {% empty %}
-            <li>No follow requests.</li>
+        </ul>
         {% endfor %}
-    </ul>
+    {% else %}
+        <p>Follow requests</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
 </div>
 
 <script>
@@ -81,7 +82,7 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Follow request denied.");
-                    this.parentElement.innerHTML = `<span class="text-danger">Denied ❌</span>`;
+                    this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
                 } else {
                     alert(result.error || "Error denying follow request.");
                 }
