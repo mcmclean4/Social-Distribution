@@ -16,4 +16,5 @@ urlpatterns = [
     path('post/<int:auto_id>/update/', update_post, name='update_post'),
     path('post/<int:auto_id>/delete/', delete_post, name='delete_post'),
     path('post/<int:auto_id>/', post_detail, name='post_detail'),
+    # path('api')
 ]
