@@ -1,55 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Follow Authors</title>
-</head>
-<body>
+{% extends "social/base.html" %}
 
+{% block content %}
+<div class="container mt-4">
     <h2>Follow Authors</h2>
 
     <h3>Click an Author to Follow</h3>
     <ul>
         {% for author in authors %}
             <li>
-                <button class="follow-button" data-author-id="{{ author.id }}" data-author-name="{{ author.display_name }}">
-                    Follow {{ author.display_name }} ({{ author.id }})
+                <button class="follow-button btn btn-primary btn-sm" 
+                        data-author-id="{{ author.id }}" 
+                        data-author-name="{{ author.displayName }}"
+                        data-author-host="{{ author.host }}"
+                        data-author-github="{{ author.github|default:'' }}"
+                        data-author-profileImage="{{ author.profileImage|default:'' }}"
+                        data-author-page="{{ author.page|default:'' }}">
+                    Follow {{ author.displayName }} ({{ author.id }})
                 </button>
             </li>
         {% empty %}
             <li>No authors available</li>
         {% endfor %}
     </ul>
+</div>
 
-    <script>
+<script>
+    // ✅ Get the sender's details dynamically from Django settings
+    const MY_AUTHOR_ID = "{{ my_author.id|escapejs }}";
+    const MY_AUTHOR_NAME = "{{ my_author.displayName|escapejs }}";
+    const MY_AUTHOR_HOST = "{{ my_author.host|escapejs }}";
+    const MY_AUTHOR_GITHUB = "{{ my_author.github|escapejs }}";
+    const MY_AUTHOR_PROFILE_IMAGE = "{{ my_author.profileImage|escapejs }}";
+    const MY_AUTHOR_PAGE = "{{ my_author.page|escapejs }}";
+
+    document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".follow-button").forEach(button => {
-            button.onclick = async function() {
-                let authorId = this.getAttribute("data-author-id");
+            button.onclick = async function () {
+                let authorId = this.getAttribute("data-author-id");  // ✅ Receiver (clicked author)
                 let authorName = this.getAttribute("data-author-name");
+                let authorHost = this.getAttribute("data-author-host");
+                let authorGithub = this.getAttribute("data-author-github");
+                let authorProfileImage = this.getAttribute("data-author-profileImage");
+                let authorPage = this.getAttribute("data-author-page");
 
-                // ✅ Show confirmation prompt before following
                 let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
-                if (!confirmFollow) {
-                    return; // User clicked "Cancel", so do nothing
-                }
+                if (!confirmFollow) return; 
 
-                let response = await fetch(`/api/authors/{{ request.user.id }}/follow/`, {
+                // ✅ Send the request to the RECEIVER'S inbox
+                let inboxUrl = `${authorId}/inbox`;  
+
+                let response = await fetch(inboxUrl, { 
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        type: "follow",
-                        summary: "{{ request.user.username }} wants to follow " + authorName,
+                        type: "Follow",
+                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
                         actor: {
-                            id: "{{ request.user.id }}", 
-                            displayName: "{{ request.user.username }}",
-                            host: "{{ request.build_absolute_uri }}",
-                            github: "{{ request.user.profile.github }}",
-                            profileImage: "{{ request.user.profile.profileImage }}",
-                            page: "{{ request.user.profile.page }}"
+                            id: MY_AUTHOR_ID,  // ✅ Sender (from settings.py)
+                            displayName: MY_AUTHOR_NAME,
+                            host: MY_AUTHOR_HOST,
+                            github: MY_AUTHOR_GITHUB || "",
+                            profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
+                            page: MY_AUTHOR_PAGE || ""
                         },
-                        object: {
-                            id: authorId
+                        object: { 
+                            id: authorId,  // ✅ Receiver (clicked author)
+                            displayName: authorName,
+                            host: authorHost || "",
+                            github: authorGithub || "",
+                            profileImage: authorProfileImage || "",
+                            page: authorPage || ""
                         }
                     })
                 });
@@ -58,7 +78,6 @@
                 alert(result.message || result.error);
             };
         });
-    </script>
-
-</body>
-</html>
+    });
+</script>
+{% endblock %}

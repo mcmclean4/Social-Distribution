@@ -1,108 +1,88 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Follow Requests</title>
-</head>
-<body>
+{% extends "social/base.html" %}
 
-    <h2>Follow Requests</h2>
+{% block content %}
+<div class="container mt-4">
+    <h2>Follow Requests for You</h2>
 
-    <ul id="follow-requests-list">
-        <li>Loading...</li>
+    <ul>
+        {% for request in follow_requests %}
+            <li>
+                <strong>{{ request.actor.id }}</strong> wants to follow you.
+                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}">
+                    Approve
+                </button>
+                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}">
+                    Deny
+                </button>
+            </li>
+        {% empty %}
+            <li>No follow requests.</li>
+        {% endfor %}
     </ul>
+</div>
 
-    <script>
-        const MY_AUTHOR_ID = "http://localhost:8000/api/authors/333333333";  // hard-coded to check
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".approve-follow").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Local author ID
 
-        async function loadFollowRequests() {
-            let response = await fetch(`/api/authors/${encodeURIComponent(MY_AUTHOR_ID)}/inbox/`);
-            let data = await response.json();
-
-            let list = document.getElementById("follow-requests-list");
-            list.innerHTML = ""; // Clear the loading text
-
-            if (!data.items || data.items.length === 0) {
-                list.innerHTML = "<li>No pending follow requests</li>";
-                return;
-            }
-
-            data.items.forEach(request => {
-            if (request.type === "follow") {
-                let actorName = request.actor.displayName || "Unknown Author";  // Ensure fallback name
-
-                let li = document.createElement("li");
-                li.innerHTML = `
-                    <b>${actorName}</b> wants to follow you.
-                    <button class="approve-button" data-actor-id="${request.actor.id}">Approve</button>
-                    <button class="deny-button" data-actor-id="${request.actor.id}">Deny</button>
-                `;
-                list.appendChild(li);
-            }
-            });
-
-
-            document.querySelectorAll(".approve-button").forEach(button => {
-                button.onclick = async function() {
-                    let actorId = this.getAttribute("data-actor-id");
-                    await approveFollowRequest(actorId);
+                // ✅ Construct follower JSON data (Modify as needed)
+                let followerData = {
+                    "type": "author",
+                    "id": followerId,
+                    "host": followerId.split("/authors/")[0] + "/",
+                    "displayName": "Unknown",  // Modify to get actual name
+                    "page": followerId.replace("/api/", "/"),
+                    "github": "",
+                    "profileImage": ""
                 };
-            });
 
-            document.querySelectorAll(".deny-button").forEach(button => {
-                button.onclick = async function() {
-                    let actorId = this.getAttribute("data-actor-id");
-                    await denyFollowRequest(actorId);
-                };
-            });
-        }
+                // ✅ Construct the correct API URL
+                let followUrl = `${authorId}/followers/`;
 
-        async function approveFollowRequest(actorId) {
-            let response = await fetch(`/api/authors/${encodeURIComponent(MY_AUTHOR_ID)}/followers/${encodeURIComponent(actorId)}/`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" }
-            });
+                console.log("Approving follow request, sending PUT to:", followUrl, followerData); // Debugging
 
-            let result = await response.json();
-            alert(result.message || result.error);
-            loadFollowRequests();  // Refresh the list
-        }
+                let response = await fetch(followUrl, { 
+                    method: "PUT",
+                    headers: { 
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(followerData)
+                });
 
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request approved!");
+                    this.parentElement.innerHTML = `<span class="text-success">Approved ✅</span>`;
+                } else {
+                    alert(result.error || "Error approving follow request.");
+                }
+            };
+        });
 
-        async function denyFollowRequest(actorId) {
-            await removeFromInbox(actorId);
-            alert("Follow request denied!");
-            loadFollowRequests();  // Refresh the list
-        }
+        document.querySelectorAll(".deny-follow").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
 
-        async function removeFromInbox(actorId) {
-            let response = await fetch(`/api/authors/${encodeURIComponent(MY_AUTHOR_ID)}/inbox/`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ actorId })  // Send actor ID to remove the specific request
-            });
+                let inboxUrl = `${authorId}/inbox`;
 
-            let result = await response.json();
-            if (!response.ok) {
-                alert(result.error || "Failed to remove request from inbox.");
-            }
-        }
-        async function denyFollowRequest(actorId) {
-            let response = await fetch(`/api/authors/${encodeURIComponent(MY_AUTHOR_ID)}/followers/${encodeURIComponent(actorId)}/`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" }
-            });
+                let response = await fetch(inboxUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" }
+                });
 
-            let result = await response.json();
-            alert(result.message || result.error);
-            loadFollowRequests();  // Refresh the list
-        }
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request denied.");
+                    this.parentElement.innerHTML = `<span class="text-danger">Denied ❌</span>`;
+                } else {
+                    alert(result.error || "Error denying follow request.");
+                }
+            };
+        });
+    });
+</script>
 
-
-        // Load follow requests when the page loads
-        loadFollowRequests();
-    </script>
-
-</body>
-</html>
+{% endblock %}

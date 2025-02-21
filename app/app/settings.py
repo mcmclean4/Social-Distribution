@@ -141,3 +141,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+HOST = "http://localhost:8000/social/"
+# Hardcoded test user for local development
+MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
+

@@ -1,15 +1,15 @@
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponseForbidden
 from rest_framework import generics
-<<<<<<< HEAD
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Post
+
 from .serializers import PostSerializer, AuthorSerializer
-=======
-from .models import Post, Author, Follow
+
+from .models import Post, Author, Follow,FollowRequest
+
 from .serializers import PostSerializer
->>>>>>> b1dcce7 (merge stream with following)
+
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import PostForm
 from django.contrib.auth.models import User
@@ -20,19 +20,20 @@ from django.core.paginator import Paginator
 from django.views import View
 from django.contrib import messages
 
-<<<<<<< HEAD
 
 @login_required
-=======
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from urllib.parse import unquote
+from django.db import transaction  # ✅ Import transaction
+
+
+import requests  # ✅ Add this import
+from django.conf import settings
 
 
 
-
->>>>>>> b1dcce7 (merge stream with following)
 def stream(request):
     post_list = Post.objects.filter(is_deleted=False).order_by('-published')
     paginator = Paginator(post_list, 10)
@@ -106,6 +107,127 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         serializer.save(author=self.request.user.author)
 
 
+
+
+
+class FollowersListView(APIView):
+    """Manages the list of authors that an author is following."""
+
+    def get(self, request, author_id):
+        """
+        Retrieves a list of authors that are following AUTHOR_ID.
+        """
+        author_id = unquote(author_id)
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+
+        print(f"📥 Checking followers list for: {expected_author_id}")
+
+        # Ensure the author exists
+        author = get_object_or_404(Author, id=expected_author_id)
+
+        # ✅ Get all authors that are following this author
+        followers = Follow.objects.filter(followee=author)
+
+        followers_list = []
+        for follow in followers:
+            follower_id = follow.follower_id  # ✅ Get follower ID
+
+            # ✅ If follower is local, return only `author_id`
+            if follower_id.startswith(settings.HOST):
+                follower_id = follower_id.replace(f"{settings.HOST}api/authors/", "")
+
+            followers_list.append({
+                "id": follower_id,  # ✅ Local followers store only `author_id`, remote ones keep full URL
+                "type": "author"
+            })
+
+        return Response({"type": "followers", "items": followers_list}, status=status.HTTP_200_OK)
+
+
+    def put(self, request, author_id):
+        """
+        Approves a follow request by adding the author from the JSON body to the followers list.
+        """
+        author_id = author_id  # Already decoded
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+
+        print(f"✅ Approving follow request for: {expected_author_id}")
+
+        # ✅ Ensure the author exists
+        author = get_object_or_404(Author, id=expected_author_id)
+
+        # ✅ Parse JSON body
+        data = request.data
+        follower_id = data.get("id")
+
+        if not follower_id:
+            return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            # ✅ Check if the follow request exists
+            follow_request = FollowRequest.objects.filter(
+                followee=author, follower_id=follower_id, status="pending"
+            ).first()
+
+            if not follow_request:
+                return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            # ✅ Approve request
+            follow_request.status = "accepted"
+            follow_request.save()
+
+            # ✅ Store the follower
+            Follow.objects.get_or_create(followee=author, follower_id=follower_id)
+
+        return Response({"message": "Follow request approved"}, status=status.HTTP_200_OK)
+
+    def delete(self, request, author_id, following_fqid):
+        """
+        Removes FOREIGN_AUTHOR_FQID from the list of authors AUTHOR_SERIAL is following.
+        """
+        author_id = unquote(author_id)
+        following_fqid = unquote(following_fqid)
+
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+
+        print(f"❌ Removing {expected_author_id} from following {following_fqid}")
+
+        author = get_object_or_404(Author, id=expected_author_id)
+        followee = get_object_or_404(Author, id=following_fqid)
+
+        deleted, _ = Follow.objects.filter(followee=followee, follower_id=expected_author_id).delete()
+        if deleted:
+            return Response({"message": "Unfollowed successfully"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Not following"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class FollowerDetailView(APIView):
+    """Check if a user follows an author, add, or remove a follower"""
+
+    def get(self, request, author_id, follower_fqid):
+        """
+        Checks if AUTHOR_SERIAL is following FOREIGN_AUTHOR_FQID.
+        """
+        author_id = unquote(author_id)
+        follower_fqid = unquote(follower_fqid)
+
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+
+        print(f"📥 Checking if {expected_author_id} follows {follower_fqid}")
+
+        author = get_object_or_404(Author, id=expected_author_id)
+        follower_exists = Follow.objects.filter(follower_id=follower_fqid, followee__id=expected_author_id).exists()
+
+        if follower_exists:
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Not a follower"}, status=status.HTTP_404_NOT_FOUND)
+
+
+def inbox_view(request):
+    return render(request, "social/inbox.html")
+
 def create_post(request):
     if request.method == 'POST':
         form = PostForm(request.POST, request.FILES)
@@ -175,228 +297,137 @@ def post_detail(request, auto_id):
     post = get_object_or_404(Post, auto_id=auto_id)
     return render(request, 'social/post_detail.html', {'post': post})
 
+
+
 def follow_view(request):
-    authors = Author.objects.all()
-    return render(request, 'social/follow.html', {'authors': authors})
+    """Shows a list of authors to follow"""
+    my_author_id = settings.MY_AUTHOR_ID  # ✅ Fetch sender from settings.py
+
+    # ✅ Get sender's full details from the database
+    try:
+        my_author = Author.objects.get(id=my_author_id)
+    except Author.DoesNotExist:
+        my_author = None  # ✅ If the author does not exist, set to None
+
+    # ✅ Exclude sender from the follow list
+    authors = Author.objects.exclude(id=my_author_id) if my_author else Author.objects.all()
+
+    return render(request, 'social/follow.html', {
+        'authors': authors,
+        'my_author': my_author  # ✅ Pass sender details to template
+    })
+
+
 
 
 
 def follow_inbox_view(request):
-    return render(request, "social/followInbox.html")
+    """Fetches the inbox and filters only follow requests."""
+    
+    # ✅ Get the current author's ID from settings.py
+    my_author_id = settings.MY_AUTHOR_ID  
+
+    # ✅ Construct the API URL for retrieving inbox data
+    inbox_url = f"{my_author_id}/inbox"
+
+    try:
+        response = requests.get(inbox_url, headers={"Content-Type": "application/json"})
+        response.raise_for_status()  # ✅ Ensure non-200 responses raise an error
+        inbox_data = response.json()
+
+        # ✅ Extract only "follow" requests from inbox
+        follow_requests = [item for item in inbox_data.get("items", []) if item.get("type", "").lower() == "follow"]
+
+    except requests.exceptions.RequestException as e:  # ✅ Correct exception handling
+        print(f"❌ Error fetching inbox data: {e}")
+        follow_requests = []
+
+    return render(request, "social/followInbox.html", {
+        "my_author_id": my_author_id,
+        "follow_requests": follow_requests  # ✅ Only follow requests are passed to the template
+    })
+
 
 def followers_view(request):
     return render(request, "social/followers.html")
 
 
-class FollowersView(APIView):
-    """
-    Returns a list of authors following the given author.
-    """
 
-    def get(self, request, author_id):
-        decoded_author_id = unquote(author_id)
-        print(f"🔍 Received author_id: {author_id}")
-        print(f"🔍 Decoded author_id: {decoded_author_id}")
-
-        stored_authors = Author.objects.all()
-        stored_ids = [a.id for a in stored_authors]
-        print("📌 Stored Author IDs in DB:", stored_ids)
-
-        if decoded_author_id not in stored_ids:
-            print(f"❌ ERROR: Author {decoded_author_id} not found in database!")
-            return Response({"error": "Author not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        author = get_object_or_404(Author, id=decoded_author_id)
-        print(f"✅ Found author: {author.displayName}")
-
-        followers = Follow.objects.filter(followee=author, status="accepted")
-
-        follower_list = [
-            {
-                "type": "author",
-                "id": follower.follower.id,
-                "host": follower.follower.host,
-                "displayName": follower.follower.displayName,
-                "github": follower.follower.github,
-                "profileImage": follower.follower.profileImage,
-                "page": follower.follower.page,
-            }
-            for follower in followers
-        ]
-
-        return Response({"type": "followers", "followers": follower_list}, status=status.HTTP_200_OK)
-
-
-
-class FollowerDetailView(APIView):
-    """
-    Handles approving and removing followers.
-    """
-
-    def get(self, request, author_id, foreign_author_fqid):
-        author_id = unquote(author_id)
-        foreign_author_fqid = unquote(foreign_author_fqid)
-
-        print(f"🔍 Checking if {foreign_author_fqid} follows {author_id}")
-
-        author = get_object_or_404(Author, id=author_id)
-
-        follower = Follow.objects.filter(
-            followee=author, 
-            follower__id=foreign_author_fqid, 
-            status="accepted"
-        ).first()
-
-        if follower:
-            response_data = {
-                "type": "author",
-                "id": follower.follower.id,
-                "host": follower.follower.host,
-                "displayName": follower.follower.displayName,
-                "github": follower.follower.github,
-                "profileImage": follower.follower.profileImage,
-                "page": follower.follower.page,
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
-
-        return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
-
-
-    def put(self, request, author_id, foreign_author_fqid):
-        """
-        Approves a follow request and ensures the follower is added.
-        """
-        author_id = unquote(author_id)
-        foreign_author_fqid = unquote(foreign_author_fqid)
-
-        print(f"✅ Approving follow request from {foreign_author_fqid} to {author_id}")
-
-        author = get_object_or_404(Author, id=author_id)
-        follower = get_object_or_404(Author, id=foreign_author_fqid)
-
-        follow_request = Follow.objects.filter(
-            follower=follower, followee=author, status="pending"
-        ).first()
-
-        if follow_request:
-            follow_request.status = "accepted"
-            follow_request.save()
-
-            # ✅ Remove from inbox (optional, if inbox is stored)
-            Follow.objects.filter(follower=follower, followee=author, status="pending").delete()
-
-            return Response({"message": "Follow request accepted and follower added"}, status=status.HTTP_200_OK)
-
-        return Response({"error": "Follow request not found or already accepted"}, status=status.HTTP_404_NOT_FOUND)
-
-
-    def delete(self, request, author_id, foreign_author_fqid):
-        """
-        Handles both:
-        1️⃣ Denying a follow request (removing from inbox).
-        2️⃣ Removing an already accepted follower.
-        """
-
-        author_id = unquote(author_id)
-        foreign_author_fqid = unquote(foreign_author_fqid)
-
-        print(f"❌ Processing delete request: {foreign_author_fqid} → {author_id}")
-
-        author = get_object_or_404(Author, id=author_id)
-
-        # ✅ Check if it's a pending follow request
-        follow_request = Follow.objects.filter(
-            followee=author, follower__id=foreign_author_fqid
-        ).first()
-
-        if not follow_request:
-            return Response({"error": "Follow request or follower not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        if follow_request.status == "pending":
-            # ❌ Deny the follow request (remove from inbox)
-            follow_request.delete()
-            return Response({"message": "Follow request denied"}, status=status.HTTP_200_OK)
-
-        elif follow_request.status == "accepted":
-            # ❌ Remove the follower
-            follow_request.delete()
-            return Response({"message": "Follower removed"}, status=status.HTTP_200_OK)
-
-        return Response({"error": "Unknown follow request status"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class InboxView(APIView):
-    """
-    Handles follow requests in an author's inbox.
-    """
+    """Handles follow requests in an author's inbox."""
 
     def post(self, request, author_id):
-        """
-        Receives and stores follow requests.
-        """
-        author_id = unquote(author_id)
+        """Receives and stores follow requests."""
+
         print(f"📥 Receiving follow request for: {author_id}")
 
-        author = get_object_or_404(Author, id=author_id)
+        # Construct expected author ID
+        local_author_id = f"{settings.HOST}api/authors/{author_id}"
+        print(f"🔍 Expected Author ID: {local_author_id}")
+
+        # Log the full incoming request data for debugging
+        print(f"📥 Full request data: {request.data}")  # ✅ This will show us what was received
+
+        # Ensure the followee exists
+        followee = get_object_or_404(Author, id=local_author_id)
+
         data = request.data
 
-        if data.get("type") != "follow":
+        # Ensure request type is "Follow"
+        if data.get("type") != "Follow":
+            print(f"❌ Invalid request type: {data.get('type')}")  # Debugging
             return Response({"error": "Invalid request type"}, status=status.HTTP_400_BAD_REQUEST)
 
         actor_data = data.get("actor")
         object_data = data.get("object")
 
+        # Validate presence of actor and object
         if not actor_data or not object_data:
+            print(f"❌ Missing actor or object")  # Debugging
             return Response({"error": "Missing actor or object"}, status=status.HTTP_400_BAD_REQUEST)
 
-        actor_id = actor_data.get("id")
-        object_id = object_data.get("id")
+        # Ensure the object (followee) matches our local author
+        if object_data.get("id") != local_author_id:
+            print(f"❌ Followee ID mismatch. Expected: {local_author_id}, Received: {object_data.get('id')}")  # Debugging
+            return Response({"error": "Followee ID mismatch"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if object_id != author_id:
-            return Response({"error": "Follow request object mismatch"}, status=status.HTTP_400_BAD_REQUEST)
-
-        print(f"🔍 Follow request from {actor_id} to {object_id}")
-
-        follower, _ = Author.objects.get_or_create(
-            id=actor_id,
-            defaults={
-                "displayName": actor_data.get("displayName", "Unknown"),
-                "host": actor_data.get("host", ""),
-                "github": actor_data.get("github", ""),
-                "profileImage": actor_data.get("profileImage", ""),
-                "page": actor_data.get("page", ""),
-            }
-        )
-
-        follow_request, created = Follow.objects.get_or_create(
-            follower=follower,
-            followee=author,
-            defaults={"status": "pending"},
+        # Store follow request
+        follow_request, created = FollowRequest.objects.get_or_create(
+            followee=followee,
+            follower_id=actor_data["id"],
+            defaults={"summary": data.get("summary", ""), "status": "pending"}
         )
 
         if not created:
-            return Response({"message": "Follow request already exists"}, status=status.HTTP_200_OK)
+            return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
 
+        print(f"✅ Follow request stored from {actor_data['id']} to {followee.id}")
         return Response({"message": "Follow request received"}, status=status.HTTP_201_CREATED)
+
 
     def get(self, request, author_id):
         """
         Retrieves all pending follow requests.
         """
         author_id = unquote(author_id)
-        print(f"📥 Checking inbox for: {author_id}")
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # ✅ Ensures correct format
 
-        author = get_object_or_404(Author, id=author_id)
-        follow_requests = Follow.objects.filter(followee=author, status="pending")
+        print(f"📥 Checking inbox for: {expected_author_id}")  # ✅ Debugging output
+
+        # Ensure we are searching for the FULL author ID
+        author = get_object_or_404(Author, id=expected_author_id)
+
+        follow_requests = FollowRequest.objects.filter(followee=author, status="pending")
 
         inbox_items = [
             {
                 "type": "follow",
-                "summary": f"{fr.follower.displayName} wants to follow {fr.followee.displayName}",
+                "summary": f"{fr.follower_id} wants to follow {fr.followee.displayName}",
                 "actor": {
                     "type": "author",
-                    "id": fr.follower.id,
-                    "displayName": fr.follower.displayName,
+                    "id": fr.follower_id,
                 },
                 "object": {
                     "type": "author",
@@ -409,116 +440,32 @@ class InboxView(APIView):
 
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
 
-    def put(self, request, author_id, foreign_author_fqid):
-        """
-        Approves a follow request: Moves it from inbox to followers.
-        """
-        author_id = unquote(author_id)
-        foreign_author_fqid = unquote(foreign_author_fqid)
 
-        print(f"✅ Approving follow request from {foreign_author_fqid} to {author_id}")
-
-        author = get_object_or_404(Author, id=author_id)
-
-        follow_request = Follow.objects.filter(
-            follower__id=foreign_author_fqid,
-            followee=author,
-            status="pending"
-        ).first()
-
-        if follow_request:
-            follow_request.status = "accepted"
-            follow_request.save()
-            return Response({"message": "Follow request approved and moved to followers"}, status=status.HTTP_200_OK)
-
-        return Response({"error": "Follow request not found or already approved"}, status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, author_id, foreign_author_fqid):
-        """
-        Denies a follow request and removes it from the inbox.
-        """
-        author_id = unquote(author_id)
-        foreign_author_fqid = unquote(foreign_author_fqid)
+            """
+            Denies a follow request and removes it from the inbox without making an API request.
+            """
+            author_id = unquote(author_id)
+            foreign_author_fqid = unquote(foreign_author_fqid)
+            expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"❌ Denying follow request from {foreign_author_fqid} to {author_id}")
+            author = get_object_or_404(Author, id=expected_author_id)
 
-        author = get_object_or_404(Author, id=author_id)
+            follow_request = FollowRequest.objects.filter(
+                follower_id=foreign_author_fqid,
+                followee=author,
+                status="pending"
+            )
 
-        follow_request = Follow.objects.filter(
-            follower__id=foreign_author_fqid,
-            followee=author,
-            status="pending"
-        )
+            if follow_request.exists():
+                follow_request.update(status="denied")  # ✅ Just update the status
+                return Response({"message": "Follow request denied"}, status=status.HTTP_200_OK)
 
-        if follow_request.exists():
-            follow_request.delete()
-            return Response({"message": "Follow request denied and removed"}, status=status.HTTP_200_OK)
-
-        return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class FollowRequestView(APIView):
-    """
-    API endpoint to handle sending follow requests.
-    """
 
-    def post(self, request, author_id):
-        """
-        Handles when AUTHOR_ID sends a follow request to another author.
-        """
-        author_id = unquote(author_id)
-        data = request.data  
-
-        if data.get("type") != "follow":
-            return Response({"error": "Invalid request type"}, status=status.HTTP_400_BAD_REQUEST)
-
-        actor_data = data.get("actor")
-        object_data = data.get("object")
-
-        if not actor_data or not object_data:
-            return Response({"error": "Missing actor or object"}, status=status.HTTP_400_BAD_REQUEST)
-
-        actor_id = actor_data.get("id")
-        object_id = object_data.get("id")
-
-        # Ensure the follower exists (create if not)
-        follower, _ = Author.objects.get_or_create(
-            id=actor_id,
-            defaults={
-                "displayName": actor_data.get("displayName", "Unknown"),
-                "host": actor_data.get("host", ""),
-                "github": actor_data.get("github", ""),
-                "profileImage": actor_data.get("profileImage", ""),
-                "page": actor_data.get("page", ""),
-            }
-        )
-
-        followee = get_object_or_404(Author, id=object_id)
-
-        # Store follow request as PENDING
-        follow_request, created = Follow.objects.get_or_create(
-            follower=follower,
-            followee=followee,
-            defaults={"status": "pending", "summary": data.get("summary", "Follow request")}
-        )
-
-        if not created:
-            return Response({"message": "Follow request already exists"}, status=status.HTTP_200_OK)
-
-        # **Post follow request to the recipient's inbox**
-        inbox_url = f"{followee.host}api/authors/{object_id}/inbox/"
-        print(f"📩 Posting follow request to recipient's inbox: {inbox_url}")
-
-        try:
-            response = requests.post(inbox_url, json=data, headers={"Content-Type": "application/json"})
-            if response.status_code in [200, 201]:
-                return Response({"message": "Follow request sent"}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"error": "Failed to send follow request to inbox"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        except requests.exceptions.RequestException as e:
-            return Response({"error": "Failed to send request to recipient's inbox"},status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-# from django.shortcuts import get_object_or_404
 # from django.http import JsonResponse, HttpResponse
 # from django.views.decorators.csrf import csrf_exempt
 # from django.utils.decorators import method_decorator
