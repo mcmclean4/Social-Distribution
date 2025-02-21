@@ -50,7 +50,7 @@ class PostSerializer(serializers.Serializer):
     visibility = serializers.CharField(max_length=50)
     likes = PostLikeSerializer(many=True)
     comments = CommentSerializer(many=True)
-        fields = ['title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility']
+    fields = ['title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility']
 
 
 
