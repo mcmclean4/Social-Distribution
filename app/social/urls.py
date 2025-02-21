@@ -37,5 +37,7 @@ urlpatterns = [
     path("followers/", followers_view, name="web_followers"),
     path("following/", following_view, name="following"),
     path("unfollow/", unfollow_view, name="unfollow"),
+    path("friends/", friends_view, name="friends"),
+
 
 ]

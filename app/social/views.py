@@ -500,13 +500,60 @@ def unfollow_view(request):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
+
+def friends_view(request):
+    """Shows a list of friends (mutual followers) of the logged-in user"""
+
+    # ✅ Get logged-in user
+    if not hasattr(request.user, 'author'):
+        return redirect('social:register')  # Redirect to register if no author profile
+
+    my_author = request.user.author
+    my_author_id = my_author.id
+
+    print(f"📌 Checking friends for: {my_author.displayName} ({my_author_id})")
+
+    # ✅ Get people I follow
+    following_ids = set(Follow.objects.filter(follower_id=my_author_id).values_list("followee_id", flat=True))
+
+    # ✅ Get people who follow me
+    followers_ids = set(Follow.objects.filter(followee_id=my_author_id).values_list("follower_id", flat=True))
+
+    # ✅ Find mutual followers (friends)
+    friends_ids = following_ids.intersection(followers_ids)
+
+    # ✅ Fetch full author details for friends
+    friends = []
+    for friend_id in friends_ids:
+        try:
+            response = requests.get(friend_id, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            friend_data = response.json()
+            friends.append(friend_data)
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching friend details for {friend_id}: {e}")
+
+    print(f"✅ Found {len(friends)} friends")
+
+    # ✅ Render `friends.html` and pass the friends list
+    return render(request, "social/friends.html", {
+        "my_author": my_author,
+        "friends": friends
+    })
+
 class InboxView(APIView):
     
     """Handles follow requests in an author's inbox."""
     permission_classes = [AllowAny]
+    from rest_framework.permissions import AllowAny
+
+class InboxView(APIView):
+    """Handles follow requests in an author's inbox."""
+
+    permission_classes = [AllowAny]
+
     def post(self, request, author_id):
         """Receives and stores follow requests."""
-
         print(f"📥 Receiving follow request for: {author_id}")
 
         # Construct expected author ID
@@ -514,16 +561,13 @@ class InboxView(APIView):
         print(f"🔍 Expected Author ID: {local_author_id}")
 
         # Log the full incoming request data for debugging
-        print(f"📥 Full request data: {request.data}")  # This will show us what was received
-
-        # Ensure the followee exists
-        followee = get_object_or_404(Author, id=local_author_id)
+        print(f"📥 Full request data: {request.data}")
 
         data = request.data
 
         # Ensure request type is "Follow"
         if data.get("type") != "Follow":
-            print(f" Invalid request type: {data.get('type')}")  # Debugging
+            print(f" Invalid request type: {data.get('type')}")
             return Response({"error": "Invalid request type"}, status=status.HTTP_400_BAD_REQUEST)
 
         actor_data = data.get("actor")
@@ -531,26 +575,40 @@ class InboxView(APIView):
 
         # Validate presence of actor and object
         if not actor_data or not object_data:
-            print(f" Missing actor or object")  # Debugging
+            print(f" Missing actor or object")
             return Response({"error": "Missing actor or object"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure the object (followee) matches our local author
-        if object_data.get("id") != local_author_id:
-            print(f" Followee ID mismatch. Expected: {local_author_id}, Received: {object_data.get('id')}")  # Debugging
-            return Response({"error": "Followee ID mismatch"}, status=status.HTTP_400_BAD_REQUEST)
+        follower_id = actor_data["id"]  # The one sending the request
+        followee_id = object_data["id"]  # The one receiving the request
 
-        # Store follow request
-        follow_request, created = FollowRequest.objects.get_or_create(
-            followee=followee,
-            follower_id=actor_data["id"],
-            defaults={"summary": data.get("summary", ""), "status": "pending"}
-        )
+        print(f"🔍 Checking if {followee_id} is local or foreign...")
 
-        if not created:
-            return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
+        # Check if the followee exists in our local database
+        is_local = followee_id.startswith(settings.HOST)
 
-        print(f"Follow request stored from {actor_data['id']} to {followee.id}")
-        return Response({"message": "Follow request received"}, status=status.HTTP_201_CREATED)
+        if is_local:
+            # Followee is local, store the request in the inbox
+            followee = get_object_or_404(Author, id=local_author_id)
+
+            follow_request, created = FollowRequest.objects.get_or_create(
+                followee=followee,
+                follower_id=follower_id,  # Store FQID for remote followers
+                defaults={"summary": data.get("summary", ""), "status": "pending"}
+            )
+
+            if not created:
+                return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
+
+            print(f" Follow request stored from {follower_id} to {followee.id}")
+            return Response({"message": "Follow request received"}, status=status.HTTP_201_CREATED)
+
+        else:
+            # Followee is foreign, create the follow object immediately
+            Follow.objects.get_or_create(followee_id=followee_id, follower_id=follower_id)
+
+            print(f" Foreign followee detected! adding {follower_id} as a follower of {followee_id}")
+            return Response({"message": "Follow request sent and assumed accepted"}, status=status.HTTP_201_CREATED)
+
 
 
     def get(self, request, author_id):
