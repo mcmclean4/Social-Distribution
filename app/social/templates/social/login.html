@@ -1,31 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Document</title>
-    </head>
-    <body>
-        <div class="login">
-            <form method="POST" action="{% url 'social:login' %}">
-                {% csrf_token %}
-                <input
-                    type="text"
-                    placeholder="Enter Username"
-                    name="username"
-                    required
-                />
-                <input
-                    type="text"
-                    placeholder="Enter Password"
-                    name="password"
-                    required
-                />
-                <button>login</button>
-            </form>
-        </div>
-        <form action="{% url 'social:register' %}">
-            <button type="submit">Create a new account</button>
+{% extends 'social/base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow-sm p-4" style="width: 350px;">
+        <h3 class="text-center mb-3">Login</h3>
+        
+        <form method="POST" action="{% url 'social:login' %}">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-control" placeholder="Enter Username" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Enter Password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Login</button>
         </form>
-    </body>
-</html>
+
+        <hr>
+
+        <div class="text-center">
+            <small>Don't have an account?</small>
+            <a href="{% url 'social:register' %}" class="btn btn-outline-secondary w-100 mt-2">Create a new account</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

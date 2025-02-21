@@ -1,0 +1,55 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Friends</h2>
+
+    {% if friends %}
+        {% for friend in friends %}
+        <ul>
+            <li>
+                <strong>{{ friend.displayName }}</strong> ({{ friend.id }})
+                <button class="unfriend-button btn btn-danger btn-sm"
+                        data-friend-id="{{ friend.id }}">
+                    Unfriend ❌
+                </button>
+            </li>
+        </ul>
+        {% endfor %}
+    {% else %}
+        <p>No friends yet.</p>  <!-- ✅ Correctly outside <ul> -->
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".unfriend-button").forEach(button => {
+            button.onclick = async function () {
+                let friendId = this.getAttribute("data-friend-id");
+                let authorId = "{{ my_author.id }}";  // Logged-in user's ID
+                
+                let confirmUnfriend = confirm(`Are you sure you want to unfriend ${friendId}?`);
+                if (!confirmUnfriend) return;
+
+                let deleteUrl = `/social/unfollow/`;
+
+                console.log("Removing friend, sending DELETE to:", deleteUrl);
+
+                let response = await fetch(deleteUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ followee_id: friendId })  // ✅ Send `friend_id` in body
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Friend removed successfully.");
+                    location.reload();
+                } else {
+                    alert(result.error || "Error removing friend.");
+                }
+            };
+        });
+    });
+</script>
+{% endblock %}

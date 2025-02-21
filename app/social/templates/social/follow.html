@@ -1,0 +1,92 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Follow Authors</h2>
+
+    <h3>Click an Author to Follow</h3>
+
+    {% if authors %}
+        {% for author in authors %}
+        <ul>
+            <li>
+                <button class="follow-button btn btn-primary btn-sm" 
+                        data-author-id="{{ author.id }}" 
+                        data-author-name="{{ author.displayName }}"
+                        data-author-host="{{ author.host }}"
+                        data-author-github="{{ author.github|default:'' }}"
+                        data-author-profileImage="{{ author.profileImage|default:'' }}"
+                        data-author-page="{{ author.page|default:'' }}">
+                    Follow {{ author.displayName }} ({{ author.id }})
+                </button>
+            </li>
+        </ul>
+        {% endfor %}
+    {% else %}
+        <p>No authors available</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
+</div>
+
+<script>
+    // ✅ Get the sender's details dynamically from Django settings
+    const MY_AUTHOR_ID = "{{ my_author.id|escapejs }}";
+    const MY_AUTHOR_NAME = "{{ my_author.displayName|escapejs }}";
+    const MY_AUTHOR_HOST = "{{ my_author.host|escapejs }}";
+    const MY_AUTHOR_GITHUB = "{{ my_author.github|escapejs }}";
+    const MY_AUTHOR_PROFILE_IMAGE = "{{ my_author.profileImage|escapejs }}";
+    const MY_AUTHOR_PAGE = "{{ my_author.page|escapejs }}";
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".follow-button").forEach(button => {
+            button.onclick = async function () {
+                let authorId = this.getAttribute("data-author-id");  // ✅ Receiver (clicked author)
+                let authorName = this.getAttribute("data-author-name");
+                let authorHost = this.getAttribute("data-author-host");
+                let authorGithub = this.getAttribute("data-author-github");
+                let authorProfileImage = this.getAttribute("data-author-profileImage");
+                let authorPage = this.getAttribute("data-author-page");
+
+                let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
+                if (!confirmFollow) return; 
+
+                // ✅ Send the request to the RECEIVER'S inbox
+                let inboxUrl = `${authorId}/inbox`;  
+
+                let response = await fetch(inboxUrl, { 
+                    method: "POST",
+                    mode: "cors",
+                    headers: { "Content-Type":  "application/json"},
+                    body: JSON.stringify({
+                        type: "Follow",
+                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
+                        actor: {
+                            id: MY_AUTHOR_ID,  // ✅ Sender (from settings.py)
+                            displayName:"{{ my_author.displayName|escapejs }}",
+                            host: MY_AUTHOR_HOST,
+                            github: MY_AUTHOR_GITHUB || "",
+                            profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
+                            page: MY_AUTHOR_PAGE || ""
+                        },
+                        object: { 
+                            id: authorId,  // ✅ Receiver (clicked author)
+                            displayName: authorName,
+                            host: authorHost || "",
+                            github: authorGithub || "",
+                            profileImage: authorProfileImage || "",
+                            page: authorPage || ""
+                        }
+                    })
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request sent!");
+                    location.reload();  //  Refresh the page upon success
+                } else {
+                    alert(result.error || "Error sending follow request.");
+                }
+            };
+        });
+    });
+</script>
+{% endblock %}

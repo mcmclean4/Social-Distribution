@@ -1,0 +1,95 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Follow Requests for You</h2> 
+    {% if follow_requests %}
+        {% for request in follow_requests %}
+        <ul>
+            <li>
+                <strong>{{ request.actor.id }}</strong> wants to follow you.
+                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}">
+                    Approve
+                </button>
+                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}">
+                    Deny
+                </button>
+            </li>
+        </ul>
+        {% endfor %}
+    {% else %}
+        <p>Follow requests</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".approve-follow").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Local author ID
+
+                // Construct follower JSON data (Modify as needed)
+                let followerData = {
+                    "type": "author",
+                    "id": followerId,
+                    "host": followerId.split("/authors/")[0] + "/",
+                    "displayName": "Unknown",  // Modify to get actual name
+                    "page": followerId.replace("/api/", "/"),
+                    "github": "",
+                    "profileImage": ""
+                };
+
+                // Construct the correct API URL
+                let followUrl = `${authorId}/followers/`;
+
+                console.log("Approving follow request, sending PUT to:", followUrl, followerData); // Debugging
+
+                let response = await fetch(followUrl, { 
+                    method: "PUT",
+                    headers: { 
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(followerData)
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request approved!");
+                    this.parentElement.innerHTML = `<span class="text-success">Approved ✅</span>`;
+                } else {
+                    alert(result.error || "Error approving follow request.");
+                }
+            };
+        });
+
+        document.querySelectorAll(".deny-follow").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Ensure the local author ID is used
+
+                // Correct URL for denying follow requests
+                let inboxUrl = `${authorId}/inbox`;
+
+                console.log("Denying follow request, sending DELETE to:", inboxUrl); // Debugging
+
+                let response = await fetch(inboxUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ follower_id: followerId })  // ✅ Sending in body instead of URL
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request denied.");
+                    this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
+                } else {
+                    alert(result.error || "Error denying follow request.");
+                }
+            };
+        });
+
+    });
+</script>
+
+{% endblock %}

@@ -12,14 +12,18 @@ from django.utils.text import slugify
 class Author(models.Model):
 
     TYPE_CHOICES = [
-        ('Author', 'Author'),
+        ('author', 'author'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     type = models.CharField(
-        max_length=50, choices=TYPE_CHOICES, default='Author')
+        max_length=50, choices=TYPE_CHOICES, default='author')
     # The full API URL for the author. This is unique.
-    id = models.URLField(primary_key=True, unique=True, db_index=True)
-    host = models.URLField()
+    id = models.URLField(primary_key=True, unique=True)
+
+    #host is not unique
+    #host = models.URLField(unique=True)
+    host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
+
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
@@ -49,11 +53,11 @@ class Author(models.Model):
 # =============================================================================
 class Post(models.Model):
     POST_CHOICES = [
-        ('Post', 'Post'),
+        ('post', 'post'),
     ]
 
     CONTENT_TYPE_CHOICES = [
-        ('text/plain', 'Paintext'),
+        ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
@@ -66,12 +70,9 @@ class Post(models.Model):
         ('DELETED', 'Deleted'),
     ]
 
-    auto_id = models.AutoField(primary_key=True)
-
-    type = models.CharField(
-        max_length=50, choices=POST_CHOICES, default='Post')
+    type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(unique=True, db_index=True)
+    id = models.URLField(primary_key=True,unique=True, db_index=True)
     page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
@@ -79,14 +80,11 @@ class Post(models.Model):
     image = models.ImageField(upload_to='images/', blank=True, null=True)
     author = models.ForeignKey('Author', on_delete=models.CASCADE)
     published = models.DateTimeField()
-    visibility = models.CharField(
-        max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
-    is_deleted = models.BooleanField(default=False)
+    visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
+    # is_deleted = models.BooleanField(default=False)
 
-    likes = models.ManyToManyField(
-        'Author', related_name='liked_posts', blank=True, through='PostLike')
-    comments = models.ManyToManyField(
-        'Comment', related_name='post_comments', blank=True)
+    likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
+    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     class Meta:
         ordering = ['-published']
@@ -100,6 +98,7 @@ class Post(models.Model):
         if not self.page:
             self.page = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
         super().save(*args, **kwargs)
+
 
 
 class PostLike(models.Model):
@@ -128,14 +127,59 @@ class Comment(models.Model):
 # =============================================================================
 # Follow: Represents a relationship between two authors (follower and followee).
 # =============================================================================
-class Follow(models.Model):
-    type = models.CharField(max_length=50)
-    summary = models.CharField(max_length=255)
 
-    follower = models.ForeignKey(
-        Author, on_delete=models.CASCADE, related_name='follower')
-    followee = models.ForeignKey(
-        Author, on_delete=models.CASCADE, related_name='followee')
+class FollowRequest(models.Model):
+    """
+    Represents a follow request stored in the inbox of the followee.
+    """
+    summary = models.CharField(max_length=255, blank=True)
+    follower_id = models.CharField(max_length=255)  # Store remote/local follower as FQID       #Follower does not have to be author in our node
+    followee = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='follow_requests')
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("follower_id", "followee")  # Prevent duplicate follow requests
 
     def __str__(self):
-        return f"{self.follower.displayName} follows {self.followee.displayName}"
+        return f"{self.follower_id} -> {self.followee.display_name} ({self.status})"
+
+
+
+class Follow(models.Model):
+    """
+    Represents an actual follow relationship after approval.
+    """
+    follower_id = models.CharField(max_length=255)  # Store remote/local follower as FQID
+    followee = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='followers')
+
+    class Meta:
+        unique_together = ("follower_id", "followee")  # Prevent duplicate follow entries
+
+    def __str__(self):
+        return f"{self.follower_id} follows {self.followee.display_name}"
+
+class Comments(models.Model):
+    type = models.CharField(max_length=50)
+
+class Like(models.Model):
+    type = models.CharField(max_length=50)
+
+class Likes(models.Model):
+    type = models.CharField(max_length=50)
+
+
+class Posts(models.Model):
+    type = models.CharField(max_length=50)
+    pageNumber = models.IntegerField()
+    size = models.IntegerField()
+    count = models.IntegerField()
+    src = models.ForeignKey(Post, on_delete=models.CASCADE)
+

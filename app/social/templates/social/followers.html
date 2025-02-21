@@ -1,0 +1,57 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>My Followers</h2>
+
+    {% if followers %}
+        {% for follower in followers %}
+        <ul>
+            <li>
+                <strong>{{ follower.displayName }}</strong> ({{ follower.id }})
+                <button class="delete-follower btn btn-danger btn-sm"
+                        data-follower-id="{{ follower.id }}">
+                    Remove ❌
+                </button>
+            </li>
+        </ul>
+        {% endfor %}
+    {% else %}
+        <p>No followers yet.</p>  <!-- ✅ Moved outside <ul> -->
+    {% endif %}
+</div>
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".delete-follower").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Logged-in author's ID
+                
+                let confirmDelete = confirm(`Are you sure you want to remove ${followerId} as a follower?`);
+                if (!confirmDelete) return;
+
+                let deleteUrl = `${authorId}/followers/`;
+
+                console.log("Removing follower, sending DELETE to:", deleteUrl);
+
+                let response = await fetch(deleteUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: followerId })  // ✅ Send `follower_fqid` in body
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follower removed successfully.");
+                    this.parentElement.remove();  // ✅ Remove from UI
+                } else {
+                    alert(result.error || "Error removing follower.");
+                }
+            };
+        });
+    });
+</script>
+
+{% endblock %}
