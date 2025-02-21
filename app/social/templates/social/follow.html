@@ -4,6 +4,7 @@
 <div class="container mt-4">
     <h2>Follow Authors</h2>
 
+
     <h3>Click an Author to Follow</h3>
     <ul>
         {% for author in authors %}
@@ -58,7 +59,7 @@
                         summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
                         actor: {
                             id: MY_AUTHOR_ID,  // ✅ Sender (from settings.py)
-                            displayName: MY_AUTHOR_NAME,
+                            displayName:"{{ my_author.displayName|escapejs }}",
                             host: MY_AUTHOR_HOST,
                             github: MY_AUTHOR_GITHUB || "",
                             profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
@@ -76,7 +77,12 @@
                 });
 
                 let result = await response.json();
-                alert(result.message || result.error);
+                if (response.ok) {
+                    alert(result.message || "Follow request sent!");
+                    location.reload();  // ✅ Refresh the page upon success
+                } else {
+                    alert(result.error || "Error sending follow request.");
+                }
             };
         });
     });

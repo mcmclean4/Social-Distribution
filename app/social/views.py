@@ -323,23 +323,36 @@ def post_detail(request, auto_id):
     return render(request, 'social/post_detail.html', {'post': post})
 
 
-
 def follow_view(request):
-    """Shows a list of authors to follow"""
+    """Shows a list of authors to follow, excluding those with pending requests"""
 
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect if the user has no author profile
 
     my_author = request.user.author  # Get the logged-in author's profile
 
-    # Exclude the logged-in user from the follow list
-    authors = Author.objects.exclude(id=my_author.id)
+    # Debugging
+    print(f"🔍 LOGGED-IN USER: {request.user.username}")
+    print(f"🔍 AUTHOR OBJECT: {my_author}")
+    print(f"🔍 AUTHOR ID: {my_author.id}")
+    print(f"🔍 AUTHOR DISPLAY NAME: {my_author.displayName}")
+    print(f"🔍 AUTHOR HOST: {my_author.host}")
+
+    # Get all authors the user has already sent a follow request to
+    requested_authors = FollowRequest.objects.filter(
+        follower_id=my_author.id
+    ).values_list('followee__id', flat=True)  # Extract followee IDs
+
+    # Exclude the logged-in user and authors with pending requests
+    authors = Author.objects.exclude(id=my_author.id).exclude(id__in=requested_authors)
+
+    # Print final authors list
+    print(f"✅ Available Authors to Follow: {[author.displayName for author in authors]}")
 
     return render(request, 'social/follow.html', {
         'authors': authors,
         'my_author': my_author,  # Pass full author object to template
     })
-
 
 def follow_inbox_view(request):
     """Fetches the inbox and filters only follow requests."""
@@ -468,36 +481,69 @@ class InboxView(APIView):
 
     def get(self, request, author_id):
         """
-        Retrieves all pending follow requests.
+        Fetches pending follow requests and retrieves full author details.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # Ensures correct format
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # Ensure correct format
 
         print(f"📥 Checking inbox for: {expected_author_id}")  # Debugging output
 
-        # Ensure we are searching for the FULL author ID
+        # Get the full author object
         author = get_object_or_404(Author, id=expected_author_id)
 
+        # Get all pending follow requests
         follow_requests = FollowRequest.objects.filter(followee=author, status="pending")
 
-        inbox_items = [
-            {
-                "type": "follow",
-                "summary": f"{fr.follower_id} wants to follow {fr.followee.displayName}",
-                "actor": {
-                    "type": "author",
-                    "id": fr.follower_id,
-                },
-                "object": {
-                    "type": "author",
-                    "id": fr.followee.id,
-                    "displayName": fr.followee.displayName,
-                }
-            }
-            for fr in follow_requests
-        ]
+        print(f"📌 Found {follow_requests.count()} pending follow requests")  # Debugging output
+
+        # Fetch details for each author via API calls
+        inbox_items = []
+        for fr in follow_requests:
+            follower_url = fr.follower_id  # The full follower URL (remote/local)
+            followee_url = fr.followee.id  # The followee (local author's) full URL
+
+            # ✅ Fetch follower details from API
+            follower_data = self.get_author_details(follower_url)
+            followee_data = self.get_author_details(followee_url)
+
+            if follower_data and followee_data:  # Only include if both API calls succeed
+                inbox_items.append({
+                    "type": "follow",
+                    "summary": f"{follower_data['displayName']} wants to follow {followee_data['displayName']}",
+                    "actor": follower_data,
+                    "object": followee_data
+                })
+
+        print(f"📤 Returning {len(inbox_items)} follow requests")  # Debugging output
 
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
+
+    def get_author_details(self, author_url):
+        """
+        Fetches full author details from the provided author ID (URL).
+        """
+        try:
+            response = requests.get(author_url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            author_data = response.json()
+
+            # ✅ Ensure correct format
+            formatted_data = {
+                "type": "author",
+                "id": author_data.get("id", author_url),  # Use the URL if ID is missing
+                "host": author_data.get("host", author_url.split("/authors/")[0] + "/"),
+                "displayName": author_data.get("displayName", "Unknown"),
+                "github": author_data.get("github", ""),
+                "profileImage": author_data.get("profileImage", ""),
+                "page": author_data.get("page", author_url.replace("/api/", "/")),
+            }
+
+            print(f" Fetched Author Data: {formatted_data}")  # Debugging output
+            return formatted_data
+
+        except requests.exceptions.RequestException as e:
+            print(f" Error fetching author details for {author_url}: {e}")
+            return None  # Return None if the API call fails
 
 
 
