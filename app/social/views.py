@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny
 
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest
-
+import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import PostForm
 from django.contrib.auth.models import User
@@ -99,9 +99,6 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
 
 
 
-
-
-import requests
 
 class FollowersListView(APIView):
     """Manages the list of authors that an author is following."""
@@ -201,35 +198,34 @@ class FollowersListView(APIView):
         return Response({"message": "Follow request approved"}, status=status.HTTP_200_OK)
 
     def delete(self, request, author_id):
-            """
-            Removes a follower using the ID in the request body.
-            """
-            author_id = unquote(author_id)
-            expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        """
+        Removes a follower from the author's followers list.
+        The follower ID is expected in the request body.
+        """
+        author_id = unquote(author_id)
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-            print(f"❌ Removing follower for: {expected_author_id}")
+        print(f"❌ Removing follower for: {expected_author_id}")
 
-            # ✅ Ensure the author exists
-            author = get_object_or_404(Author, id=expected_author_id)
+        # ✅ Ensure the author exists
+        author = get_object_or_404(Author, id=expected_author_id)
 
-            # ✅ Parse JSON body to get follower ID
-            try:
-                data = json.loads(request.body)
-                follower_fqid = data.get("id")
-                if not follower_fqid:
-                    return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
-            except json.JSONDecodeError:
-                return Response({"error": "Invalid JSON body"}, status=status.HTTP_400_BAD_REQUEST)
+        # ✅ Parse follower ID from request body
+        data = request.data
+        follower_fqid = data.get("id")
 
-            print(f"🚨 Removing follower: {follower_fqid}")
+        if not follower_fqid:
+            return Response({"error": "Missing follower ID"}, status=status.HTTP_400_BAD_REQUEST)
 
-            with transaction.atomic():
-                deleted, _ = Follow.objects.filter(followee=author, follower_id=follower_fqid).delete()
+        print(f"🚨 Removing follower: {follower_fqid}")
 
-            if deleted:
-                return Response({"message": "Follower removed successfully"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Follower not found"}, status=status.HTTP_404_NOT_FOUND)
+        # ✅ Delete the follower
+        deleted, _ = Follow.objects.filter(followee=author, follower_id=follower_fqid).delete()
+        
+        if deleted:
+            return Response({"message": "Follower removed successfully"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Follower not found"}, status=status.HTTP_404_NOT_FOUND)
                 
 class FollowerDetailView(APIView):
     """Check if a user follows an author, add, or remove a follower"""
