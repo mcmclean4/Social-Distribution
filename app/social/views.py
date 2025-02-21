@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView  # Moved to the correct place
 from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
 
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest
@@ -354,13 +355,6 @@ def follow_view(request):
 
     my_author = request.user.author  # Get the logged-in author's profile
 
-    # Debugging
-    print(f"🔍 LOGGED-IN USER: {request.user.username}")
-    print(f"🔍 AUTHOR OBJECT: {my_author}")
-    print(f"🔍 AUTHOR ID: {my_author.id}")
-    print(f"🔍 AUTHOR DISPLAY NAME: {my_author.displayName}")
-    print(f"🔍 AUTHOR HOST: {my_author.host}")
-
     # Get all authors the user has already sent a follow request to
     requested_authors = FollowRequest.objects.filter(
         follower_id=my_author.id
@@ -448,6 +442,63 @@ def followers_view(request):
         "my_author_id": my_author_id,
         "followers": followers,
     })
+
+
+def following_view(request):
+    """Shows a list of authors that the logged-in user is following with an unfollow option."""
+
+    if not hasattr(request.user, 'author'):
+        return redirect('social:register')  # Redirect if no author profile
+
+    my_author = request.user.author  # ✅ Get logged-in author's profile
+    my_author_id = my_author.id  # ✅ Full author ID
+
+    # ✅ Find authors the user is following from the `Follow` table
+    following_entries = Follow.objects.filter(follower_id=my_author_id)
+
+    following_authors = []
+    for follow in following_entries:
+        try:
+            response = requests.get(follow.followee.id, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            author_data = response.json()
+            following_authors.append(author_data)
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching author {follow.followee.id}: {e}")
+
+    return render(request, "social/following.html", {
+        "my_author_id": my_author_id,
+        "following_authors": following_authors,  # ✅ List of followed authors
+    })
+
+@csrf_exempt
+def unfollow_view(request):
+    """Handles unfollowing an author by deleting the follow object in the database."""
+
+    if request.method != "DELETE":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    if not hasattr(request.user, 'author'):
+        return JsonResponse({"error": "User is not an author"}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        followee_id = data.get("followee_id")  # ✅ Get followee ID from request body
+        if not followee_id:
+            return JsonResponse({"error": "Missing followee ID"}, status=400)
+
+        my_author = request.user.author  # ✅ Get logged-in author's profile
+
+        # ✅ Delete the follow object
+        deleted, _ = Follow.objects.filter(follower_id=my_author.id, followee__id=followee_id).delete()
+
+        if deleted:
+            return JsonResponse({"message": "Unfollowed successfully"}, status=200)
+        else:
+            return JsonResponse({"error": "Not following this author"}, status=404)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
 class InboxView(APIView):
     

@@ -31,9 +31,11 @@ urlpatterns = [
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
     
 
-    # ✅ Frontend Pages (Use `web_` prefix for clarity)
     path("inbox/", inbox_view, name="inbox"),
     path("follow/", follow_view, name="web_follow"),
     path("inbox/follow/", follow_inbox_view, name="web_inbox"),
     path("followers/", followers_view, name="web_followers"),
+    path("following/", following_view, name="following"),
+    path("unfollow/", unfollow_view, name="unfollow"),
+
 ]

@@ -79,7 +79,7 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Follow request sent!");
-                    location.reload();  // ✅ Refresh the page upon success
+                    location.reload();  //  Refresh the page upon success
                 } else {
                     alert(result.error || "Error sending follow request.");
                 }
