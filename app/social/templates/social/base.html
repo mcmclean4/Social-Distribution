@@ -31,15 +31,21 @@
                 </a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="#">
+                <a class="nav-link" href="{% url 'social:inbox' %}">
                   <span data-feather="inbox"></span>
                   Inbox
                 </a>
-              </li>
+              </li>              
               <li class="nav-item">
                 <a class="nav-link" href="#">
                   <span data-feather="users"></span>
                   Following
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'social:web_followers' %}">
+                  <span data-feather="user"></span>
+                  followers
                 </a>
               </li>
               <li class="nav-item">
@@ -48,6 +54,13 @@
                   Friends
                 </a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'social:web_follow' %}">
+                  <span data-feather="user"></span>
+                  Find Authors
+                </a>
+              </li>
+    
             </ul>
           </div>
         </nav>

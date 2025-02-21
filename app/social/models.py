@@ -18,8 +18,12 @@ class Author(models.Model):
     type = models.CharField(
         max_length=50, choices=TYPE_CHOICES, default='author')
     # The full API URL for the author. This is unique.
-    id = models.URLField(primary_key=True, unique=True, db_index=True)
-    host = models.URLField()
+    id = models.URLField(primary_key=True, unique=True)
+
+    #host is not unique
+    #host = models.URLField(unique=True)
+    host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
+
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
@@ -123,14 +127,59 @@ class Comment(models.Model):
 # =============================================================================
 # Follow: Represents a relationship between two authors (follower and followee).
 # =============================================================================
-class Follow(models.Model):
-    type = models.CharField(max_length=50)
-    summary = models.CharField(max_length=255)
 
-    follower = models.ForeignKey(
-        Author, on_delete=models.CASCADE, related_name='follower')
-    followee = models.ForeignKey(
-        Author, on_delete=models.CASCADE, related_name='followee')
+class FollowRequest(models.Model):
+    """
+    Represents a follow request stored in the inbox of the followee.
+    """
+    summary = models.CharField(max_length=255, blank=True)
+    follower_id = models.CharField(max_length=255)  # Store remote/local follower as FQID       #Follower does not have to be author in our node
+    followee = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='follow_requests')
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("follower_id", "followee")  # Prevent duplicate follow requests
 
     def __str__(self):
-        return f"{self.follower.displayName} follows {self.followee.displayName}"
+        return f"{self.follower_id} -> {self.followee.display_name} ({self.status})"
+
+
+
+class Follow(models.Model):
+    """
+    Represents an actual follow relationship after approval.
+    """
+    follower_id = models.CharField(max_length=255)  # Store remote/local follower as FQID
+    followee = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='followers')
+
+    class Meta:
+        unique_together = ("follower_id", "followee")  # Prevent duplicate follow entries
+
+    def __str__(self):
+        return f"{self.follower_id} follows {self.followee.display_name}"
+
+class Comments(models.Model):
+    type = models.CharField(max_length=50)
+
+class Like(models.Model):
+    type = models.CharField(max_length=50)
+
+class Likes(models.Model):
+    type = models.CharField(max_length=50)
+
+
+class Posts(models.Model):
+    type = models.CharField(max_length=50)
+    pageNumber = models.IntegerField()
+    size = models.IntegerField()
+    count = models.IntegerField()
+    src = models.ForeignKey(Post, on_delete=models.CASCADE)
+
