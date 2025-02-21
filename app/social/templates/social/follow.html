@@ -51,7 +51,8 @@
 
                 let response = await fetch(inboxUrl, { 
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    mode: "cors",
+                    headers: { "Content-Type":  "application/json"},
                     body: JSON.stringify({
                         type: "Follow",
                         summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,

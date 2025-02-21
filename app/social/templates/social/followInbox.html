@@ -65,12 +65,17 @@
         document.querySelectorAll(".deny-follow").forEach(button => {
             button.onclick = async function () {
                 let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Ensure the local author ID is used
 
+                // ✅ Correct URL for denying follow requests
                 let inboxUrl = `${authorId}/inbox`;
+
+                console.log("Denying follow request, sending DELETE to:", inboxUrl); // Debugging
 
                 let response = await fetch(inboxUrl, { 
                     method: "DELETE",
-                    headers: { "Content-Type": "application/json" }
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ follower_id: followerId })  // ✅ Sending in body instead of URL
                 });
 
                 let result = await response.json();
@@ -82,6 +87,7 @@
                 }
             };
         });
+
     });
 </script>
 

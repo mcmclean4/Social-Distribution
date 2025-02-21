@@ -48,10 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework'
+    'rest_framework',
+    "corsheaders"
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -145,3 +147,7 @@ HOST = "http://localhost:8000/social/"
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
 
+CORS_ALLOW_ALL_ORIGINS = True  # ✅ Allows all requests (for debugging)
+CORS_ALLOW_CREDENTIALS = True  # ✅ Allows authentication cookies
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+CORS_ALLOW_HEADERS = ["Content-Type", "Authorization", "Accept"]

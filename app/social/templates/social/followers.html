@@ -1,66 +1,54 @@
-<<<<<<< HEAD
 {% extends "social/base.html" %}
 
 {% block content %}
 <div class="container mt-4">
     <h2>My Followers</h2>
-    <ul id="followers-list">
-        <li>Loading...</li>
+
+    <ul>
+        {% for follower in followers %}
+            <li>
+                <strong>{{ follower.displayName }}</strong> ({{ follower.id }})
+                <button class="delete-follower btn btn-danger btn-sm"
+                        data-follower-id="{{ follower.displayName }}">
+                    Remove ❌
+                </button>
+            </li>
+        {% empty %}
+            <li>No followers yet.</li>
+        {% endfor %}
     </ul>
 </div>
 
 <script>
-    async function loadFollowers() {
-        let response = await fetch(`/api/authors/{{ request.user.id }}/followers/`);
-        let data = await response.json();
-        let followersList = document.getElementById("followers-list");
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".delete-follower").forEach(button => {
+            button.onclick = async function () {
+                let followerId = this.getAttribute("data-follower-id");
+                let authorId = "{{ my_author_id }}";  // Logged-in author's ID
+                
+                let confirmDelete = confirm(`Are you sure you want to remove ${followerId} as a follower?`);
+                if (!confirmDelete) return;
 
-        followersList.innerHTML = ""; // Clear loading text
+                let deleteUrl = `${authorId}/followers/`;
 
-        if (!data.followers || data.followers.length === 0) {
-            followersList.innerHTML = "<li>No followers found.</li>";
-            return;
-        }
+                console.log("Removing follower, sending DELETE to:", deleteUrl);
 
-        data.followers.forEach(follower => {
-            let li = document.createElement("li");
-            li.textContent = `${follower.displayName} (${follower.id})`;
-            followersList.appendChild(li);
+                let response = await fetch(deleteUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: followerId })  // ✅ Send `follower_fqid` in body
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follower removed successfully.");
+                    this.parentElement.remove();  // ✅ Remove from UI
+                } else {
+                    alert(result.error || "Error removing follower.");
+                }
+            };
         });
-    }
-
-    document.addEventListener("DOMContentLoaded", loadFollowers);
+    });
 </script>
+
 {% endblock %}
-=======
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Followers</title>
-</head>
-<body>
-
-    <h2>My Followers</h2>
-    <ul id="followers-list"></ul>
-
-    <script>
-        async function loadFollowers() {
-            let response = await fetch(`/api/authors/{{ request.user.id }}/followers/`);
-            let data = await response.json();
-            let followersList = document.getElementById("followers-list");
-
-            data.followers.forEach(follower => {
-                let li = document.createElement("li");
-                li.textContent = `${follower.displayName} (${follower.id})`;
-                followersList.appendChild(li);
-            });
-        }
-
-        loadFollowers();
-    </script>
-
-</body>
-</html>
->>>>>>> c60352a (First)
