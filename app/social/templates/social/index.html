@@ -1,6 +1,21 @@
 {% extends 'social/base.html' %}
 
 {% block content %}
+<style>
+    .like-button {
+        cursor: pointer;
+        transition: color 0.3s ease;
+    }
+    
+    .like-button.liked {
+        color: #0d6efd;  /* Bootstrap primary color */
+    }
+    
+    .like-count {
+        font-weight: bold;
+    }
+</style>
+
 <h1 class="mb-4">Stream</h1>
 <a href="{% url 'social:create_post' %}" class="btn btn-primary mb-3">Add New Post</a>
 
@@ -8,18 +23,23 @@
     {% for post in posts %}
         <div class="col-md-12 mb-4">
             <div class="card h-100">
-
                 {% if post.image %}
                     <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}" style="height: 250px; object-fit: cover;">
                 {% endif %}
-
+            
                 <div class="card-body position-relative">
                     <h5 class="card-title">{{ post.title }}</h5>
                     <p class="card-text">{{ post.description }}</p>
                 </div>
-
+            
                 <div class="card-footer d-flex justify-content-between">
-                    <a href="#" class="text-decoration-none"><i class="bi bi-hand-thumbs-up"></i> Like</a>
+                    <div class="like-section" data-post-id="{{ post.id }}" data-author-id="{{ post.author.id }}">
+                        <button class="btn btn-link text-decoration-none like-button" onclick="handleLike('{{ post.author.id }}', '{{ post.id }}')">
+                            <i class="bi bi-hand-thumbs-up"></i>
+                            <span class="like-text">Like</span>
+                            <span class="like-count" id="like-count-{{ post.id }}">{{ post.likes.count }}</span>
+                        </button>
+                    </div>
                     <a href="#" class="text-decoration-none"><i class="bi bi-chat"></i> Comment</a>
                 </div>
             </div>
@@ -47,4 +67,63 @@
         </ul>
     </nav>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function handleLike(authorId, postId) {
+    try {
+        const authorNumber = authorId.split('/authors/').pop().replace('/', '');
+        const postSlug = postId.split('/posts/').pop();
+        
+        const likeButton = document.querySelector(`[data-post-id="${postId}"]`);
+        const likeCount = document.getElementById(`like-count-${postId}`);
+        
+        const apiUrl = `/social/api/authors/${authorNumber}/posts/${postSlug}/like/`;
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Toggle like button appearance based on action
+            if (data.action === 'liked') {
+                likeButton.classList.add('liked');
+            } else {
+                likeButton.classList.remove('liked');
+            }
+            
+            // Update like count
+            if (likeCount && data.like_count !== undefined) {
+                likeCount.textContent = data.like_count;
+            }
+        }
+    } catch (error) {
+        console.error('Error handling like:', error);
+    }
+}
+// Function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

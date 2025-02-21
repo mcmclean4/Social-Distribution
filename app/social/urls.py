@@ -4,6 +4,7 @@ from . import views
 from django.urls import path, re_path 
 from . import views
 from .views import *
+from django.shortcuts import redirect
 
 app_name = 'social'
 
@@ -29,7 +30,10 @@ urlpatterns = [
     path("api/authors/<str:author_id>/followers/", FollowersListView.as_view(), name="get_followers"),
     path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
-    
+    # Like post
+    # path('api/authors/<str:author_id>/posts/<str:post_id>/like/', PostLikeView.as_view(), name='like_post'),
+    path('api/authors/<str:author_id>/posts/<str:post_id>/like/', PostLikeView.as_view(), name='like_post'),
+
 
     path("inbox/", inbox_view, name="inbox"),
     path("follow/", follow_view, name="web_follow"),

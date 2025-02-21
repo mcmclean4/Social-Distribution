@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView  # Moved to the correct place
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
-
+from django.db.models import Count 
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest
 import requests
@@ -21,15 +21,27 @@ from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
 
+# Like
+from .models import Post, PostLike
+from .serializers import PostLikeSerializer
+
+
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
 @login_required  # Now correctly placed above a view function
 def stream(request):
-    post_list = Post.objects.filter().order_by('-published')
+    post_list = Post.objects.annotate(
+        like_count=Count('likes')
+    ).order_by('-published')
+    
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
+    # Debug print
+    for post in post_list:
+        print(f"Post ID: {post.id}")
+
     return render(request, 'social/index.html', {'posts': posts})
 
 
@@ -708,3 +720,86 @@ class InboxView(APIView):
             
             except Exception as e:
                 return JsonResponse({"error": f"Failed to process request: {str(e)}"}, status=400)
+
+class PostLikeView(APIView):
+    def get(self, request, author_id, post_id):
+        """Check if the current user has liked the post"""
+        try:
+            # Construct the full post ID
+            full_post_id = f"http://localhost:8000/posts/{post_id}"
+            print(f"Looking for post with ID: {full_post_id}")
+            
+            post = get_object_or_404(Post, id=full_post_id)
+            print(f"Found post: {post.title}")
+            
+            has_liked = PostLike.objects.filter(
+                post=post,
+                author=request.user.author
+            ).exists()
+            
+            return Response({"has_liked": has_liked})
+            
+        except Post.DoesNotExist:
+            return Response(
+                {"error": f"Post not found with ID: {full_post_id}"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    def delete(self, request, author_id, post_id):
+        """Remove a like from the post"""
+        post = get_object_or_404(Post, id=f"http://localhost:8000/posts/{post_id}")
+        like = PostLike.objects.filter(
+            post=post,
+            author=request.user.author
+        )
+        
+        if like.exists():
+            like.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        return Response(
+            {"message": "Like not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    def post(self, request, author_id, post_id):
+        try:
+            if not request.user.is_authenticated:
+                return Response({"error": "User must be logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            try:
+                liker = request.user.author
+            except AttributeError:
+                return Response({"error": "User does not have an author profile"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the post
+            full_post_id = f"http://localhost:8000/posts/{post_id}"
+            post = get_object_or_404(Post, id=full_post_id)
+            
+            # Check if like already exists
+            existing_like = PostLike.objects.filter(post=post, author=liker).first()
+            
+            if existing_like:
+                # Unlike - remove the like
+                existing_like.delete()
+                action = "unliked"
+            else:
+                # Like - create new like
+                PostLike.objects.create(post=post, author=liker)
+                action = "liked"
+            
+            # Get updated like count
+            like_count = PostLike.objects.filter(post=post).count()
+            
+            return Response({
+                "message": f"Post {action} successfully",
+                "action": action,
+                "like_count": like_count
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            print(f"Error in POST: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
