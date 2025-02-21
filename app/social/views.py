@@ -3,7 +3,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.views import APIView  # ✅ Moved to the correct place
+from rest_framework.views import APIView  # Moved to the correct place
 from rest_framework.permissions import AllowAny
 
 from .serializers import PostSerializer, AuthorSerializer
@@ -18,12 +18,12 @@ from django.core.paginator import Paginator
 from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
-from django.db import transaction  # ✅ Correct placement of transaction import
+from django.db import transaction  # Correct placement of transaction import
 
-import requests  # ✅ Correct placement of requests import
+import requests  # Correct placement of requests import
 from django.conf import settings
 import json
-@login_required  # ✅ Now correctly placed above a view function
+@login_required  # Now correctly placed above a view function
 def stream(request):
     post_list = Post.objects.filter(is_deleted=False).order_by('-published')
     paginator = Paginator(post_list, 10)
@@ -115,14 +115,14 @@ class FollowersListView(APIView):
         # Ensure the author exists
         author = get_object_or_404(Author, id=expected_author_id)
 
-        # ✅ Get all authors that are following this author
+        # Get all authors that are following this author
         followers = Follow.objects.filter(followee=author)
 
         followers_list = []
         for follow in followers:
-            follower_id = follow.follower_id  # ✅ Get follower ID
+            follower_id = follow.follower_id  # Get follower ID
 
-            # ✅ If follower is local, return full details from the DB
+            # If follower is local, return full details from the DB
             if follower_id.startswith(settings.HOST):
                 try:
                     follower = Author.objects.get(id=follower_id)
@@ -135,10 +135,10 @@ class FollowersListView(APIView):
                         "host": follower.host,
                     })
                 except Author.DoesNotExist:
-                    print(f"❌ Error: Local follower {follower_id} not found!")
+                    print(f" Error: Local follower {follower_id} not found!")
                     continue
             else:
-                # ✅ If follower is remote, fetch details from their API
+                # If follower is remote, fetch details from their API
                 try:
                     response = requests.get(follower_id, headers={"Content-Type": "application/json"})
                     response.raise_for_status()
@@ -153,7 +153,7 @@ class FollowersListView(APIView):
                         "host": data.get("host", ""),
                     })
                 except requests.exceptions.RequestException as e:
-                    print(f"❌ Error fetching details for {follower_id}: {e}")
+                    print(f" Error fetching details for {follower_id}: {e}")
                     continue
 
         return Response({"type": "followers", "items": followers_list}, status=status.HTTP_200_OK)
@@ -167,12 +167,12 @@ class FollowersListView(APIView):
         author_id = author_id  # Already decoded
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"✅ Approving follow request for: {expected_author_id}")
+        print(f"Approving follow request for: {expected_author_id}")
 
-        # ✅ Ensure the author exists
+        # Ensure the author exists
         author = get_object_or_404(Author, id=expected_author_id)
 
-        # ✅ Parse JSON body
+        # Parse JSON body
         data = request.data
         follower_id = data.get("id")
 
@@ -180,7 +180,7 @@ class FollowersListView(APIView):
             return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            # ✅ Check if the follow request exists
+            # Check if the follow request exists
             follow_request = FollowRequest.objects.filter(
                 followee=author, follower_id=follower_id, status="pending"
             ).first()
@@ -188,11 +188,11 @@ class FollowersListView(APIView):
             if not follow_request:
                 return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # ✅ Approve request
+            # Approve request
             follow_request.status = "accepted"
             follow_request.save()
 
-            # ✅ Store the follower
+            # Store the follower
             Follow.objects.get_or_create(followee=author, follower_id=follower_id)
 
         return Response({"message": "Follow request approved"}, status=status.HTTP_200_OK)
@@ -205,12 +205,12 @@ class FollowersListView(APIView):
         author_id = unquote(author_id)
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"❌ Removing follower for: {expected_author_id}")
+        print(f" Removing follower for: {expected_author_id}")
 
-        # ✅ Ensure the author exists
+        # Ensure the author exists
         author = get_object_or_404(Author, id=expected_author_id)
 
-        # ✅ Parse follower ID from request body
+        # Parse follower ID from request body
         data = request.data
         follower_fqid = data.get("id")
 
@@ -219,7 +219,7 @@ class FollowersListView(APIView):
 
         print(f"🚨 Removing follower: {follower_fqid}")
 
-        # ✅ Delete the follower
+        # Delete the follower
         deleted, _ = Follow.objects.filter(followee=author, follower_id=follower_fqid).delete()
         
         if deleted:
@@ -330,14 +330,14 @@ def follow_view(request):
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect if the user has no author profile
 
-    my_author = request.user.author  # ✅ Get the logged-in author's profile
+    my_author = request.user.author  # Get the logged-in author's profile
 
-    # ✅ Exclude the logged-in user from the follow list
+    # Exclude the logged-in user from the follow list
     authors = Author.objects.exclude(id=my_author.id)
 
     return render(request, 'social/follow.html', {
         'authors': authors,
-        'my_author': my_author,  # ✅ Pass full author object to template
+        'my_author': my_author,  # Pass full author object to template
     })
 
 
@@ -347,28 +347,28 @@ def follow_inbox_view(request):
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect if the user has no author profile
 
-    my_author = request.user.author  # ✅ Get the logged-in author's profile
+    my_author = request.user.author  # Get the logged-in author's profile
     my_author_id = my_author.id
-    print(f"🔍 Logged-in Author ID: {my_author_id}")  # ✅ Debugging: See Author ID in logs
+    print(f"🔍 Logged-in Author ID: {my_author_id}")  # Debugging: See Author ID in logs
 
-    # ✅ Construct the API URL for retrieving inbox data
+    # Construct the API URL for retrieving inbox data
     inbox_url = f"{my_author_id}/inbox"
 
     try:
         response = requests.get(inbox_url, headers={"Content-Type": "application/json"})
-        response.raise_for_status()  # ✅ Ensure non-200 responses raise an error
+        response.raise_for_status()  # Ensure non-200 responses raise an error
         inbox_data = response.json()
 
-        # ✅ Extract only "follow" requests from inbox
+        # Extract only "follow" requests from inbox
         follow_requests = [item for item in inbox_data.get("items", []) if item.get("type", "").lower() == "follow"]
 
-    except requests.exceptions.RequestException as e:  # ✅ Correct exception handling
-        print(f"❌ Error fetching inbox data: {e}")
+    except requests.exceptions.RequestException as e:  # Correct exception handling
+        print(f" Error fetching inbox data: {e}")
         follow_requests = []
 
     return render(request, "social/followInbox.html", {
         "my_author_id": my_author_id,
-        "follow_requests": follow_requests  # ✅ Only follow requests are passed to the template
+        "follow_requests": follow_requests  # Only follow requests are passed to the template
     })
 
 
@@ -380,10 +380,10 @@ def followers_view(request):
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect if no author profile
 
-    my_author = request.user.author  # ✅ Get logged-in author's profile
-    my_author_id = my_author.id  # ✅ Get the full author ID
+    my_author = request.user.author  # Get logged-in author's profile
+    my_author_id = my_author.id  # Get the full author ID
 
-    # ✅ Construct the API URL to get followers
+    # Construct the API URL to get followers
     followers_url = f"{my_author_id}/followers/"
 
     print(f"🔍 Fetching followers for: {my_author_id}")
@@ -399,13 +399,13 @@ def followers_view(request):
         
         followers_data = response.json()
 
-        print(f"📥 Full API Response JSON: {json.dumps(followers_data, indent=4)}")  # ✅ Pretty-print the response
+        print(f"📥 Full API Response JSON: {json.dumps(followers_data, indent=4)}")  # Pretty-print the response
 
         followers = followers_data.get("items", [])  # Extract list of followers
-        print(f"✅ Extracted Followers: {followers}")
+        print(f"Extracted Followers: {followers}")
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error fetching followers: {e}")
+        print(f" Error fetching followers: {e}")
         followers = []
 
     return render(request, "social/followers.html", {
@@ -427,7 +427,7 @@ class InboxView(APIView):
         print(f"🔍 Expected Author ID: {local_author_id}")
 
         # Log the full incoming request data for debugging
-        print(f"📥 Full request data: {request.data}")  # ✅ This will show us what was received
+        print(f"📥 Full request data: {request.data}")  # This will show us what was received
 
         # Ensure the followee exists
         followee = get_object_or_404(Author, id=local_author_id)
@@ -436,7 +436,7 @@ class InboxView(APIView):
 
         # Ensure request type is "Follow"
         if data.get("type") != "Follow":
-            print(f"❌ Invalid request type: {data.get('type')}")  # Debugging
+            print(f" Invalid request type: {data.get('type')}")  # Debugging
             return Response({"error": "Invalid request type"}, status=status.HTTP_400_BAD_REQUEST)
 
         actor_data = data.get("actor")
@@ -444,12 +444,12 @@ class InboxView(APIView):
 
         # Validate presence of actor and object
         if not actor_data or not object_data:
-            print(f"❌ Missing actor or object")  # Debugging
+            print(f" Missing actor or object")  # Debugging
             return Response({"error": "Missing actor or object"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Ensure the object (followee) matches our local author
         if object_data.get("id") != local_author_id:
-            print(f"❌ Followee ID mismatch. Expected: {local_author_id}, Received: {object_data.get('id')}")  # Debugging
+            print(f" Followee ID mismatch. Expected: {local_author_id}, Received: {object_data.get('id')}")  # Debugging
             return Response({"error": "Followee ID mismatch"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Store follow request
@@ -462,7 +462,7 @@ class InboxView(APIView):
         if not created:
             return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
 
-        print(f"✅ Follow request stored from {actor_data['id']} to {followee.id}")
+        print(f"Follow request stored from {actor_data['id']} to {followee.id}")
         return Response({"message": "Follow request received"}, status=status.HTTP_201_CREATED)
 
 
@@ -471,9 +471,9 @@ class InboxView(APIView):
         Retrieves all pending follow requests.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # ✅ Ensures correct format
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # Ensures correct format
 
-        print(f"📥 Checking inbox for: {expected_author_id}")  # ✅ Debugging output
+        print(f"📥 Checking inbox for: {expected_author_id}")  # Debugging output
 
         # Ensure we are searching for the FULL author ID
         author = get_object_or_404(Author, id=expected_author_id)
@@ -510,7 +510,7 @@ class InboxView(APIView):
             author = get_object_or_404(Author, id=expected_author_id)
 
             try:
-                data = request.data  # ✅ Extract body from DELETE request
+                data = request.data  # Extract body from DELETE request
                 foreign_author_fqid = data.get("follower_id")
 
                 if not foreign_author_fqid:
@@ -523,7 +523,7 @@ class InboxView(APIView):
                 )
 
                 if follow_request.exists():
-                    follow_request.update(status="denied")  # ✅ Just update the status
+                    follow_request.update(status="denied")  # Just update the status
                     return Response({"message": "Follow request denied"}, status=status.HTTP_200_OK)
 
                 return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)

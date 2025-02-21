@@ -28,7 +28,7 @@
                 let followerId = this.getAttribute("data-follower-id");
                 let authorId = "{{ my_author_id }}";  // Local author ID
 
-                // ✅ Construct follower JSON data (Modify as needed)
+                // Construct follower JSON data (Modify as needed)
                 let followerData = {
                     "type": "author",
                     "id": followerId,
@@ -39,7 +39,7 @@
                     "profileImage": ""
                 };
 
-                // ✅ Construct the correct API URL
+                // Construct the correct API URL
                 let followUrl = `${authorId}/followers/`;
 
                 console.log("Approving follow request, sending PUT to:", followUrl, followerData); // Debugging
@@ -67,7 +67,7 @@
                 let followerId = this.getAttribute("data-follower-id");
                 let authorId = "{{ my_author_id }}";  // Ensure the local author ID is used
 
-                // ✅ Correct URL for denying follow requests
+                // Correct URL for denying follow requests
                 let inboxUrl = `${authorId}/inbox`;
 
                 console.log("Denying follow request, sending DELETE to:", inboxUrl); // Debugging
