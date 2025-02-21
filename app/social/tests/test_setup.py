@@ -6,15 +6,20 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 import io
 from PIL import Image 
 
-# References:
+# Referenced:
 # https://www.youtube.com/watch?v=17KdirMbmHY
 # 
 
 class TestSetUp(APITestCase):
     '''
     re-run app with docker compose build & up
-    in another terminal run tests with this command:
+    in another terminal run tests with this command in app/:
     docker exec -it w25-project-mod-cornsilk-socialapp-1 python manage.py test
+
+    or if you only want to run one of the test files (test_sharing in this example) use:
+     docker exec -it w25-project-mod-cornsilk-socialapp-1 python manage.py test social.tests.test_sharing
+
+
     '''
     def setUp(self):
         # urls of endpoints from urls.py

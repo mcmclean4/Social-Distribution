@@ -1,7 +1,7 @@
 from .test_setup import TestSetUp
 from social.models import Post
 
-class TestViews(TestSetUp):
+class TestPosting(TestSetUp):
     '''
     Add these lines before the assertions, and write response.data into terminal after running for debugging
     import pdb
@@ -30,7 +30,6 @@ class TestViews(TestSetUp):
         self.assertEqual(create_response.status_code, 201)
 
         post_auto_id = create_response.data['auto_id']
-        print(create_response.data)
 
         # Make changes to some fields
         self.plaintext_post_data['title'] = "An Updated Title"
@@ -38,7 +37,7 @@ class TestViews(TestSetUp):
         self.plaintext_post_data['contentType'] = "text/markdown"
         self.plaintext_post_data['content'] = "Updated content"
 
-        # Update the post
+        # Submit the changes as a form with POST request
         update_response = self.client.post(
             self.post_update_url(post_auto_id), self.plaintext_post_data)
         self.assertEqual(update_response.status_code, 302)
@@ -109,14 +108,12 @@ class TestViews(TestSetUp):
         visit_response = self.client.get(self.post_create_url)
         self.assertEqual(visit_response.status_code, 200)
         self.assertTemplateUsed(visit_response, 'social/create_post.html')
-
-         # Step 2: Submit the plaintext post as a form with POST request
+        
+        # Submit the plaintext post as a form with POST request
         submit_response = self.client.post(self.post_create_url, self.plaintext_post_data)
-
-        # Step 3: Check redirection (should go back to the index page)
         self.assertEqual(submit_response.status_code, 302)
 
-        # Step 4: Verify that the post was created in the database
+        # Verify that the post was created in the database
         post = Post.objects.first()
         self.assertIsNotNone(post)
         self.assertEqual(post.title, self.plaintext_post_data['title'])
