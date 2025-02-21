@@ -227,12 +227,14 @@ class FollowersListView(APIView):
         else:
             return Response({"error": "Follower not found"}, status=status.HTTP_404_NOT_FOUND)
                 
+
 class FollowerDetailView(APIView):
     """Check if a user follows an author, add, or remove a follower"""
 
     def get(self, request, author_id, follower_fqid):
         """
         Checks if AUTHOR_SERIAL is following FOREIGN_AUTHOR_FQID.
+        If true, makes a GET request to the author's followee ID and returns full author details.
         """
         author_id = unquote(author_id)
         follower_fqid = unquote(follower_fqid)
@@ -241,14 +243,35 @@ class FollowerDetailView(APIView):
 
         print(f"📥 Checking if {expected_author_id} follows {follower_fqid}")
 
-        author = get_object_or_404(Author, id=expected_author_id)
-        follower_exists = Follow.objects.filter(follower_id=follower_fqid, followee__id=expected_author_id).exists()
+        # Ensure the author exists
+        author = get_object_or_404(Follow, follower_id=follower_fqid, followee__id=expected_author_id)
 
-        if follower_exists:
-            return Response(status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Not a follower"}, status=status.HTTP_404_NOT_FOUND)
+        if author:
+            print(f" {follower_fqid} is a follower of {expected_author_id}")
 
+            # ✅ Make GET request to the followee's ID to fetch full author details
+            try:
+                response = requests.get(follower_fqid, headers={"Content-Type": "application/json"})
+                response.raise_for_status()  # Raise error if status code is not 200
+                author_data = response.json()
+
+                # ✅ Construct response in the required format
+                return Response({
+                    "type": "author",
+                    "id": author_data.get("id"),
+                    "host": author_data.get("host"),
+                    "displayName": author_data.get("displayName"),
+                    "page": author_data.get("page"),
+                    "github": author_data.get("github", ""),
+                    "profileImage": author_data.get("profileImage", ""),
+                }, status=status.HTTP_200_OK)
+
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching author details: {e}")
+                return Response({"error": "Failed to retrieve author details"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        print(f"{follower_fqid} is NOT a follower of {expected_author_id}")
+        return Response({"error": "Not a follower"}, status=status.HTTP_404_NOT_FOUND)
 
 def inbox_view(request):
     return render(request, "social/inbox.html")

@@ -27,7 +27,7 @@ urlpatterns = [
     path('post/<int:auto_id>/', post_detail, name='post_detail'),
     path("api/authors/<str:author_id>/followers", FollowersListView.as_view(), name="get_followers_a"),
     path("api/authors/<str:author_id>/followers/", FollowersListView.as_view(), name="get_followers"),
-    path("api/authors/<str:author_id>/followers/<path:follower_fqid>/", FollowerDetailView.as_view(), name="manage_follower"),
+    path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
     
 
