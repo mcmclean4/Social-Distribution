@@ -8,12 +8,6 @@ from django.shortcuts import redirect
 
 app_name = 'social'
 
-from django.urls import path, re_path
-from .views import (
-    FollowersListView, FollowerDetailView, InboxView, inbox_view,
-    follow_view, follow_inbox_view, followers_view, PostListCreateAPIView, create_post, update_post, delete_post, post_detail, stream
-)
-
 urlpatterns = [
     path("index/", stream, name="index"),
     path("login/", views.login_page, name='login'),
@@ -31,8 +25,13 @@ urlpatterns = [
     path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
     # Like post
-    # path('api/authors/<str:author_id>/posts/<str:post_id>/like/', PostLikeView.as_view(), name='like_post'),
+
     path('api/authors/<str:author_id>/posts/<str:post_id>/like/', PostLikeView.as_view(), name='like_post'),
+
+    # Comments
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/', add_comment, name='add_comment'),
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<str:comment_id>/like/', CommentLikeView.as_view(), name='like_comment'),
+
 
 
     path("inbox/", inbox_view, name="inbox"),

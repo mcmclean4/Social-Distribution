@@ -116,6 +116,7 @@ class Comment(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     content = models.TextField()
     published = models.DateTimeField()
+    likes = models.ManyToManyField('Author', related_name='comment_likes', blank=True)
 
     class Meta:
         ordering = ['-published']

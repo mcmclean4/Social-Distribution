@@ -22,25 +22,27 @@ from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
 
 # Like
-from .models import Post, PostLike
+from .models import Post, PostLike, Comment
 from .serializers import PostLikeSerializer
 
 
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
-@login_required  # Now correctly placed above a view function
+@login_required  
 def stream(request):
     post_list = Post.objects.annotate(
         like_count=Count('likes')
     ).order_by('-published')
     
+    for post in post_list:
+        for comment in post.comments.all():
+            comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
+        
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
-    # Debug print
-    for post in post_list:
-        print(f"Post ID: {post.id}")
+
 
     return render(request, 'social/index.html', {'posts': posts})
 
@@ -802,4 +804,100 @@ class PostLikeView(APIView):
             
         except Exception as e:
             print(f"Error in POST: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# comments
+@api_view(['POST'])
+def add_comment(request, author_id, post_id):
+    try:
+        print("Adding comment...")
+        print(f"Post ID: {post_id}")
+        print(f"Author ID: {author_id}")
+        print(f"Request data: {request.data}")
+        
+        # Get the post
+        full_post_id = f"http://localhost:8000/posts/{post_id}"
+        print(f"Looking for post with ID: {full_post_id}")
+        
+        post = get_object_or_404(Post, id=full_post_id)
+        print(f"Found post: {post.title}")
+        
+        # Create the comment
+        comment = Comment.objects.create(
+            type="comment",  # Make sure this matches your model
+            post=post,
+            author=request.user.author,
+            content=request.data.get('content'),
+            published=timezone.now()
+        )
+        
+        # Add to post's comments if needed
+        post.comments.add(comment)
+        
+        print(f"Created comment: {comment.id}")
+        
+        return Response({
+            'id': comment.id,
+            'content': comment.content,
+            'author': {
+                'displayName': comment.author.displayName
+            },
+            'published': comment.published
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        print(f"Error creating comment: {str(e)}")
+        print(f"Full error: ", e)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class CommentLikeView(APIView):
+    def post(self, request, author_id, post_id, comment_id):
+        try:
+            print("=== Debug CommentLikeView ===")
+            print(f"Comment ID: {comment_id}")
+            print(f"Post ID: {post_id}")
+            print(f"Author ID: {author_id}")
+            print(f"User: {request.user}")
+            print(f"User has author: {hasattr(request.user, 'author')}")
+
+            if not request.user.is_authenticated:
+                return Response({"error": "User must be logged in"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Get the comment
+            print("Looking for comment...")
+            try:
+                comment = Comment.objects.get(id=comment_id)
+                print(f"Found comment: {comment}")
+            except Comment.DoesNotExist:
+                print(f"Comment {comment_id} not found")
+                return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            liker = request.user.author
+            print(f"Liker: {liker}")
+            
+            # Check if already liked
+            already_liked = comment.likes.filter(id=liker.id).exists()
+            print(f"Already liked: {already_liked}")
+            
+            if already_liked:
+                # Unlike
+                comment.likes.remove(liker)
+                action = 'unliked'
+            else:
+                # Like
+                comment.likes.add(liker)
+                action = 'liked'
+            
+            like_count = comment.likes.count()
+            print(f"New like count: {like_count}")
+            
+            return Response({
+                "message": f"Comment {action} successfully",
+                "action": action,
+                "like_count": like_count
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            print(f"Error in CommentLikeView: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
