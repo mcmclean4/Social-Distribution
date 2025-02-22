@@ -1,23 +1,11 @@
 {% extends 'social/base.html' %}
-{% load static %}
 
 {% block content %}
-<h1>{{ post.title }}</h1>
-<p><strong>Description:</strong> {{ post.description }}</p>
-{% if post.image %}
-    <img src="{{ post.image.url }}" alt="{{ post.title }}">
-{% endif %}
-<p><strong>Content:</strong></p>
-<div class="content" data-content-type="{{ post.contentType }}">
-    {{ post.content | safe }}
-</div>
-<p><strong>Published on:</strong> {{ post.published }}</p>
-<p><strong>By:</strong> {{ post.author.displayName }}</p>
-<a href="{% url 'social:update_post' post.auto_id %}" class="btn btn-warning">Edit</a>
-<a href="{% url 'social:delete_post' post.auto_id %}" class="btn btn-danger">Delete</a>
-<a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
-{% endblock %}
-
-{% block extra_js %}
-    <script src="{% static 'markdown-renderer.min.js' %}"></script>
+    <h1>{{ post.title }}</h1>
+    <p>{{ post.description }}</p>
+    {% if post.image %}
+        <img src="{{ post.image.url }}" alt="{{ post.title }}" style="max-width: 100%; height: auto;">
+    {% endif %}
+    <p>Author: {{ post.author.username }}</p>
+    <p>Posted on: {{ post.created_at|date:"M d, Y" }}</p>
 {% endblock %}

@@ -36,22 +36,13 @@ class PostLikeSerializer(serializers.Serializer):
     published = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S%z")
     object = serializers.URLField()
 
-class PostSerializer(serializers.Serializer):
-    type = serializers.CharField(max_length=50)
-    title = serializers.CharField(max_length=255)
-    id = serializers.URLField()
-    page = serializers.URLField()
-    description = serializers.CharField(max_length=255)
-    contentType = serializers.CharField(max_length=50)
-    content = serializers.CharField()
-    image = serializers.ImageField(required=False)
-    author = AuthorSerializer()
-    published = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S%z")
-    visibility = serializers.CharField(max_length=50)
-    likes = PostLikeSerializer(many=True)
-    comments = CommentSerializer(many=True)
-    fields = ['title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility']
+from rest_framework import serializers
+from .models import Post
 
+class PostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = '__all__'
 
 
 

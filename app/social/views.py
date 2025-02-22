@@ -19,19 +19,33 @@ from django.core.paginator import Paginator
 from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
-from django.db import transaction  
+from django.db import transaction
+from social.templatetags.custom_filters import split_url
 
 import requests  
 from django.conf import settings
 import json
 @login_required  # Now correctly placed above a view function
 def stream(request):
-    post_list = Post.objects.filter().order_by('-published')
-    paginator = Paginator(post_list, 10)
-    page_number = request.GET.get('page')
-    posts = paginator.get_page(page_number)
-    return render(request, 'social/index.html', {'posts': posts})
+    posts = Post.objects.all()
+    context = {
+        'posts': posts,
+        'request': request,  # Pass request to the context
+    }
+    return render(request, 'social/index.html', context)
 
+
+
+from django.shortcuts import render
+from .models import Post
+
+def index(request):
+    posts = Post.objects.all()
+    context = {
+        'posts': posts,
+        'request': request,  # Pass request to the context
+    }
+    return render(request, 'social/index.html', context)
 
 
 def login_page(request):
@@ -91,14 +105,22 @@ def register(request):
     return render(request, 'social/register.html')
 
 
+# social/views.py
+from rest_framework import generics
+from .models import Post
+from .serializers import PostSerializer
+
 class PostListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Post.objects.all()
+    queryset = Post.objects.all()  # Ensure you're querying from the database
     serializer_class = PostSerializer
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user.author)
-
-
+    def get_queryset(self):
+        """
+        Optionally restrict the returned posts to a given user.
+        """
+        queryset = Post.objects.all()
+        # You can add filtering here based on request.user if needed
+        return queryset
 
 
 class FollowersListView(APIView):
@@ -284,53 +306,64 @@ class FollowerDetailView(APIView):
 def inbox_view(request):
     return render(request, "social/inbox.html")
 
+@login_required
 def create_post(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = PostForm(request.POST, request.FILES)
         if form.is_valid():
             post = form.save(commit=False)
-            if request.user.is_authenticated and hasattr(request.user, 'author'):
-                post.author = request.user.author
-            else:
-                default_user, created = User.objects.get_or_create(
-                    username='anonymous_user', defaults={'password': 'password'})
-                post.author, created = Author.objects.get_or_create(
-                    user=default_user,
-                    defaults={
-                        'id': f'http://localhost:8000/authors/{default_user.username}',
-                        'displayName': 'Anonymous Author',
-                        'host': 'http://localhost:8000',
-                        'type': 'Author'
-                    }
-                )
-            post.published = timezone.now()
+            author = Author.objects.get(user=request.user)
+            post.author = author
             post.save()
             return redirect('social:index')
     else:
         form = PostForm()
     return render(request, 'social/create_post.html', {'form': form})
 
-
-def update_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES, instance=post)
-        if form.is_valid():
-            form.save()
-            return redirect('social:index')
-    else:
-        form = PostForm(instance=post)
-    return render(request, 'social/update_post.html', {'form': form, 'post': post})
-
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Post
 
 def delete_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        post.is_deleted = True
-        post.visibility = 'DELETED'
-        post.save()
+    # Construct the full ID URL for the post
+    post_id = f"http://localhost:8000/social/api/authors/{request.user.id}/posts/{id}"
+    
+    post = get_object_or_404(Post, id=post_id)
+    
+    if post.author.user == request.user:
+        if request.method == "POST":
+            post.visibility = 'DELETED'
+            post.save()
+            return redirect('social:index')
+        else:
+            return render(request, 'social/delete_post.html', {'post': post})
+    else:
         return redirect('social:index')
-    return render(request, 'social/delete_post.html', {'post': post})
+
+
+
+
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Post
+from .forms import PostForm
+
+def update_post(request, id):
+    # Construct the full ID URL for the post
+    post_id = f"http://localhost:8000/social/api/authors/{request.user.id}/posts/{id}"
+    
+    post = get_object_or_404(Post, id=post_id)
+    
+    if post.author.user == request.user:
+        if request.method == "POST":
+            form = PostForm(request.POST, request.FILES, instance=post)
+            if form.is_valid():
+                form.save()
+                return redirect('social:post_detail', id=id)
+        else:
+            form = PostForm(instance=post)
+        return render(request, 'social/update_post.html', {'form': form, 'post': post})
+    else:
+        return redirect('social:index')
+
 
 
 @api_view(['GET'])
@@ -349,9 +382,17 @@ def get_authors(request):
     return Response(serializer.data)
 
 
-def post_detail(request, auto_id):
-    post = get_object_or_404(Post, auto_id=auto_id)
+# views.py
+from django.shortcuts import render, get_object_or_404
+from .models import Post
+
+def post_detail(request, id):
+    # Since 'id' is a string, we can pass it directly to get_object_or_404
+    post = get_object_or_404(Post, id=id)  # Use 'id=id' since it's a string field
     return render(request, 'social/post_detail.html', {'post': post})
+
+
+
 
 
 def follow_view(request):

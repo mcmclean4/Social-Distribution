@@ -1,13 +1,9 @@
-import uuid
 from django.db import models
-from django.utils import timezone
 from django.contrib.auth.models import User
-from django.utils.text import slugify
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
-
 
 class Author(models.Model):
 
@@ -51,6 +47,7 @@ class Author(models.Model):
 # =============================================================================
 # Post: Represents a social media post with likes, comments, etc.
 # =============================================================================
+
 class Post(models.Model):
     POST_CHOICES = [
         ('post', 'post'),
@@ -72,33 +69,36 @@ class Post(models.Model):
 
     type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(primary_key=True,unique=True, db_index=True)
-    page = models.URLField(blank=True, null=True)
+    id = models.URLField(primary_key=True, unique=True)  # This will be the custom URL for the post
+    page = models.URLField(blank=True, null=True)  # Optionally, the page URL for the post
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
     content = models.TextField()
     image = models.ImageField(upload_to='images/', blank=True, null=True)
-    author = models.ForeignKey('Author', on_delete=models.CASCADE)
-    published = models.DateTimeField()
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)  # Linking the post to the author (User model)
+    published = models.DateTimeField(auto_now_add=True)  # Automatically set the published time when creating the post
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
-    # is_deleted = models.BooleanField(default=False)
 
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
     comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     class Meta:
-        ordering = ['-published']
+        ordering = ['-published']  # Sorting posts by latest published date
 
     def __str__(self):
         return self.title
 
     def save(self, *args, **kwargs):
-        if not self.id:
-            self.id = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
-        if not self.page:
-            self.page = f"http://localhost:8000/posts/{slugify(self.title)}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
-        super().save(*args, **kwargs)
-
+        if self._state.adding:
+            largest_current_id = Post.objects.order_by('id').last()
+            try:
+                largest_current_id = int(largest_current_id.id.split('/')[-1])
+            except:
+                largest_current_id = 1
+            # Extract the author ID from the author URL
+            author_id = self.author.id.split('/')[-1]
+            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{largest_current_id+1}"
+        super().save(*args, **kwargs)  # Call the real save() method
 
 
 class PostLike(models.Model):
@@ -109,6 +109,7 @@ class PostLike(models.Model):
 # =============================================================================
 # Comment: Represents a comment on a post.
 # =============================================================================
+
 class Comment(models.Model):
     type = models.CharField(max_length=50)
     post = models.ForeignKey(

@@ -1,11 +1,19 @@
 {% extends 'social/base.html' %}
+{% load custom_filters %}
 
 {% block content %}
 <h1>Create Post</h1>
+
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form.as_p }}
+    
+    <!-- Render the form fields -->
+    <div class="form-group">
+        {{ form.as_p }}  <!-- Render all form fields as paragraphs -->
+    </div>
+
     <button type="submit" class="btn btn-primary">Post</button>
 </form>
+
 <a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
 {% endblock %}
