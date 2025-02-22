@@ -1,3 +1,4 @@
+from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
@@ -17,8 +18,6 @@ from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction
-
-import requests  
 from django.conf import settings
 import json
 
@@ -585,72 +584,3 @@ class InboxView(APIView):
 
         except Exception as e:
             return Response({"error": f"Failed to process request: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-def create_post(request):
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            if request.user.is_authenticated and hasattr(request.user, 'author'):
-                post.author = request.user.author
-            else:
-                default_user, created = User.objects.get_or_create(
-                    username='anonymous_user', defaults={'password': 'password'})
-                post.author, created = Author.objects.get_or_create(
-                    user=default_user,
-                    defaults={
-                        'id': f'http://localhost:8000/authors/{default_user.username}',
-                        'displayName': 'Anonymous Author',
-                        'host': 'http://localhost:8000',
-                        'type': 'Author'
-                    }
-                )
-            post.published = timezone.now()
-            post.save()
-            return redirect('social:index')
-    else:
-        form = PostForm()
-    return render(request, 'social/create_post.html', {'form': form})
-
-
-def update_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES, instance=post)
-        if form.is_valid():
-            form.save()
-            return redirect('social:index')
-    else:
-        form = PostForm(instance=post)
-    return render(request, 'social/update_post.html', {'form': form, 'post': post})
-
-
-def delete_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        post.is_deleted = True
-        post.visibility = 'DELETED'
-        post.save()
-        return redirect('social:index')
-    return render(request, 'social/delete_post.html', {'post': post})
-
-
-@api_view(['GET'])
-def get_author(request, id):
-
-    author = Author.objects.get(
-        id=f"http://localhost:8000/social/api/authors/{id}")
-    serializer = AuthorSerializer(author)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-def get_authors(request):
-    authors = Author.objects.all()
-    serializer = AuthorSerializer(authors, many=True)
-    return Response(serializer.data)
-
-
-def post_detail(request, auto_id):
-    post = get_object_or_404(Post, auto_id=auto_id)
-    return render(request, 'social/post_detail.html', {'post': post})
-
