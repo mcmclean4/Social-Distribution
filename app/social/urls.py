@@ -1,12 +1,17 @@
-from django.urls import path 
+from django.urls import path
+from .views import PostListCreateAPIView, create_post, update_post, delete_post, post_detail, stream
+from . import views
+from django.urls import path, re_path 
 from . import views
 from .views import *
-from .views import (
-    FollowersListView, FollowerDetailView, InboxView, inbox_view,
-    follow_view, follow_inbox_view, followers_view,
-)
 
 app_name = 'social'
+
+from django.urls import path, re_path
+from .views import (
+    FollowersListView, FollowerDetailView, InboxView, inbox_view,
+    follow_view, follow_inbox_view, followers_view, PostListCreateAPIView, create_post, update_post, delete_post, post_detail, stream
+)
 
 urlpatterns = [
     path("index/", views.stream, name="index"),
@@ -31,6 +36,7 @@ urlpatterns = [
     path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
     
+
     path("inbox/", inbox_view, name="inbox"),
     path("follow/", follow_view, name="web_follow"),
     path("inbox/follow/", follow_inbox_view, name="web_inbox"),
