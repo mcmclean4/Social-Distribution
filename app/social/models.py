@@ -52,14 +52,12 @@ class Post(models.Model):
     POST_CHOICES = [
         ('post', 'post'),
     ]
-
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
     ]
-
     CONTENT_VISIBILITY_CHOICES = [
         ('PUBLIC', 'Public'),
         ('FRIENDS', 'Friends'),
@@ -69,24 +67,26 @@ class Post(models.Model):
 
     type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(primary_key=True, unique=True)  # This will be the custom URL for the post
-    page = models.URLField(blank=True, null=True)  # Optionally, the page URL for the post
+    id = models.URLField(unique=True)
+    page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
     content = models.TextField()
     image = models.ImageField(upload_to='images/', blank=True, null=True)
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)  # Linking the post to the author (User model)
-    published = models.DateTimeField(auto_now_add=True)  # Automatically set the published time when creating the post
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
-
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
     comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
+    internal_id = models.AutoField(primary_key=True)
+
     class Meta:
-        ordering = ['-published']  # Sorting posts by latest published date
+        ordering = ['-published']
 
     def __str__(self):
         return self.title
+
 
     def save(self, *args, **kwargs):
         if self._state.adding:
@@ -95,10 +95,10 @@ class Post(models.Model):
                 largest_current_id = int(largest_current_id.id.split('/')[-1])
             except:
                 largest_current_id = 1
-            # Extract the author ID from the author URL
+            # extract the authorId from the authorURL
             author_id = self.author.id.split('/')[-1]
             self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{largest_current_id+1}"
-        super().save(*args, **kwargs)  # Call the real save() method
+        super().save(*args, **kwargs)
 
 
 class PostLike(models.Model):

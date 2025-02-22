@@ -36,14 +36,11 @@ class PostLikeSerializer(serializers.Serializer):
     published = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%S%z")
     object = serializers.URLField()
 
-from rest_framework import serializers
-from .models import Post
 
 class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = '__all__'
-
+        fields = ['id', 'type', 'title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility', 'likes', 'comments']
 
 
 

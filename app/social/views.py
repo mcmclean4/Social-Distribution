@@ -1,12 +1,10 @@
-from django.utils import timezone
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView  # Moved to the correct place
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
-
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
@@ -20,32 +18,22 @@ from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction
-from social.templatetags.custom_filters import split_url
-
 import requests  
 from django.conf import settings
 import json
-@login_required  # Now correctly placed above a view function
+
+######################################
+#           STREAM/INDEX AREA        
+######################################
+@login_required
 def stream(request):
-    posts = Post.objects.all()
-    context = {
-        'posts': posts,
-        'request': request,  # Pass request to the context
-    }
-    return render(request, 'social/index.html', context)
+    posts = Post.objects.exclude(visibility='DELETED')  # exclude posts with 'DELETED' visibility
+    return render(request, 'social/index.html', {'posts': posts})
 
 
-
-from django.shortcuts import render
-from .models import Post
-
-def index(request):
-    posts = Post.objects.all()
-    context = {
-        'posts': posts,
-        'request': request,  # Pass request to the context
-    }
-    return render(request, 'social/index.html', context)
+######################################
+#           AUTHOR AREA             
+######################################
 
 
 def login_page(request):
@@ -104,24 +92,108 @@ def register(request):
 
     return render(request, 'social/register.html')
 
+@api_view(['GET'])
+def get_author(request, id):
 
-# social/views.py
-from rest_framework import generics
-from .models import Post
-from .serializers import PostSerializer
+    author = Author.objects.get(
+        id=f"http://localhost:8000/social/api/authors/{id}")
+    serializer = AuthorSerializer(author)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_authors(request):
+    authors = Author.objects.all()
+    serializer = AuthorSerializer(authors, many=True)
+    return Response(serializer.data)
+
+
+######################################
+#            POST AREA              
+######################################
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Post.objects.all()  # Ensure you're querying from the database
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user.author)
+
+class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    lookup_field = 'internal_id'
+
+    def get_object(self):
+        return Post.objects.get(internal_id=self.kwargs['internal_id'])
+    
+    def perform_create(self, serializer):
+        author = Author.objects.get(id=self.kwargs['author_id'])
+        serializer.save(author=author)
+
+class AuthorPostListAPIView(generics.ListAPIView):
     serializer_class = PostSerializer
 
     def get_queryset(self):
-        """
-        Optionally restrict the returned posts to a given user.
-        """
-        queryset = Post.objects.all()
-        # You can add filtering here based on request.user if needed
-        return queryset
+        author_id = self.kwargs['author_id']
+        return Post.objects.filter(author__id=author_id)
+    
+class AuthorPostCreateAPIView(generics.CreateAPIView):
+    serializer_class = PostSerializer
 
+    def perform_create(self, serializer):
+        author = Author.objects.get(id=self.kwargs['author_id'])
+        serializer.save(author=author)
+    
+
+@login_required
+def create_post(request):
+    if request.method == "POST":
+        form = PostForm(request.POST, request.FILES)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user.author  # Assuming the user has an Author profile
+            post.save()
+            return redirect('social:index')
+    else:
+        form = PostForm()
+    return render(request, 'social/create_post.html', {'form': form})
+
+@login_required
+def delete_post(request, internal_id):
+    post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
+
+    if request.method == "POST":
+        # Set the visibility to DELETED instead of deleting the post
+        post.visibility = 'DELETED'
+        post.save()
+
+        return redirect('social:index')
+    return redirect('social:index')
+
+@login_required
+def update_post(request, internal_id):
+    post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
+
+    if request.method == "POST":
+        form = PostForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            form.save()
+            return redirect('social:index')
+
+    else:
+        form = PostForm(instance=post)
+
+    return render(request, 'social/update_post.html', {'form': form})
+
+def post_detail(request, internal_id):
+    post = get_object_or_404(Post, internal_id=internal_id)
+    return render(request, 'social/post_detail.html', {'post': post})
+
+
+######################################
+#           FOLLOW/FOLLOWEE AREA      
+######################################
 
 class FollowersListView(APIView):
     """Manages the list of authors that an author is following."""
@@ -305,94 +377,6 @@ class FollowerDetailView(APIView):
 
 def inbox_view(request):
     return render(request, "social/inbox.html")
-
-@login_required
-def create_post(request):
-    if request.method == "POST":
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            author = Author.objects.get(user=request.user)
-            post.author = author
-            post.save()
-            return redirect('social:index')
-    else:
-        form = PostForm()
-    return render(request, 'social/create_post.html', {'form': form})
-
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post
-
-def delete_post(request, id):
-    # Construct the full ID URL for the post
-    post_id = f"http://localhost:8000/social/api/authors/{request.user.id}/posts/{id}"
-    
-    post = get_object_or_404(Post, id=post_id)
-    
-    if post.author.user == request.user:
-        if request.method == "POST":
-            post.visibility = 'DELETED'
-            post.save()
-            return redirect('social:index')
-        else:
-            return render(request, 'social/delete_post.html', {'post': post})
-    else:
-        return redirect('social:index')
-
-
-
-
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post
-from .forms import PostForm
-
-def update_post(request, id):
-    # Construct the full ID URL for the post
-    post_id = f"http://localhost:8000/social/api/authors/{request.user.id}/posts/{id}"
-    
-    post = get_object_or_404(Post, id=post_id)
-    
-    if post.author.user == request.user:
-        if request.method == "POST":
-            form = PostForm(request.POST, request.FILES, instance=post)
-            if form.is_valid():
-                form.save()
-                return redirect('social:post_detail', id=id)
-        else:
-            form = PostForm(instance=post)
-        return render(request, 'social/update_post.html', {'form': form, 'post': post})
-    else:
-        return redirect('social:index')
-
-
-
-@api_view(['GET'])
-def get_author(request, id):
-
-    author = Author.objects.get(
-        id=f"http://localhost:8000/social/api/authors/{id}")
-    serializer = AuthorSerializer(author)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-def get_authors(request):
-    authors = Author.objects.all()
-    serializer = AuthorSerializer(authors, many=True)
-    return Response(serializer.data)
-
-
-# views.py
-from django.shortcuts import render, get_object_or_404
-from .models import Post
-
-def post_detail(request, id):
-    # Since 'id' is a string, we can pass it directly to get_object_or_404
-    post = get_object_or_404(Post, id=id)  # Use 'id=id' since it's a string field
-    return render(request, 'social/post_detail.html', {'post': post})
-
-
-
 
 
 def follow_view(request):

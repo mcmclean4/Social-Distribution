@@ -1,11 +1,51 @@
 {% extends 'social/base.html' %}
 
 {% block content %}
-    <h1>{{ post.title }}</h1>
-    <p>{{ post.description }}</p>
-    {% if post.image %}
-        <img src="{{ post.image.url }}" alt="{{ post.title }}" style="max-width: 100%; height: auto;">
-    {% endif %}
-    <p>Author: {{ post.author.username }}</p>
-    <p>Posted on: {{ post.created_at|date:"M d, Y" }}</p>
+  <div class="container mt-5">
+    <div class="card shadow-sm border-light rounded p-4">
+      <!-- Title -->
+      <h1 class="mb-3 fw-bold text-center">{{ post.title }}</h1>
+
+      <p class="text-muted text-center">
+        <strong>By:</strong> <span class="fw-semibold">{{ post.author.user.username }}</span> &bull;
+        <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
+      </p>
+
+      {% if post.image %}
+        <div class="text-center my-4">
+          <img src="{{ post.image.url }}" alt="{{ post.title }}" class="img-fluid rounded shadow-sm" style="max-height: 450px; object-fit: cover;">
+        </div>
+      {% endif %}
+
+      <p class="lead mt-3 text-center text-secondary">{{ post.description }}</p>
+
+      <div class="mt-3">
+        <p class="fs-5">{{ post.content|linebreaks }}</p>
+      </div>
+
+      <div class="d-flex justify-content-center mt-4 gap-3">
+        <a href="#" class="btn btn-outline-primary btn-sm px-4">
+          <i class="bi bi-hand-thumbs-up"></i> Like
+        </a>
+        <a href="#" class="btn btn-outline-secondary btn-sm px-4">
+          <i class="bi bi-chat-left-text"></i> Comment
+        </a>
+      </div>
+
+      {% if post.author.user == request.user %}
+        <div class="d-flex justify-content-center mt-4 gap-2">
+          <form method="POST" action="{% url 'social:delete_post' post.internal_id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm px-4">Delete</button>
+          </form>
+
+          <a href="{% url 'social:update_post' post.internal_id %}" class="btn btn-warning btn-sm px-4">Edit</a>
+        </div>
+      {% endif %}
+
+      <div class="text-center mt-4">
+        <a href="{% url 'social:index' %}" class="btn btn-secondary px-4">Back to Stream</a>
+      </div>
+    </div>
+  </div>
 {% endblock %}
