@@ -114,6 +114,10 @@ class TestSetUp(APITestCase):
     def setUpIdentity(self):
 
         self.register_url = reverse('social:register')
+        self.get_authors_url = reverse('social:get_authors')
+        self.get_author_url = lambda author_id: reverse('social:get_author', kwargs={'id' : author_id})
+
+        
 
         # Set up needed for test_indentity.py
         self.register_data = {
