@@ -38,11 +38,13 @@ class PostLikeSerializer(serializers.Serializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
+    author = AuthorSerializer()
     class Meta:
         model = Post
-        fields = ['id', 'type', 'title', 'description', 'contentType', 'content', 'image', 'author', 'published', 'visibility', 'likes', 'comments']
-
-
+        fields = [
+            'id', 'type', 'title', 'description', 'contentType', 'content', 
+            'image', 'author', 'published', 'visibility'
+        ]
 
 class FollowRequestSerializer(serializers.Serializer):
     type = serializers.CharField()
