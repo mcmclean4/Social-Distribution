@@ -17,15 +17,19 @@ urlpatterns = [
     path('api/authors', views.get_authors, name='get_authors'),
     path('api/authors/<int:id>', views.get_author, name='get_author'),
 
-    path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),
-    path('api/posts/<uuid:post_id>/', views.PostDetailAPIView.as_view(), name='post_detail'),
-    path('api/authors/<uuid:author_id>/posts/', views.AuthorPostListAPIView.as_view(), name='author_post_list'),
+    # path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),
+    path('api/posts/', views.api_create_post, name='post_create'),
+    path('api/posts/<int:id>/', views.api_get_post_by_id, name='api_get_post_by_id'),
+    path('api/authors/<int:id>/posts/', views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
+    path('api/authors/<int:author_id>/posts/<int:internal_id>/', views.get_author_and_post, name='get_author_and_post'),
+    path('api/authors/<int:id>/posts/<int:internal_id>/update/', views.update_post, name='update_post'),
+    path('api/authors/<int:id>/posts/<int:internal_id>/delete/', views.delete_post, name='delete_post'),
 
     # Image Posts
     #path('api/authors/<str:author_id>/posts/<int:internal_id>/image', image_views.___.as_view(), name='____'),
     path('api/posts/<int:internal_id>/image', getImage, name='get_image'),
 
-    path('post/new/', views.create_post, name='create_post'), 
+    path('post/', views.create_post, name='create_post'),
     path('post/<int:internal_id>/update/', views.update_post, name='update_post'),
     path('post/<int:internal_id>/delete/', views.delete_post, name='delete_post'),
     path('post/<int:internal_id>/', views.post_detail, name='post_detail'),
