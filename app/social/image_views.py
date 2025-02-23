@@ -1,25 +1,10 @@
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from rest_framework import generics, status
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework.views import APIView 
-from rest_framework.permissions import AllowAny
-from .serializers import PostSerializer, AuthorSerializer
-from .models import Post, Author, Follow, FollowRequest,Inbox
+from .models import Post, Author
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import PostForm
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
-from django.views import View
-from django.contrib import messages
-from urllib.parse import unquote
-from django.db import transaction
-from django.conf import settings
-import json
+from django.http import FileResponse, JsonResponse
+import mimetypes
+from .models import Post
 
 
 @api_view(['GET'])
@@ -27,8 +12,20 @@ def getImage(request, internal_id):
     print(request)
     print(internal_id)
     post = get_object_or_404(Post, internal_id=internal_id)
-    print(post['image'])
+
+    # Check if the post has an image
+    if not post.image:
+        return JsonResponse({"error": "Image not found"}, status=404)
+    print(post.image)
+
+    # Get the image file path
+    image_path = post.image.path
+
+    # Determine the MIME type (default to application/octet-stream if unknown)
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if not mime_type or not mime_type.startswith("image/"):
+        return JsonResponse({"error": "File is not a valid image"}, status=404)
 
     #return Response(status=200)
-    return render(request, 'social/post_detail.html', {'post': post})
+    return FileResponse(open(image_path, 'rb'), content_type=mime_type)
 
