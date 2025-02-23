@@ -97,7 +97,7 @@ class Post(models.Model):
                 largest_current_id = 1
             # extract the authorId from the authorURL
             author_id = self.author.id.split('/')[-1]
-            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{largest_current_id+1}"
+            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{largest_current_id}"
         super().save(*args, **kwargs)
 
 
