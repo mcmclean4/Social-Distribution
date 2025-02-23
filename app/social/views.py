@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView 
 from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Count 
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
@@ -17,7 +19,16 @@ from django.core.paginator import Paginator
 from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
-from django.db import transaction
+from django.db import transaction  # Correct placement of transaction import
+from django.utils import timezone
+from django.db.models import Q
+
+# Like
+from .models import Post, PostLike, Comment
+from .serializers import PostLikeSerializer
+
+
+import requests  # Correct placement of requests import
 from django.conf import settings
 import json
 from rest_framework.pagination import PageNumberPagination
@@ -29,7 +40,29 @@ from rest_framework.pagination import PageNumberPagination
 
 @login_required
 def stream(request):
-    posts = Post.objects.exclude(visibility='DELETED')  # exclude posts with 'DELETED' visibility
+    # Get user's friends
+    # user_friends = request.user.author.friends.all()
+
+    # Filter posts based on visibility
+    post_list = Post.objects.annotate(
+        like_count=Count('likes')
+    ).filter(
+        (Q(visibility='PUBLIC'))  # Show public posts
+        #  Q(visibility='FRIENDS', author__in=user_friends))  # Show friends' posts || currently
+        & ~Q(visibility='DELETED')  # Exclude deleted posts
+        & ~Q(visibility='UNLISTED')  # Exclude unlisted posts
+    ).order_by('-published')
+
+    # Handle likes for comments
+    for post in post_list:
+        for comment in post.comments.all():
+            comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
+
+    # Pagination
+    paginator = Paginator(post_list, 10)
+    page_number = request.GET.get('page')
+    posts = paginator.get_page(page_number)
+
     return render(request, 'social/index.html', {'posts': posts})
 
 
@@ -165,15 +198,36 @@ class PostDeleteAPIView(generics.DestroyAPIView):
     
 @login_required
 def create_post(request):
-    if request.method == "POST":
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.author = request.user.author  # Assuming the user has an Author profile
-            post.save()
-            return redirect('social:index')
-    else:
-        form = PostForm()
+    try:
+        # First check if Author exists for the user
+        try:
+            author = Author.objects.get(user=request.user)
+        except Author.DoesNotExist:
+            # Create new Author if doesn't exist
+            author = Author.objects.create(
+                user=request.user,
+                type='author',
+                displayName=request.user.username,
+            )
+            author.save()
+        
+        if request.method == "POST":
+            form = PostForm(request.POST, request.FILES)
+            if form.is_valid():
+                post = form.save(commit=False)
+                post.author = author
+                
+                # Generate a unique URL-based ID if not already set
+                if not post.id:
+                    post.id = f"http://localhost:8000/social/api/authors/{author.id}/posts/{post.internal_id}"
+                
+                post.save()
+                return redirect('social:index')
+    except Exception as e:
+        print(f"Error creating post: {str(e)}")  # For debugging
+        messages.error(request, "Error creating post. Please try again.")
+    
+    form = PostForm()
     return render(request, 'social/create_post.html', {'form': form})
 
 @api_view(['POST'])
@@ -187,14 +241,29 @@ def api_create_post(request):
 
 @login_required
 def delete_post(request, internal_id):
-    post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
-
-    if request.method == "POST":
-        # Set the visibility to DELETED instead of deleting the post
-        post.visibility = 'DELETED'
-        post.save()
-
-        return redirect('social:index')
+    try:
+        # First try to get the post without author check
+        post = Post.objects.get(internal_id=internal_id)
+        
+        # Print debug information
+        print(f"Post ID: {internal_id}")
+        print(f"Post Author: {post.author.user}")
+        print(f"Current User: {request.user}")
+        
+        # Then check if user is author
+        if post.author.user != request.user:
+            print("User is not the author")
+            return redirect('social:index')
+            
+        if request.method == "POST":
+            post.visibility = 'DELETED'
+            post.save()
+            # print(f"Post {internal_id} marked as deleted") 
+            return redirect('social:index')
+            
+    except Post.DoesNotExist:
+        print(f"No post found with ID: {internal_id}")
+        
     return redirect('social:index')
 
 @login_required
@@ -712,3 +781,302 @@ class InboxView(APIView):
 
         except Exception as e:
             return Response({"error": f"Failed to process request: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class PostLikeView(APIView):
+    def get(self, request, author_id, post_id):
+        """Check if the current user has liked the post"""
+        try:
+            # Construct the full post ID
+            full_post_id = f"http://localhost:8000/posts/{post_id}"
+            print(f"Looking for post with ID: {full_post_id}")
+            
+            post = get_object_or_404(Post, id=full_post_id)
+            print(f"Found post: {post.title}")
+            
+            has_liked = PostLike.objects.filter(
+                post=post,
+                author=request.user.author
+            ).exists()
+            
+            return Response({"has_liked": has_liked})
+            
+        except Post.DoesNotExist:
+            return Response(
+                {"error": f"Post not found with ID: {full_post_id}"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    def delete(self, request, author_id, post_id):
+        """Remove a like from the post"""
+        post = get_object_or_404(Post, id=f"http://localhost:8000/posts/{post_id}")
+        like = PostLike.objects.filter(
+            post=post,
+            author=request.user.author
+        )
+        
+        if like.exists():
+            like.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        
+        return Response(
+            {"message": "Like not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    def post(self, request, author_id, post_id):
+        try:
+            # Debug prints
+            # print("\n--- Post Like Debugging ---")
+            # print(f"Request User: {request.user.username}")
+            # print(f"Raw Author ID: {author_id}")
+            # print(f"Raw Post ID: {post_id}")
+            
+            # Normalize author_id (remove URL if present)
+            if isinstance(author_id, str) and '/authors/' in author_id:
+                author_id = author_id.split('/authors/')[-1].split('/')[0]
+            
+            # Construct the full post URL
+            full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+            print(f"Constructed Post URL: {full_post_url}")
+            
+            # Find the post
+            try:
+                # Try to find the post by its full URL ID first
+                post = Post.objects.get(id=full_post_url)
+            except Post.DoesNotExist:
+                # Fallback to finding by internal_id
+                try:
+                    post = Post.objects.get(internal_id=post_id)
+                except Post.DoesNotExist:
+                    # Log all existing posts for debugging
+                    all_posts = Post.objects.all()
+                    print("All Posts in Database:")
+                    for p in all_posts:
+                        print(f"Full ID: {p.id}")
+                        print(f"Internal ID: {p.internal_id}")
+                        print(f"Author ID: {p.author.id}")
+                        print(f"Title: {p.title}")
+                        print("---")
+                    
+                    return Response({
+                        'error': 'Post not found', 
+                        'details': {
+                            'full_url': full_post_url,
+                            'author_id': author_id,
+                            'post_id': post_id
+                        }
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get or create the author profile for the current user
+            try:
+                request_user_author = request.user.author
+            except Author.DoesNotExist:
+                request_user_author = Author.objects.create(
+                    user=request.user,
+                    type='author',
+                    displayName=request.user.username,
+                )
+            
+            # Check if like already exists
+            post_like, created = PostLike.objects.get_or_create(
+                post=post,
+                author=request_user_author
+            )
+            
+            if not created:
+                # Unlike if already liked
+                post_like.delete()
+                action = 'unliked'
+            else:
+                action = 'liked'
+            
+            return Response({
+                'action': action,
+                'like_count': post.likes.count()
+            })
+        
+        except Exception as e:
+            # Log the full exception for server-side debugging
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# comments
+@api_view(['POST'])
+def add_comment(request, author_id, post_id):
+    try:
+        # Debug prints
+        print("\n--- Add Comment Debugging ---")
+        print(f"Request User: {request.user.username}")
+        print(f"Raw Author ID: {author_id}")
+        print(f"Raw Post ID: {post_id}")
+        
+        # Normalize author_id (remove URL if present)
+        if isinstance(author_id, str) and '/authors/' in author_id:
+            author_id = author_id.split('/authors/')[-1].split('/')[0]
+        
+        # Construct the full post URL
+        full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+        
+        # Parse comment content
+        content = request.data.get('content', '').strip()
+        
+        # Validate comment content
+        if not content:
+            return Response({
+                'error': 'Comment content cannot be empty'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the post
+        try:
+            # Try to find the post by its full URL ID first
+            post = Post.objects.get(id=full_post_url)
+        except Post.DoesNotExist:
+            # Fallback to finding by internal_id
+            try:
+                post = Post.objects.get(internal_id=post_id)
+            except Post.DoesNotExist:
+                return Response({
+                    'error': 'Post not found', 
+                    'details': {
+                        'full_url': full_post_url,
+                        'author_id': author_id,
+                        'post_id': post_id
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get or create the author profile for the current user
+        try:
+            request_user_author = request.user.author
+        except Author.DoesNotExist:
+            request_user_author = Author.objects.create(
+                user=request.user,
+                type='author',
+                displayName=request.user.username,
+            )
+        
+        # Create the comment
+        comment = Comment.objects.create(
+            type='comment',
+            post=post,
+            author=request_user_author,
+            content=content,
+            published=timezone.now()
+        )
+        
+        # Add comment to post
+        post.comments.add(comment)
+        
+        # Prepare response data
+        return Response({
+            'id': comment.id,
+            'content': comment.content,
+            'published': comment.published.isoformat(),
+            'author': {
+                'id': comment.author.id,
+                'displayName': comment.author.displayName
+            },
+            'post': {
+                'id': post.id,
+                'internal_id': post.internal_id
+            }
+        }, status=status.HTTP_201_CREATED)
+    
+    except Exception as e:
+        # Log the full exception for server-side debugging
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'error': 'An unexpected error occurred',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CommentLikeView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def post(self, request, author_id, post_id, comment_id):
+        try:
+            # Debug prints
+            print("\n--- Comment Like Debugging ---")
+            print(f"Request User: {request.user.username}")
+            print(f"Raw Author ID: {author_id}")
+            print(f"Raw Post ID: {post_id}")
+            print(f"Raw Comment ID: {comment_id}")
+            
+            # Normalize author_id (remove URL if present)
+            if isinstance(author_id, str) and '/authors/' in author_id:
+                author_id = author_id.split('/authors/')[-1].split('/')[0]
+            
+            # Construct the full post URL
+            full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+            
+            # Find the post
+            try:
+                # Try to find the post by its full URL ID first
+                post = Post.objects.get(id=full_post_url)
+            except Post.DoesNotExist:
+                # Fallback to finding by internal_id
+                try:
+                    post = Post.objects.get(internal_id=post_id)
+                except Post.DoesNotExist:
+                    return Response({
+                        'error': 'Post not found', 
+                        'details': {
+                            'full_url': full_post_url,
+                            'author_id': author_id,
+                            'post_id': post_id
+                        }
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Find the comment
+            try:
+                comment = Comment.objects.get(id=comment_id)
+            except Comment.DoesNotExist:
+                return Response({
+                    'error': 'Comment not found', 
+                    'details': {
+                        'comment_id': comment_id
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get or create the author profile for the current user
+            try:
+                request_user_author = request.user.author
+            except Author.DoesNotExist:
+                request_user_author = Author.objects.create(
+                    user=request.user,
+                    type='author',
+                    displayName=request.user.username,
+                )
+            
+            # Check if like already exists
+            like_exists = comment.likes.filter(id=request_user_author.id).exists()
+            
+            if like_exists:
+                # Unlike
+                comment.likes.remove(request_user_author)
+                action = 'unliked'
+            else:
+                # Like
+                comment.likes.add(request_user_author)
+                action = 'liked'
+            
+            return Response({
+                'action': action,
+                'like_count': comment.likes.count()
+            })
+        
+        except Exception as e:
+            # Log the full exception for server-side debugging
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
