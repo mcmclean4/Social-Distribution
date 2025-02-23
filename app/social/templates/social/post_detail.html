@@ -9,16 +9,16 @@
             <h1 class="fw-bold text-center flex-grow-1">{{ post.title }}</h1>
             <div class="dropdown">
               <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="bi bi-three-dots fs-5"></i>  <!-- Changed from bi-three-dots-vertical to bi-three-dots -->
+                  <i class="bi bi-three-dots fs-5"></i>  
               </button>
-              <ul class="dropdown-menu dropdown-menu-end shadow">  <!-- Added shadow for better visibility -->
+              <ul class="dropdown-menu dropdown-menu-end shadow">  
                   <li>
                       <a class="dropdown-item d-flex align-items-center" href="{% url 'social:update_post' post.internal_id %}">
                           <i class="bi bi-pencil me-2"></i>
                           <span>Edit</span>
                       </a>
                   </li>
-                  <li><hr class="dropdown-divider"></li>  <!-- Added divider for better separation -->
+                  <li><hr class="dropdown-divider"></li>  
                   <li>
                     <button class="dropdown-item d-flex align-items-center text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteModal">
                       <i class="bi bi-trash me-2"></i>

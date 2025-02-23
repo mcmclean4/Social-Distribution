@@ -21,6 +21,7 @@ from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
 from django.utils import timezone
+from django.db.models import Q
 
 # Like
 from .models import Post, PostLike, Comment
@@ -39,18 +40,28 @@ from rest_framework.pagination import PageNumberPagination
 
 @login_required
 def stream(request):
+    # Get user's friends
+    # user_friends = request.user.author.friends.all()
+
+    # Filter posts based on visibility
     post_list = Post.objects.annotate(
         like_count=Count('likes')
+    ).filter(
+        (Q(visibility='PUBLIC'))  # Show public posts
+        #  Q(visibility='FRIENDS', author__in=user_friends))  # Show friends' posts || currently
+        & ~Q(visibility='DELETED')  # Exclude deleted posts
+        & ~Q(visibility='UNLISTED')  # Exclude unlisted posts
     ).order_by('-published')
-    
+
+    # Handle likes for comments
     for post in post_list:
         for comment in post.comments.all():
             comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
-        
+
+    # Pagination
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
-    # posts = Post.objects.exclude(visibility='DELETED') 
 
     return render(request, 'social/index.html', {'posts': posts})
 
@@ -247,6 +258,7 @@ def delete_post(request, internal_id):
         if request.method == "POST":
             post.visibility = 'DELETED'
             post.save()
+            # print(f"Post {internal_id} marked as deleted") 
             return redirect('social:index')
             
     except Post.DoesNotExist:
