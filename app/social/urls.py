@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import *
+from django.shortcuts import redirect
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
 from .image_views import(getImage)
@@ -38,6 +39,14 @@ urlpatterns = [
     path("api/authors/<str:author_id>/followers/", FollowersListView.as_view(), name="get_followers"),
     path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
+    # Like post
+    path('api/authors/<str:author_id>/posts/<str:post_id>/like/', PostLikeView.as_view(), name='like_post'),
+
+    # Comments
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/', add_comment, name='add_comment'),
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<str:comment_id>/like/', CommentLikeView.as_view(), name='like_comment'),
+
+
 
     path("inbox/", inbox_view, name="inbox"),
     path("follow/", follow_view, name="web_follow"),
@@ -46,4 +55,5 @@ urlpatterns = [
     path("following/", following_view, name="following"),
     path("unfollow/", unfollow_view, name="unfollow"),
     path("friends/", friends_view, name="friends"),
+    # path('api')
 ]
