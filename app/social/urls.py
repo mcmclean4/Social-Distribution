@@ -4,7 +4,7 @@ from .views import *
 from django.shortcuts import redirect
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
-from .image_views import(getImage)
+from .image_views import( getImageWithSerial, getImageWithFQID)
 
 app_name = 'social'
 
@@ -27,8 +27,8 @@ urlpatterns = [
     path('api/authors/<int:id>/posts/<int:internal_id>/delete/', views.delete_post, name='delete_post'),
 
     # Image Posts
-    #path('api/authors/<str:author_id>/posts/<int:internal_id>/image', image_views.___.as_view(), name='____'),
-    path('api/posts/<int:internal_id>/image', getImage, name='get_image'),
+    path('api/authors/<int:author_serial>/posts/<int:post_serial>/image', getImageWithSerial, name='get_image_with_serial'),
+    path('api/posts/<path:post_fqid>/image', getImageWithFQID, name='get_image_with_FQID'),
 
     path('post/', views.create_post, name='create_post'),
     path('post/<int:internal_id>/update/', views.update_post, name='update_post'),
