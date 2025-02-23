@@ -1,0 +1,14 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <form method="POST" action="{% url 'social:get_author' id=author_id %}">
+        {% csrf_token %}
+        <label for="displayName">Display Name: </label>
+        <input type="text" name="displayName"><br>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'social:profile_page' id=author_id %}" class="btn btn-secondary">Cancel</a>
+    </form>
+
+</div>
+{% endblock %}

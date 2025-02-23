@@ -14,6 +14,8 @@ urlpatterns = [
     path('register/', views.register, name='register'),
 
     path('api/authors', views.get_authors, name='get_authors'),
+    path('profile/<int:id>', views.profile_page, name='profile_page'),
+    path('profile/<int:id>/edit', views.profile_edit, name="profile_edit"),
     path('api/authors/<int:id>', views.get_author, name='get_author'),
 
     path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),

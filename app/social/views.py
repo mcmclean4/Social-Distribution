@@ -91,13 +91,19 @@ def register(request):
 
     return render(request, 'social/register.html')
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def get_author(request, id):
-
-    author = Author.objects.get(
-        id=f"http://localhost:8000/social/api/authors/{id}")
-    serializer = AuthorSerializer(author)
-    return Response(serializer.data)
+    if request.POST:
+        author = Author.objects.filter(id = f"http://localhost:8000/social/api/authors/{id}").update(
+            profileImage = None, 
+            displayName = request.POST["displayName"]
+            )
+        return redirect('social:profile_page', id=id)
+    elif request.GET:
+        author = Author.objects.get(
+            id=f"http://localhost:8000/social/api/authors/{id}")
+        serializer = AuthorSerializer(author)
+        return Response(serializer.data)
 
 
 @api_view(['GET'])
@@ -105,6 +111,42 @@ def get_authors(request):
     authors = Author.objects.all()
     serializer = AuthorSerializer(authors, many=True)
     return Response(serializer.data)
+
+@login_required
+def profile_page(request, id):
+    #Get the author
+    currentUser = request.user
+    currentAuthor = Author.objects.filter(user=currentUser).get()
+    
+    #Get all the posts
+    posts = Post.objects.filter(author=currentAuthor).values()
+    
+    #We need type
+    postsToRender = []
+    for post in posts:
+        print(post["id"])
+        postDict = {
+            "title": post["title"],
+            "image": post["image"],
+            "content": post["content"],
+            "contentType": post["contentType"],
+            "description": post["description"],
+            "id": post["internal_id"]
+        }
+        postsToRender.append(postDict)
+        
+    return render(request, 'social/profile.html', {"posts": postsToRender, "author":currentAuthor})
+
+@login_required
+def profile_edit(request, id):
+    currentUser = request.user
+    currentAuthor = Author.objects.filter(user=currentUser).get()
+    
+    if str(id) != currentAuthor.id.split('/')[-1]:
+        return redirect('social:profile_page', id=id)
+    else:
+        print("correct")
+    return render(request, 'social/profile_edit.html')
 
 
 ######################################
