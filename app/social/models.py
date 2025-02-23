@@ -92,14 +92,12 @@ class Post(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding:
-            largest_current_id = Post.objects.order_by('id').last()
-            try:
-                largest_current_id = int(largest_current_id.id.split('/')[-1])
-            except:
-                largest_current_id = 1
-            # extract the authorId from the authorURL
+            # Get the last post based on the auto-incrementing internal_id field
+            last_post = Post.objects.order_by('internal_id').last()
+            next_internal_id = last_post.internal_id + 1 if last_post else 1
+            # Extract the authorId from the author URL (assuming author.id is a URL)
             author_id = self.author.id.split('/')[-1]
-            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{largest_current_id}"
+            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{next_internal_id}"
         super().save(*args, **kwargs)
 
 

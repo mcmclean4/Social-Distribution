@@ -208,7 +208,6 @@ def my_posts(request):
         author=user,
         visibilities='ALL'
     )
-    print(post_list)
 
     # Pagination
     paginator = Paginator(post_list, 10)
@@ -219,31 +218,40 @@ def my_posts(request):
 
 @login_required
 def create_post(request):
+
+    # First check if Author exists for the user
     try:
-        # First check if Author exists for the user
-        try:
-            author = Author.objects.get(user=request.user)
-        except Author.DoesNotExist:
-            # Create new Author if doesn't exist
-            author = Author.objects.create(
-                user=request.user,
-                type='author',
-                displayName=request.user.username,
-            )
-            author.save()
-        
+        author = Author.objects.get(user=request.user)
+    except Author.DoesNotExist:
+        # Create new Author if doesn't exist
+        author = Author.objects.create(
+            user=request.user,
+            type='author',
+            displayName=request.user.username,
+        )
+        author.save()
+
+    try:
         if request.method == "POST":
             form = PostForm(request.POST, request.FILES)
             if form.is_valid():
-                post = form.save(commit=False)
-                post.author = author
-                
-                # Generate a unique URL-based ID if not already set
-                if not post.id:
-                    post.id = f"http://localhost:8000/social/api/authors/{author.id}/posts/{post.internal_id}"
-                
-                post.save()
-                return redirect('social:index')
+                # Get the cleaned data from the form.
+                data = form.cleaned_data
+                print("Data:", data)
+
+                # Pass the data into the serializer.
+                serializer = PostSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save(author=author)
+                    return redirect('social:index')
+                else:
+                    # Optionally log or display serializer errors.
+                    print(serializer.errors)
+        else:
+            form = PostForm()
+
+        return render(request, 'social/create_post.html', {'form': form})
+
     except Exception as e:
         print(f"Error creating post: {str(e)}")  # For debugging
         messages.error(request, "Error creating post. Please try again.")
