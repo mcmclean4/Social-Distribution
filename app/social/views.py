@@ -237,7 +237,6 @@ def create_post(request):
             if form.is_valid():
                 # Get the cleaned data from the form.
                 data = form.cleaned_data
-                print("Data:", data)
 
                 # Pass the data into the serializer.
                 serializer = PostSerializer(data=data)
