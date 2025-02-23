@@ -3,6 +3,7 @@ from . import views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
+from .image_views import(getImage)
 
 app_name = 'social'
 
@@ -19,6 +20,10 @@ urlpatterns = [
     path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),
     path('api/posts/<uuid:post_id>/', views.PostDetailAPIView.as_view(), name='post_detail'),
     path('api/authors/<uuid:author_id>/posts/', views.AuthorPostListAPIView.as_view(), name='author_post_list'),
+
+    # Image Posts
+    #path('api/authors/<str:author_id>/posts/<int:internal_id>/image', image_views.___.as_view(), name='____'),
+    path('api/posts/<int:internal_id>/image', getImage, name='get_image'),
 
     path('post/new/', views.create_post, name='create_post'), 
     path('post/<int:internal_id>/update/', views.update_post, name='update_post'),
