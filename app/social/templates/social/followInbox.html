@@ -7,7 +7,7 @@
         {% for request in follow_requests %}
         <ul>
             <li>
-                <strong>{{ request.actor.id }}</strong> wants to follow you.
+                <strong>{{ request.actor.displayName }} ({{ request.actor.id }})</strong>   wants to follow you.
                 <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}">
                     Approve
                 </button>

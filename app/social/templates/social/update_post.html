@@ -1,11 +1,64 @@
-{% extends 'social/base.html' %}
+{% extends "social/base.html" %}
 
 {% block content %}
-<h1>Update Post</h1>
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Update</button>
-</form>
-<a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
+  <div class="container mt-4">
+    <h2 class="mb-3">Edit Post</h2>
+
+    <form method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+          <div class="text-danger">{{ form.title.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div class="text-danger">{{ form.description.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.contentType.id_for_label }}" class="form-label">Content Type</label>
+        {{ form.contentType }}
+        {% if form.contentType.errors %}
+          <div class="text-danger">{{ form.contentType.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
+        {{ form.content }}
+        {% if form.content.errors %}
+          <div class="text-danger">{{ form.content.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.image.id_for_label }}" class="form-label">Upload Image</label>
+        {{ form.image }}
+        {% if form.image.errors %}
+          <div class="text-danger">{{ form.image.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.visibility.id_for_label }}" class="form-label">Visibility</label>
+        {{ form.visibility }}
+        {% if form.visibility.errors %}
+          <div class="text-danger">{{ form.visibility.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Update</button>
+        <a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
+      </div>
+    </form>
+  </div>
 {% endblock %}
