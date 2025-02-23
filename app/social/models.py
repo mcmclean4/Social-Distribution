@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from social.managers import PostManager
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
@@ -65,6 +66,7 @@ class Post(models.Model):
         ('DELETED', 'Deleted'),
     ]
 
+    objects = PostManager()
     type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
     id = models.URLField(unique=True)

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView 
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Count 
+from django.db.models import Count, Q
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
@@ -17,11 +17,11 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.views import View
+from django.views.generic import ListView
 from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
 from django.utils import timezone
-from django.db.models import Q
 
 # Like
 from .models import Post, PostLike, Comment
@@ -195,7 +195,28 @@ class PostDeleteAPIView(generics.DestroyAPIView):
         instance.visibility = 'DELETED'
         instance.save()
 
-    
+@login_required
+def my_posts(request):
+    try:
+        user = Author.objects.get(user=request.user)
+    except Author.DoesNotExist:
+        print("No author found")
+        return redirect('social:index')
+
+    post_list = Post.objects.filtered(
+        filter_type='author',
+        author=user,
+        visibilities='ALL'
+    )
+    print(post_list)
+
+    # Pagination
+    paginator = Paginator(post_list, 10)
+    page_number = request.GET.get('page')
+    posts = paginator.get_page(page_number)
+
+    return render(request, 'social/my_posts.html', {'my_posts': posts})
+
 @login_required
 def create_post(request):
     try:
@@ -588,7 +609,6 @@ def friends_view(request):
         "my_author": my_author,
         "friends": friends
     })
-
 
 
 class InboxView(APIView):

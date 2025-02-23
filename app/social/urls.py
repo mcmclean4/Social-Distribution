@@ -47,7 +47,7 @@ urlpatterns = [
     path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<str:comment_id>/like/', CommentLikeView.as_view(), name='like_comment'),
 
 
-
+    path("my_posts/", views.my_posts, name="my_posts"),
     path("inbox/", inbox_view, name="inbox"),
     path("follow/", follow_view, name="web_follow"),
     path("inbox/follow/", follow_inbox_view, name="web_inbox"),
