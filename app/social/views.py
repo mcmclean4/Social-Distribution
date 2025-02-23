@@ -1,14 +1,14 @@
-from django.utils import timezone
-from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.views import APIView  # Moved to the correct place
+from rest_framework.views import APIView 
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count 
 from .serializers import PostSerializer, AuthorSerializer
-from .models import Post, Author, Follow, FollowRequest
+from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import PostForm
@@ -20,6 +20,7 @@ from django.views import View
 from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
+from django.utils import timezone
 
 # Like
 from .models import Post, PostLike, Comment
@@ -29,7 +30,11 @@ from .serializers import PostLikeSerializer
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
-@login_required  
+
+######################################
+#           STREAM/INDEX AREA        
+######################################
+@login_required
 def stream(request):
     post_list = Post.objects.annotate(
         like_count=Count('likes')
@@ -42,10 +47,14 @@ def stream(request):
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
-
+    # posts = Post.objects.exclude(visibility='DELETED') 
 
     return render(request, 'social/index.html', {'posts': posts})
 
+
+######################################
+#           AUTHOR AREA             
+######################################
 
 
 def login_page(request):
@@ -104,242 +113,6 @@ def register(request):
 
     return render(request, 'social/register.html')
 
-
-class PostListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user.author)
-
-
-
-
-class FollowersListView(APIView):
-    """Manages the list of authors that an author is following."""
-
-    def get(self, request, author_id):
-        """
-        Retrieves a list of authors that are following AUTHOR_ID.
-        """
-        author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
-
-        print(f"📥 Checking followers list for: {expected_author_id}")
-
-        # Ensure the author exists
-        author = get_object_or_404(Author, id=expected_author_id)
-
-        # Get all authors that are following this author
-        followers = Follow.objects.filter(followee=author)
-
-        followers_list = []
-        for follow in followers:
-            follower_id = follow.follower_id  # Get follower ID
-
-            # If follower is local, return full details from the DB
-            if follower_id.startswith(settings.HOST):
-                try:
-                    follower = Author.objects.get(id=follower_id)
-                    followers_list.append({
-                        "id": follower.id,
-                        "type": "author",
-                        "displayName": follower.displayName,
-                        "github": follower.github,
-                        "profileImage": follower.profileImage,
-                        "host": follower.host,
-                    })
-                except Author.DoesNotExist:
-                    print(f" Error: Local follower {follower_id} not found!")
-                    continue
-            else:
-                # If follower is remote, fetch details from their API
-                try:
-                    response = requests.get(follower_id, headers={"Content-Type": "application/json"})
-                    response.raise_for_status()
-                    data = response.json()
-
-                    followers_list.append({
-                        "id": data.get("id", follower_id),
-                        "type": data.get("type", "author"),
-                        "displayName": data.get("displayName", "Unknown"),
-                        "github": data.get("github", ""),
-                        "profileImage": data.get("profileImage", ""),
-                        "host": data.get("host", ""),
-                    })
-                except requests.exceptions.RequestException as e:
-                    print(f" Error fetching details for {follower_id}: {e}")
-                    continue
-
-        return Response({"type": "followers", "items": followers_list}, status=status.HTTP_200_OK)
-
-
-
-    def put(self, request, author_id):
-        """
-        Approves a follow request by adding the author from the JSON body to the followers list.
-        """
-        author_id = author_id  # Already decoded
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
-
-        print(f"Approving follow request for: {expected_author_id}")
-
-        # Ensure the author exists
-        author = get_object_or_404(Author, id=expected_author_id)
-
-        # Parse JSON body
-        data = request.data
-        follower_id = data.get("id")
-
-        if not follower_id:
-            return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            # Check if the follow request exists
-            follow_request = FollowRequest.objects.filter(
-                followee=author, follower_id=follower_id, status="pending"
-            ).first()
-
-            if not follow_request:
-                return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            # Approve request
-            follow_request.status = "accepted"
-            follow_request.save()
-
-            # Store the follower
-            Follow.objects.get_or_create(followee=author, follower_id=follower_id)
-
-        return Response({"message": "Follow request approved"}, status=status.HTTP_200_OK)
-
-    def delete(self, request, author_id):
-        """
-        Removes a follower from the author's followers list.
-        The follower ID is expected in the request body.
-        """
-        author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
-
-        print(f" Removing follower for: {expected_author_id}")
-
-        # Ensure the author exists
-        author = get_object_or_404(Author, id=expected_author_id)
-
-        # Parse follower ID from request body
-        data = request.data
-        follower_fqid = data.get("id")
-
-        if not follower_fqid:
-            return Response({"error": "Missing follower ID"}, status=status.HTTP_400_BAD_REQUEST)
-
-        print(f"🚨 Removing follower: {follower_fqid}")
-
-        # Delete the follower
-        deleted, _ = Follow.objects.filter(followee=author, follower_id=follower_fqid).delete()
-        
-        if deleted:
-            return Response({"message": "Follower removed successfully"}, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Follower not found"}, status=status.HTTP_404_NOT_FOUND)
-                
-
-class FollowerDetailView(APIView):
-    """Check if a user follows an author, add, or remove a follower"""
-
-    def get(self, request, author_id, follower_fqid):
-        """
-        Checks if AUTHOR_SERIAL is following FOREIGN_AUTHOR_FQID.
-        If true, makes a GET request to the author's followee ID and returns full author details.
-        """
-        author_id = unquote(author_id)
-        follower_fqid = unquote(follower_fqid)
-
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
-
-        print(f"📥 Checking if {expected_author_id} follows {follower_fqid}")
-
-        # Ensure the author exists
-        author = get_object_or_404(Follow, follower_id=follower_fqid, followee__id=expected_author_id)
-
-        if author:
-            print(f" {follower_fqid} is a follower of {expected_author_id}")
-
-            # ✅ Make GET request to the followee's ID to fetch full author details
-            try:
-                response = requests.get(follower_fqid, headers={"Content-Type": "application/json"})
-                response.raise_for_status()  # Raise error if status code is not 200
-                author_data = response.json()
-
-                # ✅ Construct response in the required format
-                return Response({
-                    "type": "author",
-                    "id": author_data.get("id"),
-                    "host": author_data.get("host"),
-                    "displayName": author_data.get("displayName"),
-                    "page": author_data.get("page"),
-                    "github": author_data.get("github", ""),
-                    "profileImage": author_data.get("profileImage", ""),
-                }, status=status.HTTP_200_OK)
-
-            except requests.exceptions.RequestException as e:
-                print(f"Error fetching author details: {e}")
-                return Response({"error": "Failed to retrieve author details"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        print(f"{follower_fqid} is NOT a follower of {expected_author_id}")
-        return Response({"error": "Not a follower"}, status=status.HTTP_404_NOT_FOUND)
-
-def inbox_view(request):
-    return render(request, "social/inbox.html")
-
-def create_post(request):
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES)
-        if form.is_valid():
-            post = form.save(commit=False)
-            if request.user.is_authenticated and hasattr(request.user, 'author'):
-                post.author = request.user.author
-            else:
-                default_user, created = User.objects.get_or_create(
-                    username='anonymous_user', defaults={'password': 'password'})
-                post.author, created = Author.objects.get_or_create(
-                    user=default_user,
-                    defaults={
-                        'id': f'http://localhost:8000/authors/{default_user.username}',
-                        'displayName': 'Anonymous Author',
-                        'host': 'http://localhost:8000',
-                        'type': 'Author'
-                    }
-                )
-            post.published = timezone.now()
-            post.save()
-            return redirect('social:index')
-    else:
-        form = PostForm()
-    return render(request, 'social/create_post.html', {'form': form})
-
-
-def update_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        form = PostForm(request.POST, request.FILES, instance=post)
-        if form.is_valid():
-            form.save()
-            return redirect('social:index')
-    else:
-        form = PostForm(instance=post)
-    return render(request, 'social/update_post.html', {'form': form, 'post': post})
-
-
-def delete_post(request, id):
-    post = get_object_or_404(Post, id=id)
-    if request.method == 'POST':
-        post.is_deleted = True
-        post.visibility = 'DELETED'
-        post.save()
-        return redirect('social:index')
-    return render(request, 'social/delete_post.html', {'post': post})
-
-
 @api_view(['GET'])
 def get_author(request, id):
 
@@ -356,9 +129,127 @@ def get_authors(request):
     return Response(serializer.data)
 
 
-def post_detail(request, auto_id):
-    post = get_object_or_404(Post, auto_id=auto_id)
+######################################
+#            POST AREA              
+######################################
+
+class PostListCreateAPIView(generics.ListCreateAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user.author)
+
+class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    lookup_field = 'internal_id'
+
+    def get_object(self):
+        return Post.objects.get(internal_id=self.kwargs['internal_id'])
+    
+    def perform_create(self, serializer):
+        author = Author.objects.get(id=self.kwargs['author_id'])
+        serializer.save(author=author)
+
+class AuthorPostListAPIView(generics.ListAPIView):
+    serializer_class = PostSerializer
+
+    def get_queryset(self):
+        author_id = self.kwargs['author_id']
+        return Post.objects.filter(author__id=author_id)
+    
+class AuthorPostCreateAPIView(generics.CreateAPIView):
+    serializer_class = PostSerializer
+
+    def perform_create(self, serializer):
+        author = Author.objects.get(id=self.kwargs['author_id'])
+        serializer.save(author=author)
+    
+
+@login_required
+def create_post(request):
+    try:
+        # First check if Author exists for the user
+        try:
+            author = Author.objects.get(user=request.user)
+        except Author.DoesNotExist:
+            # Create new Author if doesn't exist
+            author = Author.objects.create(
+                user=request.user,
+                type='author',
+                displayName=request.user.username,
+            )
+            author.save()
+        
+        if request.method == "POST":
+            form = PostForm(request.POST, request.FILES)
+            if form.is_valid():
+                post = form.save(commit=False)
+                post.author = author
+                
+                # Generate a unique URL-based ID if not already set
+                if not post.id:
+                    post.id = f"http://localhost:8000/social/api/authors/{author.id}/posts/{post.internal_id}"
+                
+                post.save()
+                return redirect('social:index')
+    except Exception as e:
+        print(f"Error creating post: {str(e)}")  # For debugging
+        messages.error(request, "Error creating post. Please try again.")
+    
+    form = PostForm()
+    return render(request, 'social/create_post.html', {'form': form})
+
+def delete_post(request, internal_id):
+    try:
+        # First try to get the post without author check
+        post = Post.objects.get(internal_id=internal_id)
+        
+        # Print debug information
+        print(f"Post ID: {internal_id}")
+        print(f"Post Author: {post.author.user}")
+        print(f"Current User: {request.user}")
+        
+        # Then check if user is author
+        if post.author.user != request.user:
+            print("User is not the author")
+            return redirect('social:index')
+            
+        if request.method == "POST":
+            post.visibility = 'DELETED'
+            post.save()
+            return redirect('social:index')
+            
+    except Post.DoesNotExist:
+        print(f"No post found with ID: {internal_id}")
+        
+    return redirect('social:index')
+
+@login_required
+def update_post(request, internal_id):
+    post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
+
+    if request.method == "POST":
+        form = PostForm(request.POST, request.FILES, instance=post)
+        if form.is_valid():
+            form.save()
+            return redirect('social:index')
+
+    else:
+        form = PostForm(instance=post)
+
+    return render(request, 'social/update_post.html', {'form': form})
+
+def post_detail(request, internal_id):
+    post = get_object_or_404(Post, internal_id=internal_id)
     return render(request, 'social/post_detail.html', {'post': post})
+
+
+######################################
+#           FOLLOW/FOLLOWEE AREA      
+######################################
+
 
 
 def follow_view(request):
@@ -403,18 +294,20 @@ def follow_inbox_view(request):
         response.raise_for_status()  # Ensure non-200 responses raise an error
         inbox_data = response.json()
 
-        # Extract only "follow" requests from inbox
-        follow_requests = [item for item in inbox_data.get("items", []) if item.get("type", "").lower() == "follow"]
+        # Extract only "follow" requests that are still pending
+        follow_requests = [
+            item for item in inbox_data.get("items", [])
+            if item.get("type", "").lower() == "follow"
+        ]
 
     except requests.exceptions.RequestException as e:  # Correct exception handling
-        print(f" Error fetching inbox data: {e}")
+        print(f"❌ Error fetching inbox data: {e}")
         follow_requests = []
 
     return render(request, "social/followInbox.html", {
         "my_author_id": my_author_id,
         "follow_requests": follow_requests  # Only follow requests are passed to the template
     })
-
 
 
 
@@ -497,13 +390,13 @@ def unfollow_view(request):
 
     try:
         data = json.loads(request.body)
-        followee_id = data.get("followee_id")  # ✅ Get followee ID from request body
+        followee_id = data.get("followee_id")  # Get followee ID from request body
         if not followee_id:
             return JsonResponse({"error": "Missing followee ID"}, status=400)
 
-        my_author = request.user.author  # ✅ Get logged-in author's profile
+        my_author = request.user.author  # Get logged-in author's profile
 
-        # ✅ Delete the follow object
+        # Delete the follow object
         deleted, _ = Follow.objects.filter(follower_id=my_author.id, followee__id=followee_id).delete()
 
         if deleted:
@@ -527,16 +420,16 @@ def friends_view(request):
 
     print(f"📌 Checking friends for: {my_author.displayName} ({my_author_id})")
 
-    # ✅ Get people I follow
+    # Get people I follow
     following_ids = set(Follow.objects.filter(follower_id=my_author_id).values_list("followee_id", flat=True))
 
-    # ✅ Get people who follow me
+    #  Get people who follow me
     followers_ids = set(Follow.objects.filter(followee_id=my_author_id).values_list("follower_id", flat=True))
 
-    # ✅ Find mutual followers (friends)
+    #  Find mutual followers (friends)
     friends_ids = following_ids.intersection(followers_ids)
 
-    # ✅ Fetch full author details for friends
+    #  Fetch full author details for friends
     friends = []
     for friend_id in friends_ids:
         try:
@@ -555,174 +448,198 @@ def friends_view(request):
         "friends": friends
     })
 
-class InboxView(APIView):
-    
-    """Handles follow requests in an author's inbox."""
-    permission_classes = [AllowAny]
-    from rest_framework.permissions import AllowAny
+
 
 class InboxView(APIView):
-    """Handles follow requests in an author's inbox."""
+    """Handles fetching and storing items in an author's inbox."""
 
     permission_classes = [AllowAny]
-
-    def post(self, request, author_id):
-        """Receives and stores follow requests."""
-        print(f"📥 Receiving follow request for: {author_id}")
-
-        # Construct expected author ID
-        local_author_id = f"{settings.HOST}api/authors/{author_id}"
-        print(f"🔍 Expected Author ID: {local_author_id}")
-
-        # Log the full incoming request data for debugging
-        print(f"📥 Full request data: {request.data}")
-
-        data = request.data
-
-        # Ensure request type is "Follow"
-        if data.get("type") != "Follow":
-            print(f" Invalid request type: {data.get('type')}")
-            return Response({"error": "Invalid request type"}, status=status.HTTP_400_BAD_REQUEST)
-
-        actor_data = data.get("actor")
-        object_data = data.get("object")
-
-        # Validate presence of actor and object
-        if not actor_data or not object_data:
-            print(f" Missing actor or object")
-            return Response({"error": "Missing actor or object"}, status=status.HTTP_400_BAD_REQUEST)
-
-        follower_id = actor_data["id"]  # The one sending the request
-        followee_id = object_data["id"]  # The one receiving the request
-
-        print(f"🔍 Checking if {followee_id} is local or foreign...")
-
-        # Check if the followee exists in our local database
-        is_local = followee_id.startswith(settings.HOST)
-
-        if is_local:
-            # Followee is local, store the request in the inbox
-            followee = get_object_or_404(Author, id=local_author_id)
-
-            follow_request, created = FollowRequest.objects.get_or_create(
-                followee=followee,
-                follower_id=follower_id,  # Store FQID for remote followers
-                defaults={"summary": data.get("summary", ""), "status": "pending"}
-            )
-
-            if not created:
-                return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
-
-            print(f" Follow request stored from {follower_id} to {followee.id}")
-            return Response({"message": "Follow request received"}, status=status.HTTP_201_CREATED)
-
-        else:
-            # Followee is foreign, create the follow object immediately
-            Follow.objects.get_or_create(followee_id=followee_id, follower_id=follower_id)
-
-            print(f" Foreign followee detected! adding {follower_id} as a follower of {followee_id}")
-            return Response({"message": "Follow request sent and assumed accepted"}, status=status.HTTP_201_CREATED)
-
-
 
     def get(self, request, author_id):
         """
-        Fetches pending follow requests and retrieves full author details.
+        Fetches all items (posts, likes, comments, follow requests) in the inbox.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"  # Ensure correct format
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"📥 Checking inbox for: {expected_author_id}")  # Debugging output
+        print(f"📥 Fetching inbox for: {expected_author_id}")
 
-        # Get the full author object
+        # Get the author's inbox
         author = get_object_or_404(Author, id=expected_author_id)
+        inbox = Inbox.objects.filter(author=author).first()
 
-        # Get all pending follow requests
-        follow_requests = FollowRequest.objects.filter(followee=author, status="pending")
+        if not inbox:
+            return Response({"type": "inbox", "items": []}, status=status.HTTP_200_OK)
 
-        print(f"📌 Found {follow_requests.count()} pending follow requests")  # Debugging output
-
-        # Fetch details for each author via API calls
+        # Fetch and format items
         inbox_items = []
-        for fr in follow_requests:
-            follower_url = fr.follower_id  # The full follower URL (remote/local)
-            followee_url = fr.followee.id  # The followee (local author's) full URL
 
-            # ✅ Fetch follower details from API
-            follower_data = self.get_author_details(follower_url)
-            followee_data = self.get_author_details(followee_url)
+        # Fetch and format follow requests
+        for fr in inbox.inbox_follows.all():
+            follower_data = self.get_author_details(fr.follower_id)
+            followee_data = self.get_author_details(fr.followee.id)
 
-            if follower_data and followee_data:  # Only include if both API calls succeed
+            if follower_data and followee_data:
                 inbox_items.append({
-                    "type": "follow",
+                    "type": "Follow",
                     "summary": f"{follower_data['displayName']} wants to follow {followee_data['displayName']}",
                     "actor": follower_data,
                     "object": followee_data
                 })
 
-        print(f"📤 Returning {len(inbox_items)} follow requests")  # Debugging output
+        # Fetch and format posts
+        for post in inbox.inbox_posts.all():
+            post_data = self.get_post_details(post.id)
+            if post_data:
+                inbox_items.append(post_data)
 
+        # Fetch and format likes
+        for like in inbox.inbox_likes.all():
+            like_data = self.get_like_details(like.id)
+            if like_data:
+                inbox_items.append(like_data)
+
+        # Fetch and format comments
+        for comment in inbox.inbox_comments.all():
+            comment_data = self.get_comment_details(comment.id)
+            if comment_data:
+                inbox_items.append(comment_data)
+
+        print(f"📤 Returning {len(inbox_items)} items in the inbox.")
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
 
     def get_author_details(self, author_url):
-        """
-        Fetches full author details from the provided author ID (URL).
-        """
+        """Fetches author details from an API."""
         try:
             response = requests.get(author_url, headers={"Content-Type": "application/json"})
             response.raise_for_status()
             author_data = response.json()
 
-            # ✅ Ensure correct format
-            formatted_data = {
+            return {
                 "type": "author",
-                "id": author_data.get("id", author_url),  # Use the URL if ID is missing
+                "id": author_data.get("id", author_url),
                 "host": author_data.get("host", author_url.split("/authors/")[0] + "/"),
                 "displayName": author_data.get("displayName", "Unknown"),
                 "github": author_data.get("github", ""),
                 "profileImage": author_data.get("profileImage", ""),
                 "page": author_data.get("page", author_url.replace("/api/", "/")),
             }
-
-            print(f" Fetched Author Data: {formatted_data}")  # Debugging output
-            return formatted_data
-
         except requests.exceptions.RequestException as e:
-            print(f" Error fetching author details for {author_url}: {e}")
-            return None  # Return None if the API call fails
+            print(f"❌ Error fetching author details for {author_url}: {e}")
+            return None
+
+    def get_post_details(self, post_url):
+        """Fetches post details from an API."""
+        try:
+            response = requests.get(post_url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching post details for {post_url}: {e}")
+            return None
+
+    def get_like_details(self, like_url):
+        """Fetches like details from an API."""
+        try:
+            response = requests.get(like_url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching like details for {like_url}: {e}")
+            return None
+
+    def get_comment_details(self, comment_url):
+        """Fetches comment details from an API."""
+        try:
+            response = requests.get(comment_url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching comment details for {comment_url}: {e}")
+            return None
+
+    def post(self, request, author_id):
+        """Stores any incoming request (posts, likes, comments, follows) in the inbox."""
+
+        author_id = unquote(author_id)
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+
+        print(f"📥 Receiving new inbox item for: {expected_author_id}")
+
+        author = get_object_or_404(Author, id=expected_author_id)
+        inbox, created = Inbox.objects.get_or_create(author=author)
+
+        data = request.data
+        item_type = data.get("type")
+
+        if item_type == "Follow":
+            follow_request, _ = FollowRequest.objects.get_or_create(
+                followee=author,
+                follower_id=data["actor"]["id"],
+                defaults={"summary": data.get("summary", ""), "status": "pending"}
+            )
+            inbox.inbox_follows.add(follow_request)
+
+        elif item_type == "Like":
+            like, _ = Like.objects.get_or_create(id=data["id"], defaults=data)
+            inbox.inbox_likes.add(like)
+
+        elif item_type == "Comment":
+            comment, _ = Comment.objects.get_or_create(id=data["id"], defaults=data)
+            inbox.inbox_comments.add(comment)
+
+        elif item_type == "Post":
+            post, _ = Post.objects.get_or_create(id=data["id"], defaults=data)
+            inbox.inbox_posts.add(post)
+
+        else:
+            return Response({"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        inbox.save()
+        print(f"✅ Stored {item_type} in inbox.")
+        return Response({"message": f"{item_type} received and stored"}, status=status.HTTP_201_CREATED)
+
 
 
 
     def delete(self, request, author_id):
-            """
-            Denies a follow request by extracting follower ID from the request body.
-            """
-            author_id = unquote(author_id)
-            expected_author_id = f"{settings.HOST}api/authors/{author_id}"
-            author = get_object_or_404(Author, id=expected_author_id)
+        """
+        Denies a follow request by extracting the follower ID from the request body,
+        updates the FollowRequest status to "denied," and removes it from the Inbox only.
+        """
+        author_id = unquote(author_id)
+        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        author = get_object_or_404(Author, id=expected_author_id)
 
-            try:
-                data = request.data  # Extract body from DELETE request
-                foreign_author_fqid = data.get("follower_id")
+        try:
+            data = request.data  # Extract body from DELETE request
+            foreign_author_fqid = data.get("follower_id")
 
-                if not foreign_author_fqid:
-                    return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
+            if not foreign_author_fqid:
+                return Response({"error": "Missing follower ID in request body"}, status=status.HTTP_400_BAD_REQUEST)
 
+            with transaction.atomic():
+                # Find the follow request and update its status
                 follow_request = FollowRequest.objects.filter(
                     follower_id=foreign_author_fqid,
                     followee=author,
                     status="pending"
-                )
+                ).first()
 
-                if follow_request.exists():
-                    follow_request.update(status="denied")  # Just update the status
-                    return Response({"message": "Follow request denied"}, status=status.HTTP_200_OK)
+                if follow_request:
+                    follow_request.status = "denied"  # ✅ Keep it in FollowRequest, just update status
+                    follow_request.save()
+
+                    # Remove from Inbox but keep in FollowRequest
+                    Inbox.objects.filter(inbox_follows=follow_request).delete()
+
+                    print(f"❌ Denied follow request and removed from inbox: {foreign_author_fqid}")
+                    return Response({"message": "Follow request denied and removed from inbox"}, status=status.HTTP_200_OK)
 
                 return Response({"error": "Follow request not found"}, status=status.HTTP_404_NOT_FOUND)
-            
-            except Exception as e:
-                return JsonResponse({"error": f"Failed to process request: {str(e)}"}, status=400)
 
+        except Exception as e:
+            return Response({"error": f"Failed to process request: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 class PostLikeView(APIView):
     def get(self, request, author_id, post_id):
         """Check if the current user has liked the post"""
@@ -769,135 +686,256 @@ class PostLikeView(APIView):
         )
     def post(self, request, author_id, post_id):
         try:
-            if not request.user.is_authenticated:
-                return Response({"error": "User must be logged in"}, status=status.HTTP_401_UNAUTHORIZED)
-
+            # Debug prints
+            # print("\n--- Post Like Debugging ---")
+            # print(f"Request User: {request.user.username}")
+            # print(f"Raw Author ID: {author_id}")
+            # print(f"Raw Post ID: {post_id}")
+            
+            # Normalize author_id (remove URL if present)
+            if isinstance(author_id, str) and '/authors/' in author_id:
+                author_id = author_id.split('/authors/')[-1].split('/')[0]
+            
+            # Construct the full post URL
+            full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+            print(f"Constructed Post URL: {full_post_url}")
+            
+            # Find the post
             try:
-                liker = request.user.author
-            except AttributeError:
-                return Response({"error": "User does not have an author profile"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Get the post
-            full_post_id = f"http://localhost:8000/posts/{post_id}"
-            post = get_object_or_404(Post, id=full_post_id)
+                # Try to find the post by its full URL ID first
+                post = Post.objects.get(id=full_post_url)
+            except Post.DoesNotExist:
+                # Fallback to finding by internal_id
+                try:
+                    post = Post.objects.get(internal_id=post_id)
+                except Post.DoesNotExist:
+                    # Log all existing posts for debugging
+                    all_posts = Post.objects.all()
+                    print("All Posts in Database:")
+                    for p in all_posts:
+                        print(f"Full ID: {p.id}")
+                        print(f"Internal ID: {p.internal_id}")
+                        print(f"Author ID: {p.author.id}")
+                        print(f"Title: {p.title}")
+                        print("---")
+                    
+                    return Response({
+                        'error': 'Post not found', 
+                        'details': {
+                            'full_url': full_post_url,
+                            'author_id': author_id,
+                            'post_id': post_id
+                        }
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get or create the author profile for the current user
+            try:
+                request_user_author = request.user.author
+            except Author.DoesNotExist:
+                request_user_author = Author.objects.create(
+                    user=request.user,
+                    type='author',
+                    displayName=request.user.username,
+                )
             
             # Check if like already exists
-            existing_like = PostLike.objects.filter(post=post, author=liker).first()
+            post_like, created = PostLike.objects.get_or_create(
+                post=post,
+                author=request_user_author
+            )
             
-            if existing_like:
-                # Unlike - remove the like
-                existing_like.delete()
-                action = "unliked"
+            if not created:
+                # Unlike if already liked
+                post_like.delete()
+                action = 'unliked'
             else:
-                # Like - create new like
-                PostLike.objects.create(post=post, author=liker)
-                action = "liked"
-            
-            # Get updated like count
-            like_count = PostLike.objects.filter(post=post).count()
+                action = 'liked'
             
             return Response({
-                "message": f"Post {action} successfully",
-                "action": action,
-                "like_count": like_count
-            }, status=status.HTTP_200_OK)
-            
+                'action': action,
+                'like_count': post.likes.count()
+            })
+        
         except Exception as e:
-            print(f"Error in POST: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # Log the full exception for server-side debugging
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # comments
 @api_view(['POST'])
 def add_comment(request, author_id, post_id):
     try:
-        print("Adding comment...")
-        print(f"Post ID: {post_id}")
-        print(f"Author ID: {author_id}")
-        print(f"Request data: {request.data}")
+        # Debug prints
+        print("\n--- Add Comment Debugging ---")
+        print(f"Request User: {request.user.username}")
+        print(f"Raw Author ID: {author_id}")
+        print(f"Raw Post ID: {post_id}")
         
-        # Get the post
-        full_post_id = f"http://localhost:8000/posts/{post_id}"
-        print(f"Looking for post with ID: {full_post_id}")
+        # Normalize author_id (remove URL if present)
+        if isinstance(author_id, str) and '/authors/' in author_id:
+            author_id = author_id.split('/authors/')[-1].split('/')[0]
         
-        post = get_object_or_404(Post, id=full_post_id)
-        print(f"Found post: {post.title}")
+        # Construct the full post URL
+        full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+        
+        # Parse comment content
+        content = request.data.get('content', '').strip()
+        
+        # Validate comment content
+        if not content:
+            return Response({
+                'error': 'Comment content cannot be empty'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the post
+        try:
+            # Try to find the post by its full URL ID first
+            post = Post.objects.get(id=full_post_url)
+        except Post.DoesNotExist:
+            # Fallback to finding by internal_id
+            try:
+                post = Post.objects.get(internal_id=post_id)
+            except Post.DoesNotExist:
+                return Response({
+                    'error': 'Post not found', 
+                    'details': {
+                        'full_url': full_post_url,
+                        'author_id': author_id,
+                        'post_id': post_id
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get or create the author profile for the current user
+        try:
+            request_user_author = request.user.author
+        except Author.DoesNotExist:
+            request_user_author = Author.objects.create(
+                user=request.user,
+                type='author',
+                displayName=request.user.username,
+            )
         
         # Create the comment
         comment = Comment.objects.create(
-            type="comment",  # Make sure this matches your model
+            type='comment',
             post=post,
-            author=request.user.author,
-            content=request.data.get('content'),
+            author=request_user_author,
+            content=content,
             published=timezone.now()
         )
         
-        # Add to post's comments if needed
+        # Add comment to post
         post.comments.add(comment)
         
-        print(f"Created comment: {comment.id}")
-        
+        # Prepare response data
         return Response({
             'id': comment.id,
             'content': comment.content,
+            'published': comment.published.isoformat(),
             'author': {
+                'id': comment.author.id,
                 'displayName': comment.author.displayName
             },
-            'published': comment.published
+            'post': {
+                'id': post.id,
+                'internal_id': post.internal_id
+            }
         }, status=status.HTTP_201_CREATED)
-        
+    
     except Exception as e:
-        print(f"Error creating comment: {str(e)}")
-        print(f"Full error: ", e)
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Log the full exception for server-side debugging
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'error': 'An unexpected error occurred',
+            'details': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class CommentLikeView(APIView):
+    # permission_classes = [IsAuthenticated]
+
     def post(self, request, author_id, post_id, comment_id):
         try:
-            print("=== Debug CommentLikeView ===")
-            print(f"Comment ID: {comment_id}")
-            print(f"Post ID: {post_id}")
-            print(f"Author ID: {author_id}")
-            print(f"User: {request.user}")
-            print(f"User has author: {hasattr(request.user, 'author')}")
-
-            if not request.user.is_authenticated:
-                return Response({"error": "User must be logged in"}, status=status.HTTP_401_UNAUTHORIZED)
-
-            # Get the comment
-            print("Looking for comment...")
+            # Debug prints
+            print("\n--- Comment Like Debugging ---")
+            print(f"Request User: {request.user.username}")
+            print(f"Raw Author ID: {author_id}")
+            print(f"Raw Post ID: {post_id}")
+            print(f"Raw Comment ID: {comment_id}")
+            
+            # Normalize author_id (remove URL if present)
+            if isinstance(author_id, str) and '/authors/' in author_id:
+                author_id = author_id.split('/authors/')[-1].split('/')[0]
+            
+            # Construct the full post URL
+            full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+            
+            # Find the post
+            try:
+                # Try to find the post by its full URL ID first
+                post = Post.objects.get(id=full_post_url)
+            except Post.DoesNotExist:
+                # Fallback to finding by internal_id
+                try:
+                    post = Post.objects.get(internal_id=post_id)
+                except Post.DoesNotExist:
+                    return Response({
+                        'error': 'Post not found', 
+                        'details': {
+                            'full_url': full_post_url,
+                            'author_id': author_id,
+                            'post_id': post_id
+                        }
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Find the comment
             try:
                 comment = Comment.objects.get(id=comment_id)
-                print(f"Found comment: {comment}")
             except Comment.DoesNotExist:
-                print(f"Comment {comment_id} not found")
-                return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
-
-            liker = request.user.author
-            print(f"Liker: {liker}")
+                return Response({
+                    'error': 'Comment not found', 
+                    'details': {
+                        'comment_id': comment_id
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
             
-            # Check if already liked
-            already_liked = comment.likes.filter(id=liker.id).exists()
-            print(f"Already liked: {already_liked}")
+            # Get or create the author profile for the current user
+            try:
+                request_user_author = request.user.author
+            except Author.DoesNotExist:
+                request_user_author = Author.objects.create(
+                    user=request.user,
+                    type='author',
+                    displayName=request.user.username,
+                )
             
-            if already_liked:
+            # Check if like already exists
+            like_exists = comment.likes.filter(id=request_user_author.id).exists()
+            
+            if like_exists:
                 # Unlike
-                comment.likes.remove(liker)
+                comment.likes.remove(request_user_author)
                 action = 'unliked'
             else:
                 # Like
-                comment.likes.add(liker)
+                comment.likes.add(request_user_author)
                 action = 'liked'
             
-            like_count = comment.likes.count()
-            print(f"New like count: {like_count}")
-            
             return Response({
-                "message": f"Comment {action} successfully",
-                "action": action,
-                "like_count": like_count
-            }, status=status.HTTP_200_OK)
-            
+                'action': action,
+                'like_count': comment.likes.count()
+            })
+        
         except Exception as e:
-            print(f"Error in CommentLikeView: {str(e)}")
+            # Log the full exception for server-side debugging
             import traceback
             traceback.print_exc()
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
