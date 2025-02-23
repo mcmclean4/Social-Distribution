@@ -42,7 +42,7 @@ def follow_inbox_view(request):
 
     return render(request, "social/followInbox.html", {
         "my_author_id": my_author_id,
-        "follow_requests": follow_requests  # Only follow requests are passed to the template
+        "follow_requests": follow_requests  # follow requests passed to the template
     })
 
 
@@ -59,7 +59,7 @@ class InboxView(APIView):
         author_id = unquote(author_id)
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"📥 Fetching inbox for: {expected_author_id}")
+        print(f"Fetching inbox for: {expected_author_id}")
 
         # Get the author's inbox
         author = get_object_or_404(Author, id=expected_author_id)
@@ -102,7 +102,7 @@ class InboxView(APIView):
             if comment_data:
                 inbox_items.append(comment_data)
 
-        print(f"📤 Returning {len(inbox_items)} items in the inbox.")
+        print(f"Returning {len(inbox_items)} items in the inbox.")
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
 
     def get_author_details(self, author_url):
@@ -161,7 +161,7 @@ class InboxView(APIView):
         author_id = unquote(author_id)
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"📥 Receiving new inbox item for: {expected_author_id}")
+        print(f"Receiving new inbox item for: {expected_author_id}")
 
         author = get_object_or_404(Author, id=expected_author_id)
         inbox, created = Inbox.objects.get_or_create(author=author)
