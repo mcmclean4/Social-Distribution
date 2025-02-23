@@ -74,7 +74,8 @@ def register(request):
 
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken.")
-            return render(request, 'social/register.html')
+            # return 400 since new user is not created
+            return render(request, 'social/register.html', status=400)
 
         user = User.objects.create_user(username=username, password=password)
 

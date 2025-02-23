@@ -15,3 +15,6 @@ RUN pip install -r requirements.txt
 RUN pip install Pillow
 
 COPY . .
+
+# Ensure migrations are explicitly copied (optional, if needed)
+COPY ./social/migrations /app/social/migrations
