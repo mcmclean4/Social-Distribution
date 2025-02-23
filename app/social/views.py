@@ -20,10 +20,13 @@ from urllib.parse import unquote
 from django.db import transaction
 from django.conf import settings
 import json
+from rest_framework.pagination import PageNumberPagination
+
 
 ######################################
 #           STREAM/INDEX AREA        
 ######################################
+
 @login_required
 def stream(request):
     posts = Post.objects.exclude(visibility='DELETED')  # exclude posts with 'DELETED' visibility
@@ -99,12 +102,26 @@ def get_author(request, id):
     serializer = AuthorSerializer(author)
     return Response(serializer.data)
 
-
 @api_view(['GET'])
 def get_authors(request):
     authors = Author.objects.all()
     serializer = AuthorSerializer(authors, many=True)
     return Response(serializer.data)
+
+
+class AuthorPostListAPIView(generics.ListAPIView):
+    serializer_class = PostSerializer
+
+    def get_queryset(self):
+        author_id = self.kwargs['author_id']
+        return Post.objects.filter(author__id=author_id)
+    
+class AuthorPostCreateAPIView(generics.CreateAPIView):
+    serializer_class = PostSerializer
+
+    def perform_create(self, serializer):
+        author = Author.objects.get(id=self.kwargs['author_id'])
+        serializer.save(author=author)
 
 
 ######################################
@@ -130,21 +147,21 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         author = Author.objects.get(id=self.kwargs['author_id'])
         serializer.save(author=author)
 
-class AuthorPostListAPIView(generics.ListAPIView):
+
+class PostDeleteAPIView(generics.DestroyAPIView):
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
+    lookup_field = 'internal_id'
 
-    def get_queryset(self):
-        author_id = self.kwargs['author_id']
-        return Post.objects.filter(author__id=author_id)
+    def get_object(self):
+        return Post.objects.get(internal_id=self.kwargs['internal_id'])
     
-class AuthorPostCreateAPIView(generics.CreateAPIView):
-    serializer_class = PostSerializer
+    def perform_destroy(self, instance):
+        # Soft delete instead of permanent delete
+        instance.visibility = 'DELETED'
+        instance.save()
 
-    def perform_create(self, serializer):
-        author = Author.objects.get(id=self.kwargs['author_id'])
-        serializer.save(author=author)
     
-
 @login_required
 def create_post(request):
     if request.method == "POST":
@@ -157,6 +174,15 @@ def create_post(request):
     else:
         form = PostForm()
     return render(request, 'social/create_post.html', {'form': form})
+
+@api_view(['POST'])
+def api_create_post(request):
+    if request.method == 'POST':
+        serializer = PostSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(author=request.user)  # You can adjust this if you want to assign authors differently
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required
 def delete_post(request, internal_id):
@@ -189,12 +215,113 @@ def post_detail(request, internal_id):
     post = get_object_or_404(Post, internal_id=internal_id)
     return render(request, 'social/post_detail.html', {'post': post})
 
+@api_view(['PUT'])
+def api_update_post(request, internal_id):
+    try:
+        post = Post.objects.get(internal_id=internal_id)
+    except Post.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = PostSerializer(post, data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+def api_delete_post(request, internal_id):
+    try:
+        post = Post.objects.get(internal_id=internal_id)
+    except Post.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    post.delete()
+    return Response({"detail": "Post deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['GET'])
+def api_get_author_and_all_post(request, id):
+    try:
+        author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{id}")
+    except Author.DoesNotExist:
+        return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    posts = Post.objects.filter(author=author)
+    post_serializer = PostSerializer(posts, many=True)
+
+    author_serializer = AuthorSerializer(author)
+
+    return Response({
+        'author': author_serializer.data,
+        'posts': post_serializer.data
+    })
+
+# @api_view(['GET'])
+# def get_author_and_post(request, author_id, internal_id):
+#     try:
+#         # Get the author by id
+#         author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
+        
+#         # Get the post by internal_id and make sure it's linked to the correct author
+#         post = Post.objects.get(internal_id=internal_id, author=author)
+#     except Author.DoesNotExist:
+#         return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
+#     except Post.DoesNotExist:
+#         return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
+
+#     author_serializer = AuthorSerializer(author)
+#     post_serializer = PostSerializer(post)
+    
+#     return Response({
+#         'author': author_serializer.data,
+#         'post': post_serializer.data
+#     })
+
+@api_view(['GET'])
+def get_author_and_post(request, author_id, internal_id):
+    try:
+        # Get the author by id
+        author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
+        
+        # Get the post by internal_id and make sure it's linked to the correct author
+        post = Post.objects.get(internal_id=internal_id, author=author)
+    except Author.DoesNotExist:
+        return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Post.DoesNotExist:
+        return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    post_serializer = PostSerializer(post)
+
+    response_data = {
+        'post': post_serializer.data
+    }
+
+    return Response(response_data)
+
+
+@api_view(['GET'])
+def api_get_post_by_id(request, id):
+    try:
+        # Construct the full URL for the post
+        post_url = f"http://localhost:8000/social/api/authors/2/posts/{id}"
+        
+        print(f"Attempting to fetch post with URL: {post_url}")
+        
+        post = Post.objects.get(id=post_url)
+        print(f"Post found: {post}")
+    except Post.DoesNotExist:
+        print(f"Post with ID {id} not found.")
+        return Response({'error': 'Post not found'}, status=404)
+
+    post_serializer = PostSerializer(post)
+
+    print(f"Serialized Post Data: {post_serializer.data}")
+
+    return Response(post_serializer.data)
+
 
 ######################################
 #           FOLLOW/FOLLOWEE AREA      
 ######################################
-
-
 
 def follow_view(request):
     """Shows a list of authors to follow, excluding those with pending requests"""
