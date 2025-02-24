@@ -35,7 +35,22 @@
     const MY_AUTHOR_GITHUB = "{{ my_author.github|escapejs }}";
     const MY_AUTHOR_PROFILE_IMAGE = "{{ my_author.profileImage|escapejs }}";
     const MY_AUTHOR_PAGE = "{{ my_author.page|escapejs }}";
-
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".follow-button").forEach(button => {
             button.onclick = async function () {
@@ -55,7 +70,10 @@
                 let response = await fetch(inboxUrl, { 
                     method: "POST",
                     mode: "cors",
-                    headers: { "Content-Type":  "application/json"},
+                    headers: { 
+                        "Content-Type":  "application/json",
+                        "X-CSRFToken": getCookie("csrftoken")
+                    },
                     body: JSON.stringify({
                         type: "Follow",
                         summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
