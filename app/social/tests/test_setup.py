@@ -5,7 +5,11 @@ from django.contrib.auth.models import User
 from social.models import Author
 from django.core.files.uploadedfile import SimpleUploadedFile
 import io
+import os
 from PIL import Image 
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.conf import settings
 import json
 from social.serializers import AuthorSerializer
 from django.utils.safestring import mark_safe
@@ -13,19 +17,24 @@ from django.utils.safestring import mark_safe
 
 # Referenced:
 # https://www.youtube.com/watch?v=17KdirMbmHY
-# 
+
+from django.test import TestCase, override_settings
+
+
+ 
 
 class TestSetUp(TestCase):
     '''
     re-run app with docker compose build & up
     in another terminal run tests with this command in app/:
-    docker exec -it w25-project-mod-cornsilk-socialapp-1 python manage.py test social.tests
+    docker exec -it w25-project-mod-cornsilk-social-1 python manage.py test social.tests
 
     or if you only want to run one of the test files (test_sharing in this example) use:
-    docker exec -it w25-project-mod-cornsilk-socialapp-1 python manage.py test social.tests.test_posting
+    docker exec -it w25-project-mod-cornsilk-social-1 python manage.py test social.tests.test_posting
 
 
     '''
+    @override_settings(MEDIA_ROOT="/home/ubuntu/w25-project-mod-cornsilk/mediafiles")
     def setUp(self):
         User.objects.all().delete()
         Author.objects.all().delete()
@@ -53,6 +62,9 @@ class TestSetUp(TestCase):
         print("Existing authors before creating new one:")
         for author in Author.objects.all():
             print(author.id, author.user_id)
+
+        self.pfp_image_url = self.generate_pfp_image()
+        print(self.pfp_image_url)
         
         # Create an Author instance in the test database
         self.author = Author.objects.create(
@@ -62,7 +74,7 @@ class TestSetUp(TestCase):
             host="http://localhost:8000/social/api/",
             displayName="Test Author",
             github="http://github.com/realgithubuser",
-            profileImage="http://localhost:8000/static/images/pfp.jpg",
+            profileImage=self.pfp_image_url,
             page=f"http://localhost:8000/social/authors/{2}",
             isAdmin=False
         )
@@ -190,3 +202,21 @@ class TestSetUp(TestCase):
         img.save(image, format="PNG")
         image.seek(0)
         return SimpleUploadedFile("test_image.png", image.getvalue(), content_type="image/png")
+    
+    def generate_pfp_image(self):
+        image = io.BytesIO()
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))  # Create a red image
+        img.save(image, format="PNG")
+        image.seek(0)
+
+        # Define the relative path inside MEDIA_ROOT
+        file_path = "test_images/test_image.png"
+
+        # Save image using Django's storage system
+        if default_storage.exists(file_path):
+            default_storage.delete(file_path)  # Ensure clean test images
+
+        saved_path = default_storage.save(file_path, ContentFile(image.getvalue()))
+
+        # Return the relative media URL (Django will serve this correctly)
+        return settings.MEDIA_URL + saved_path  # Returns "/media/test_images/test_image.png"

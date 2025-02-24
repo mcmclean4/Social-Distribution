@@ -15,7 +15,7 @@ class TestPosting(TestSetUp):
     Tests 'api/posts/' endpoint for creating posts with a POST request
     Tests 'api/authors/<int:author_id>/posts/<int:internal_id>/' endpoint for retreiving posts with a GET request
     '''
-    '''
+    
     def test_create_plaintext_post(self):
         # Create a post
         create_response = self.client.post(
@@ -37,11 +37,11 @@ class TestPosting(TestSetUp):
         # Remove ['post'] if we change get_author_and_post to only return post
         self.assertEqual(get_response.data['post']['contentType'], self.plaintext_post_data['contentType'])
         self.assertEqual(get_response.data['post']['content'], self.plaintext_post_data['content'])
-    '''
+
     '''
     Posting 3. Successfully update an exisitng post. Tests 'api/authors/<int:id>/posts/<int:internal_id>/update/' endpoint
     '''
-    '''
+
     def test_edit_post(self):
         print("Existing posts before creating:")
         for post in Post.objects.all():
@@ -84,12 +84,12 @@ class TestPosting(TestSetUp):
         self.assertEqual(post.description, self.plaintext_post_data['description'])
         self.assertEqual(post.contentType, self.plaintext_post_data['contentType'])
         self.assertEqual(post.content, self.plaintext_post_data['content'])
-    '''
+    
 
     '''
     Posting 5. Successfully create a markdown text post
     '''
-    '''
+    
     def test_create_markdown_post(self):
         # Create a markdown post
         create_response = self.client.post(
@@ -111,12 +111,12 @@ class TestPosting(TestSetUp):
         # Remove ['post'] if we change get_author_and_post to only return post
         self.assertEqual(get_response.data['post']['contentType'], self.markdown_post_data['contentType'])
         self.assertEqual(get_response.data['post']['content'], self.markdown_post_data['content'])
-    '''
+    
 
     '''
     Posting 7. Successfully create an image text post
     '''
-    '''
+    
     def test_create_image_post(self):
         print(self.image_post_data['author'])
 
@@ -144,7 +144,7 @@ class TestPosting(TestSetUp):
         # Remove ['post'] if we change get_author_and_post to only return post
         self.assertEqual(get_response.data['post']['contentType'], self.image_post_data['contentType'])
         self.assertEqual(get_response.data['post']['image'], self.image_post_data['image'])
-    '''
+    
 
 
     '''
@@ -175,6 +175,7 @@ class TestPosting(TestSetUp):
     '''
     Posting 10. Successfully create a post through the web browser
     '''
+    
     def test_create_post_via_browser(self):
         # Visit the create post page
         visit_response = self.client.get(self.post_create_url)
