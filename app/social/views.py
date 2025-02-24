@@ -44,14 +44,10 @@ def stream(request):
     # user_friends = request.user.author.friends.all()
 
     # Filter posts based on visibility
-    post_list = Post.objects.annotate(
-        like_count=Count('likes')
-    ).filter(
-        (Q(visibility='PUBLIC'))  # Show public posts
-        #  Q(visibility='FRIENDS', author__in=user_friends))  # Show friends' posts || currently
-        & ~Q(visibility='DELETED')  # Exclude deleted posts
-        & ~Q(visibility='UNLISTED')  # Exclude unlisted posts
-    ).order_by('-published')
+    post_list = Post.objects.filtered(
+        user=request.user,
+        visibilities=['PUBLIC', 'FRIENDS']
+    )
 
     # Handle likes for comments
     for post in post_list:
@@ -204,7 +200,8 @@ def my_posts(request):
         return redirect('social:index')
 
     post_list = Post.objects.filtered(
-        filter_type='author',
+        filter_type='user',
+        user=user,
         author=user,
         visibilities='ALL'
     )
@@ -214,7 +211,7 @@ def my_posts(request):
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
 
-    return render(request, 'social/my_posts.html', {'my_posts': posts})
+    return render(request, 'social/my_posts.html', {'posts': posts})
 
 @login_required
 def create_post(request):

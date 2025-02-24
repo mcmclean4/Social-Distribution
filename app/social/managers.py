@@ -3,7 +3,7 @@ from django.db.models import Count
 
 
 class PostManager(models.Manager):
-    def filtered(self, filter_type='all', author=None, content_types=None, visibilities=None):
+    def filtered(self, filter_type='all', user=None, author=None, content_types=None, visibilities=None):
         """
         Returns a QuerySet of posts filtered by:
           - content_types: a string or list of content types (e.g. 'text/plain', 'image/jpeg;base64', etc.)
@@ -22,19 +22,21 @@ class PostManager(models.Manager):
 
         # Filter by visibilities if provided; otherwise, exclude DELETED and UNLISTED by default
         if visibilities:
-            print("Pre visibility query:", qs)
             if isinstance(visibilities, str):
                 if visibilities == 'ALL':
                     visibilities = ['PUBLIC', 'FRIENDS', 'UNLISTED', 'DELETED']
                 else:
                     visibilities = [visibilities]
+            if 'FRIENDS' in visibilities:
+                pass
             qs = qs.filter(visibility__in=visibilities)
-            print("Post visibility query:", qs)
         else:
             qs = qs.exclude(visibility__in=['DELETED', 'UNLISTED'])
 
         # Additional filtering based on user context
         if filter_type == 'author' and author:
             qs = qs.filter(author=author)
+        elif filter_type == 'user' and user:
+            qs = qs.filter(author=user)
 
         return qs.order_by('-published')
