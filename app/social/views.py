@@ -22,6 +22,8 @@ from django.contrib import messages
 from urllib.parse import unquote
 from django.db import transaction  # Correct placement of transaction import
 from django.utils import timezone
+from rest_framework.permissions import IsAuthenticated
+from .models import Post, Author
 
 # Like
 from .models import Post, PostLike, Comment
@@ -157,18 +159,56 @@ class AuthorPostCreateAPIView(generics.CreateAPIView):
 #            POST AREA              
 ######################################
 
+# class PostListCreateAPIView(generics.ListCreateAPIView):
+#     queryset = Post.objects.all()
+#     serializer_class = PostSerializer
+
+#     def perform_create(self, serializer):
+#         author, created = Author.objects.get_or_create(
+#             user=self.request.user,
+#             defaults={"type": "author", "displayName": self.request.user.username}
+#         )
+#         serializer.save(author=author)
+
+#     def perform_destroy(self, instance):
+#         instance.visibility = 'DELETED'
+#         instance.save()
+
+
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
+        # Ensure the author is created or retrieved for the current user
         author, created = Author.objects.get_or_create(
             user=self.request.user,
             defaults={"type": "author", "displayName": self.request.user.username}
         )
+        # Save the post with the author
         serializer.save(author=author)
 
     def perform_destroy(self, instance):
+        # Instead of deleting, mark the post as deleted
+        instance.visibility = 'DELETED'
+        instance.save()
+
+class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    lookup_field = 'internal_id'  # Using `internal_id` as the lookup field
+
+    def get_object(self):
+        # Fetch the post using its `internal_id`
+        return Post.objects.get(internal_id=self.kwargs['internal_id'])
+
+    def perform_update(self, serializer):
+        # You can add additional logic here if needed for updates
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Instead of deleting, mark the post as deleted
         instance.visibility = 'DELETED'
         instance.save()
 
