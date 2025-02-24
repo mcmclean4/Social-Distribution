@@ -126,14 +126,11 @@ def register(request):
 
     return render(request, 'social/register.html')
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 def get_author(request, id):
-    
-    if request.GET:
-        author = Author.objects.get(
-            id=f"http://localhost:8000/social/api/authors/{id}")
-        serializer = AuthorSerializer(author)
-        return Response(serializer.data)
+    author = get_object_or_404(Author, id=f"http://localhost:8000/social/api/authors/{id}")
+    serializer = AuthorSerializer(author)
+    return Response(serializer.data)
 
 @api_view(['GET'])
 def get_authors(request):
