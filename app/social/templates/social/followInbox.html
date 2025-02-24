@@ -18,7 +18,7 @@
         </ul>
         {% endfor %}
     {% else %}
-        <p>Follow requests</p>  <!-- ✅ Moved outside <ul> -->
+        <p>Follow requests</p>  <!--  Moved outside <ul> -->
     {% endif %}
 </div>
 
@@ -91,7 +91,9 @@
 
                 let response = await fetch(inboxUrl, { 
                     method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json",
+                            "X-CSRFToken": getCookie("csrftoken")
+                     },
                     body: JSON.stringify({ follower_id: followerId })  // ✅ Sending in body instead of URL
                 });
 

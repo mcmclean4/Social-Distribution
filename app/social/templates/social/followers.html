@@ -38,14 +38,16 @@
 
                 let response = await fetch(deleteUrl, { 
                     method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: followerId })  // ✅ Send `follower_fqid` in body
+                    headers: { "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                    },
+                    body: JSON.stringify({ id: followerId })  //  Send `follower_fqid` in body
                 });
 
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Follower removed successfully.");
-                    this.parentElement.remove();  // ✅ Remove from UI
+                    this.parentElement.remove();  //  Remove from UI
                 } else {
                     alert(result.error || "Error removing follower.");
                 }

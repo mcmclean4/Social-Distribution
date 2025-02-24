@@ -37,7 +37,9 @@
 
                 let response = await fetch(deleteUrl, { 
                     method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                     },
                     body: JSON.stringify({ followee_id: friendId })  // ✅ Send `friend_id` in body
                 });
 
