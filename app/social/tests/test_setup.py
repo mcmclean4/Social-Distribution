@@ -25,8 +25,7 @@ class TestSetUp(APITestCase):
 
         # Create a user for the author
         self.user = User.objects.create_user(username="test_user", password="password")
-        # Authenticate the test client
-        self.client.force_login(self.user)
+        
 
         self.setUpIdentity()
 
@@ -44,11 +43,25 @@ class TestSetUp(APITestCase):
         # Create an Author instance in the test database
         self.author = Author.objects.create(
             user=self.user,
-            id="http://example.com",
+            type="author",
+            id=f"http://localhost:8000/social/api/authors/{self.user.id}",
             host="http://localhost:8000/social/api/",
-            displayName="Test Author"
+            displayName="Test Author",
+            github=None,
+            profileImage=None,
+            page=None,
+            isAdmin=False
         )
+
+        # Authenticate the test client
+        self.client.login(username="test_user", password="test_password")
+
+        self.author.refresh_from_db()
+        self.user.author = self.author
         self.author.save()
+
+        print("********user.author: *****")
+        print(self.user.author.__dict__)
 
         # Create a test image in memory
         self.image = self.generate_test_image()
@@ -57,22 +70,13 @@ class TestSetUp(APITestCase):
         self.plaintext_post_data = {
             "type": "post",
             "title":"A post title about a post about web dev",
-            "id":"http://example.com",
-            "page": "http://example.com/profile",
+            "id":f"http://localhost:8000/social/api/authors/{2}/posts/{1}",
+            "page": self.author.page,
             "title":"A post title about a post about web dev",
             "description":"This post discusses stuff -- brief",
             "contentType": "text/plain",
             "content": "Þā wæs on burgum Bēowulf Scyldinga",
-            "author": {
-                "type": "author",
-                "id": "http://example.com",
-                "host": "http://nodeaaaa/api/",
-                "displayName": "Test Author",
-                "github": "http://github.com/testuser",
-                "profileImage": "http://example.com/profile.jpg",
-                "page": "http://example.com/profile",
-                "isAdmin": False
-            },
+            "author": self.author.id,
             "published": "2015-03-09T13:07:04+00:00",
             "visibility": "PUBLIC",
             "likes": [],

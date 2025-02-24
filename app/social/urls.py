@@ -18,8 +18,8 @@ urlpatterns = [
     path('api/authors', views.get_authors, name='get_authors'),
     path('api/authors/<int:id>', views.get_author, name='get_author'),
 
-    # path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),
-    path('api/posts/', views.api_create_post, name='post_create'),
+    path('api/posts/', views.PostListCreateAPIView.as_view(), name='post_list_create'),
+    # path('api/posts/', views.api_create_post, name='post_create'),
     path('api/posts/<int:id>/', views.api_get_post_by_id, name='api_get_post_by_id'),
     path('api/authors/<int:id>/posts/', views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
     path('api/authors/<int:author_id>/posts/<int:internal_id>/', views.get_author_and_post, name='get_author_and_post'),
