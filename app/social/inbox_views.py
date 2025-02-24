@@ -162,7 +162,6 @@ class InboxView(APIView):
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
         print(f"Receiving new inbox item for: {expected_author_id}")
-
         author = get_object_or_404(Author, id=expected_author_id)
         inbox, created = Inbox.objects.get_or_create(author=author)
 

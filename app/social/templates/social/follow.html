@@ -49,7 +49,7 @@
                 let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
                 if (!confirmFollow) return; 
 
-                // ✅ Send the request to the RECEIVER'S inbox
+                //  Send the request to the RECEIVER'S inbox
                 let inboxUrl = `${authorId}/inbox`;  
 
                 let response = await fetch(inboxUrl, { 
@@ -60,7 +60,7 @@
                         type: "Follow",
                         summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
                         actor: {
-                            id: MY_AUTHOR_ID,  // ✅ Sender (from settings.py)
+                            id: MY_AUTHOR_ID,  // Sender (from settings.py)
                             displayName:"{{ my_author.displayName|escapejs }}",
                             host: MY_AUTHOR_HOST,
                             github: MY_AUTHOR_GITHUB || "",
@@ -68,7 +68,7 @@
                             page: MY_AUTHOR_PAGE || ""
                         },
                         object: { 
-                            id: authorId,  // ✅ Receiver (clicked author)
+                            id: authorId,  //   Receiver (clicked author)
                             displayName: authorName,
                             host: authorHost || "",
                             github: authorGithub || "",

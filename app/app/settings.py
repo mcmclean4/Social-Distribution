@@ -148,8 +148,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 HOST = "http://localhost:8000/social/"
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
+CORS_ALLOWED_ORIGINS = [
 
-CORS_ALLOW_ALL_ORIGINS = True  # ✅ Allows all requests (for debugging)
-CORS_ALLOW_CREDENTIALS = True  # ✅ Allows authentication cookies
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-CORS_ALLOW_HEADERS = ["Content-Type", "Authorization", "Accept"]
+    "http://localhost:8000",  # Django
+
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+]
