@@ -1,4 +1,5 @@
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient
+from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
 from social.models import Author
@@ -10,7 +11,7 @@ from PIL import Image
 # https://www.youtube.com/watch?v=17KdirMbmHY
 # 
 
-class TestSetUp(APITestCase):
+class TestSetUp(TestCase):
     '''
     re-run app with docker compose build & up
     in another terminal run tests with this command in app/:
@@ -22,6 +23,9 @@ class TestSetUp(APITestCase):
 
     '''
     def setUp(self):
+        User.objects.all().delete()
+        Author.objects.all().delete()
+        super().tearDown()
 
         # Create a user for the author
         self.user = User.objects.create_user(username="test_user", password="password")
@@ -35,38 +39,52 @@ class TestSetUp(APITestCase):
         # urls of endpoints from urls.py
         self.posts_url = reverse('social:post_list_create')
         # inlcude auto_id argument for paths with variable
-        self.post_update_url = lambda post_id: reverse('social:update_post', kwargs={'auto_id': post_id})
+        self.post_update_url = lambda author_serial, post_serial: reverse(
+            'social:update_post', kwargs={'id': author_serial, 'internal_id': post_serial}
+        )
+        self.post_general_url = lambda author_serial, post_serial: reverse(
+            'social:get_author_and_post', kwargs={'author_id': author_serial, 'internal_id': post_serial}
+        )
         self.post_detail_url = lambda post_id: reverse('social:post_detail', kwargs={'auto_id': post_id})
         self.post_delete_url = lambda post_id: reverse('social:delete_post', kwargs={'auto_id': post_id})
         self.post_create_url = reverse('social:create_post')
+
+        #debug
+        print("Existing authors before creating new one:")
+        for author in Author.objects.all():
+            print(author.id, author.user_id)
         
         # Create an Author instance in the test database
         self.author = Author.objects.create(
             user=self.user,
             type="author",
-            id=f"http://localhost:8000/social/api/authors/{self.user.id}",
+            id=f"http://localhost:8000/social/api/authors/{2}",
             host="http://localhost:8000/social/api/",
             displayName="Test Author",
-            github=None,
-            profileImage=None,
-            page=None,
+            github="http://github.com/realgithubuser",
+            profileImage="http://localhost:8000/static/images/pfp.jpg",
+            page=f"http://localhost:8000/social/authors/{2}",
             isAdmin=False
         )
 
         # Authenticate the test client
-        self.client.login(username="test_user", password="test_password")
+        self.client = APIClient()
+        self.client.force_login(self.user)
 
         self.author.refresh_from_db()
         self.user.author = self.author
         self.author.save()
 
-        print("********user.author: *****")
-        print(self.user.author.__dict__)
-
         # Create a test image in memory
         self.image = self.generate_test_image()
 
-        # data for a plain text post
+        # hardcoding 1 in .../authors/{author_serial}/posts/{1} for consistency, this post should always be the author's first post
+
+        print(self.author.id)
+        parts = self.author.id.split('/')
+        author_serial = int(parts[-1])
+        print(author_serial)
+        # Data for a plain text post
         self.plaintext_post_data = {
             "type": "post",
             "title":"A post title about a post about web dev",
@@ -76,7 +94,15 @@ class TestSetUp(APITestCase):
             "description":"This post discusses stuff -- brief",
             "contentType": "text/plain",
             "content": "Þā wæs on burgum Bēowulf Scyldinga",
-            "author": self.author.id,
+            "author": {
+                "type": self.author.type,
+                "id": f"http://localhost:8000/social/api/authors/{2}",
+                "displayName": self.author.displayName,
+                "github": self.author.github,
+                "profileImage": self.author.profileImage,
+                "page": f"http://localhost:8000/social/authors/{2}",
+                "isAdmin": self.author.isAdmin
+            },
             "published": "2015-03-09T13:07:04+00:00",
             "visibility": "PUBLIC",
             "likes": [],
@@ -137,6 +163,7 @@ class TestSetUp(APITestCase):
         }
     
     def tearDown(self):
+        print("Cleaning up test data...")
         return super().tearDown()
     
 

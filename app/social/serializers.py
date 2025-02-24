@@ -53,7 +53,13 @@ class PostSerializer(serializers.ModelSerializer):
             'visibility', 'likes', 'comments'
         ]
         
-        # read_only_fields = ['internal_id', 'id', 'author', 'published', 'likes', 'comments']
+        read_only_fields = ['internal_id', 'id', 'author', 'published', 'likes', 'comments']
+
+    # Explicit .update() to avoid updating the nested author field
+    def update(self, instance, validated_data):
+        # Ensure 'author' is not updated by popping it from the data
+        validated_data.pop('author', None)
+        return super().update(instance, validated_data)
 
 class FollowRequestSerializer(serializers.Serializer):
     type = serializers.CharField()

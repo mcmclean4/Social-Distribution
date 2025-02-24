@@ -294,7 +294,7 @@ def delete_post(request, internal_id):
     return redirect('social:index')
 
 @login_required
-def update_post(request, internal_id):
+def update_post(request, id, internal_id):
     post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
 
     if request.method == "POST":
@@ -373,26 +373,41 @@ def api_get_author_and_all_post(request, id):
 #         'post': post_serializer.data
 #     })
 
-@api_view(['GET'])
+@api_view(['GET', 'PUT'])
 def get_author_and_post(request, author_id, internal_id):
-    try:
-        # Get the author by id
-        author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
+    if (request.method == "GET"):
+        try:
+            # Get the author by id
+            author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
+            
+            # Get the post by internal_id and make sure it's linked to the correct author
+            post = Post.objects.get(internal_id=internal_id, author=author)
+        except Author.DoesNotExist:
+            return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Post.DoesNotExist:
+            return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        post_serializer = PostSerializer(post)
+
+        response_data = {
+            'post': post_serializer.data
+        }
+
+        return Response(response_data)
+    else:
+        # request.method == "PUT", call update function
+        # return api_update_post(request, internal_id)
+        # ** Temporarily copied the content of api_update_post to avoid issue where request's type changed
+        try:
+            post = Post.objects.get(internal_id=internal_id)
+        except Post.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get the post by internal_id and make sure it's linked to the correct author
-        post = Post.objects.get(internal_id=internal_id, author=author)
-    except Author.DoesNotExist:
-        return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Post.DoesNotExist:
-        return Response({'error': 'Post not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    post_serializer = PostSerializer(post)
-
-    response_data = {
-        'post': post_serializer.data
-    }
-
-    return Response(response_data)
+        serializer = PostSerializer(post, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
 
 
 @api_view(['GET'])
