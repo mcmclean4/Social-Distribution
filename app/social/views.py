@@ -192,7 +192,6 @@ def my_posts(request):
 
 @login_required
 def create_post(request):
-
     # First check if Author exists for the user
     try:
         author = Author.objects.get(user=request.user)
@@ -205,29 +204,22 @@ def create_post(request):
         )
         author.save()
 
-    # Validate form
     try:
         if request.method == "POST":
             form = PostForm(request.POST, request.FILES)
             if form.is_valid():
                 # Get the cleaned data from the form.
-                data = form.cleaned_data
-
-                # Pass the data into the serializer.
-                serializer = PostSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save(author=author)
-                    return redirect('social:index')
-                else:
-                    # Optionally log or display serializer errors.
-                    print("Error creating post:", serializer.errors)
+                post = form.save(commit=False)
+                post.author = author
+                post.save()
+                return redirect('social:index')
         else:
             form = PostForm()
 
         return render(request, 'social/create_post.html', {'form': form})
 
     except Exception as e:
-        print(f"Error creating post: {str(e)}")  # For debugging
+        print(f"Error creating post: {str(e)}")
         messages.error(request, "Error creating post. Please try again.")
 
     form = PostForm()
