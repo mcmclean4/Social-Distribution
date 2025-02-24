@@ -167,33 +167,16 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = PostSerializer
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user.author)
-
-class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    lookup_field = 'internal_id'
-
-    def get_object(self):
-        return Post.objects.get(internal_id=self.kwargs['internal_id'])
-    
-    def perform_create(self, serializer):
-        author = Author.objects.get(id=self.kwargs['author_id'])
+        author, created = Author.objects.get_or_create(
+            user=self.request.user,
+            defaults={"type": "author", "displayName": self.request.user.username}
+        )
         serializer.save(author=author)
 
-
-class PostDeleteAPIView(generics.DestroyAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    lookup_field = 'internal_id'
-
-    def get_object(self):
-        return Post.objects.get(internal_id=self.kwargs['internal_id'])
-    
     def perform_destroy(self, instance):
-        # Soft delete instead of permanent delete
         instance.visibility = 'DELETED'
         instance.save()
+
 
 @login_required
 def my_posts(request):
@@ -218,7 +201,6 @@ def my_posts(request):
 
 @login_required
 def create_post(request):
-
     # First check if Author exists for the user
     try:
         author = Author.objects.get(user=request.user)
@@ -236,16 +218,10 @@ def create_post(request):
             form = PostForm(request.POST, request.FILES)
             if form.is_valid():
                 # Get the cleaned data from the form.
-                data = form.cleaned_data
-
-                # Pass the data into the serializer.
-                serializer = PostSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save(author=author)
-                    return redirect('social:index')
-                else:
-                    # Optionally log or display serializer errors.
-                    print(serializer.errors)
+                post = form.save(commit=False)
+                post.author = author
+                post.save()
+                return redirect('social:index')
         else:
             form = PostForm()
 
@@ -254,18 +230,10 @@ def create_post(request):
     except Exception as e:
         print(f"Error creating post: {str(e)}")  # For debugging
         messages.error(request, "Error creating post. Please try again.")
-    
+
     form = PostForm()
     return render(request, 'social/create_post.html', {'form': form})
 
-@api_view(['POST'])
-def api_create_post(request):
-    if request.method == 'POST':
-        serializer = PostSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(author=request.user)  # You can adjust this if you want to assign authors differently
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @login_required
 def delete_post(request, internal_id):

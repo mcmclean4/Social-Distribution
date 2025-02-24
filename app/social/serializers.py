@@ -39,15 +39,21 @@ class PostLikeSerializer(serializers.Serializer):
 
 class PostSerializer(serializers.ModelSerializer):
     # Make the author field read-only so it doesn't require input
-    author = serializers.PrimaryKeyRelatedField(read_only=True)
+    author = AuthorSerializer()
     class Meta:
         model = Post
+        # fields = [
+        #     'internal_id', 'type', 'title', 'id', 'page', 'description',
+        #     'contentType', 'content', 'image', 'author', 'published',
+        #     'visibility', 'likes', 'comments'
+        # ]
         fields = [
-            'internal_id', 'type', 'title', 'id', 'page', 'description',
+            'type', 'title', 'id', 'page', 'description',
             'contentType', 'content', 'image', 'author', 'published',
             'visibility', 'likes', 'comments'
         ]
-        read_only_fields = ['internal_id', 'id', 'author', 'published', 'likes', 'comments']
+        
+        # read_only_fields = ['internal_id', 'id', 'author', 'published', 'likes', 'comments']
 
 class FollowRequestSerializer(serializers.Serializer):
     type = serializers.CharField()
