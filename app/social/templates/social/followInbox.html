@@ -23,6 +23,21 @@
 </div>
 
 <script>
+    function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+    }
+    
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".approve-follow").forEach(button => {
             button.onclick = async function () {
@@ -48,7 +63,8 @@
                 let response = await fetch(followUrl, { 
                     method: "PUT",
                     headers: { 
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie("csrftoken")
                     },
                     body: JSON.stringify(followerData)
                 });
