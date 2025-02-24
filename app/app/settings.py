@@ -149,9 +149,9 @@ HOST = "http://localhost:8000/social/"
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Frontend
+
     "http://localhost:8000",  # Django
-    "http://your-external-domain.com"
+
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
