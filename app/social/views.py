@@ -373,7 +373,7 @@ def api_get_author_and_all_post(request, id):
 #         'post': post_serializer.data
 #     })
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def get_author_and_post(request, author_id, internal_id):
     if (request.method == "GET"):
         try:
@@ -394,7 +394,7 @@ def get_author_and_post(request, author_id, internal_id):
         }
 
         return Response(response_data)
-    else:
+    elif (request.method == "PUT"):
         # request.method == "PUT", call update function
         # return api_update_post(request, internal_id)
         # ** Temporarily copied the content of api_update_post to avoid issue where request's type changed
@@ -407,7 +407,17 @@ def get_author_and_post(request, author_id, internal_id):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)    
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # request is DELETE, copying from api_p
+        try:
+            post = Post.objects.get(internal_id=internal_id)
+        except Post.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        post.visibility = "DELETED"
+        post.save()
+        return Response({"detail": "Post deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET'])
