@@ -1,3 +1,4 @@
+
 from .test_setup import TestSetUp
 from social.models import Post
 
@@ -20,7 +21,7 @@ class TestPosting(TestSetUp):
         self.assertEqual(response.data['contentType'], self.plaintext_post_data['contentType'])
         self.assertEqual(response.data['content'], self.plaintext_post_data['content'])
 
-
+    
     '''
     Posting 3. Successfully update an exisitng post
     '''
@@ -119,5 +120,8 @@ class TestPosting(TestSetUp):
         self.assertEqual(post.title, self.plaintext_post_data['title'])
         self.assertEqual(post.content, self.plaintext_post_data['content'])
         self.assertEqual(post.author, self.author)
+
+    
+    
 
 

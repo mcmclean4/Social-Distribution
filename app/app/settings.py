@@ -33,7 +33,8 @@ environ.Env.read_env(PROJECT_ROOT / ".env")  # Load `.env` from the root
 SECRET_KEY = env("SECRET_KEY", default="fallback-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(os.environ.get("DEBUG", default=False))
+# DEBUG = bool(os.environ.get("DEBUG", default=False))
+DEBUG = True
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost").split(" ")
 

@@ -77,7 +77,7 @@ class FollowersListView(APIView):
             inbox = Inbox.objects.filter(author=author).first()
             if inbox:
                 inbox.inbox_follows.remove(follow_request)
-                print(f"🗑️ Removed follow request from inbox: {follower_id} -> {author_id}")
+                print(f" Removed follow request from inbox: {follower_id} -> {author_id}")
 
         return Response({"message": "Follow request approved and removed from inbox"}, status=status.HTTP_200_OK)
 
@@ -102,7 +102,7 @@ class FollowersListView(APIView):
         if not follower_fqid:
             return Response({"error": "Missing follower ID"}, status=status.HTTP_400_BAD_REQUEST)
 
-        print(f"🚨 Removing follower: {follower_fqid}")
+        print(f"Removing follower: {follower_fqid}")
 
         # Delete the follower
         deleted, _ = Follow.objects.filter(followee=author, follower_id=follower_fqid).delete()
@@ -125,7 +125,7 @@ class FollowerDetailView(APIView):
         follower_fqid = unquote(follower_fqid)
         expected_author_id = f"{settings.HOST}api/authors/{author_id}"
 
-        print(f"📥 Checking if {expected_author_id} follows {follower_fqid}")
+        print(f" Checking if {expected_author_id} follows {follower_fqid}")
 
         # Ensure the follow relationship exists
         get_object_or_404(Follow, follower_id=follower_fqid, followee__id=expected_author_id)
@@ -154,11 +154,11 @@ def follow_view(request):
     authors = Author.objects.exclude(id=my_author.id).exclude(id__in=requested_authors)
 
     # Print final authors list
-    print(f"✅ Available Authors to Follow: {[author.displayName for author in authors]}")
+    print(f" Available Authors to Follow: {[author.displayName for author in authors]}")
 
     return render(request, 'social/follow.html', {
         'authors': authors,
-        'my_author': my_author,  # Pass full author object to template
+        'my_author': my_author, 
     })
 
 
@@ -221,9 +221,11 @@ def following_view(request):
         "following_authors": following_authors,  # List of followed authors
     })
 
-@csrf_exempt
+
 def unfollow_view(request):
     """Handles unfollowing an author by deleting the follow object in the database."""
+
+    print(" Unfollow request received. User:", request.user)
 
     if request.method != "DELETE":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -238,6 +240,7 @@ def unfollow_view(request):
             return JsonResponse({"error": "Missing followee ID"}, status=400)
 
         my_author = request.user.author  # Get logged-in author's profile
+        print("Unfollowing:", followee_id, "from author:", my_author.id)
 
         # Delete the follow object
         deleted, _ = Follow.objects.filter(follower_id=my_author.id, followee__id=followee_id).delete()
@@ -254,14 +257,14 @@ def unfollow_view(request):
 def friends_view(request):
     """Shows a list of friends (mutual followers) of the logged-in user"""
 
-    # ✅ Get logged-in user
+    #  Get logged-in user
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect to register if no author profile
 
     my_author = request.user.author
     my_author_id = my_author.id
 
-    print(f"📌 Checking friends for: {my_author.displayName} ({my_author_id})")
+    print(f"Checking friends for: {my_author.displayName} ({my_author_id})")
 
     # Get people I follow
     following_ids = set(Follow.objects.filter(follower_id=my_author_id).values_list("followee_id", flat=True))
@@ -281,9 +284,9 @@ def friends_view(request):
             friend_data = response.json()
             friends.append(friend_data)
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error fetching friend details for {friend_id}: {e}")
+            print(f" Error fetching friend details for {friend_id}: {e}")
 
-    print(f"✅ Found {len(friends)} friends")
+    print(f" Found {len(friends)} friends")
 
     # Render `friends.html` and pass the friends list
     return render(request, "social/friends.html", {

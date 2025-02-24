@@ -2,8 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4 text-center fw-bold">Stream</h1>
-
+    <h1 class="mb-4 text-center fw-bold">My Posts</h1>
     <div class="d-flex justify-content-center mb-4">
         <a href="{% url 'social:create_post' %}" class="btn btn-primary">Add New Post</a>
     </div>
@@ -11,4 +10,3 @@
     {% include "social/_post_list.html" with posts=posts %}
 </div>
 {% endblock %}
-
