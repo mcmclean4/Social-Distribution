@@ -27,11 +27,11 @@ from django.utils import timezone
 from .models import Post, PostLike, Comment
 from .serializers import PostLikeSerializer
 
-
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
 from rest_framework.pagination import PageNumberPagination
+from .utils import *
 
 
 ######################################
@@ -40,12 +40,11 @@ from rest_framework.pagination import PageNumberPagination
 
 @login_required
 def stream(request):
-    # Get user's friends
-    # user_friends = request.user.author.friends.all()
+    friends = get_friends(request.user.author)
 
-    # Filter posts based on visibility
+    # Filter posts
     post_list = Post.objects.filtered(
-        user=request.user,
+        authors=friends,
         visibilities=['PUBLIC', 'FRIENDS']
     )
 
@@ -193,17 +192,12 @@ class PostDeleteAPIView(generics.DestroyAPIView):
 
 @login_required
 def my_posts(request):
-    try:
-        user = Author.objects.get(user=request.user)
-    except Author.DoesNotExist:
-        print("No author found")
-        return redirect('social:index')
+    user = request.user.author
 
     post_list = Post.objects.filtered(
-        filter_type='user',
-        user=user,
-        author=user,
-        visibilities='ALL'
+        filter_type='author',
+        authors=[user],
+        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED', 'DELETED']
     )
 
     # Pagination
@@ -228,6 +222,7 @@ def create_post(request):
         )
         author.save()
 
+    # Validate form
     try:
         if request.method == "POST":
             form = PostForm(request.POST, request.FILES)
@@ -242,12 +237,11 @@ def create_post(request):
                     return redirect('social:index')
                 else:
                     # Optionally log or display serializer errors.
-                    print(serializer.errors)
+                    print("Error creating post:", serializer.errors)
         else:
             form = PostForm()
 
         return render(request, 'social/create_post.html', {'form': form})
-
     except Exception as e:
         print(f"Error creating post: {str(e)}")  # For debugging
         messages.error(request, "Error creating post. Please try again.")
