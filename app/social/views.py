@@ -27,11 +27,11 @@ from django.utils import timezone
 from .models import Post, PostLike, Comment
 from .serializers import PostLikeSerializer
 
-
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
 from rest_framework.pagination import PageNumberPagination
+from .utils import *
 
 
 ######################################
@@ -40,18 +40,13 @@ from rest_framework.pagination import PageNumberPagination
 
 @login_required
 def stream(request):
-    # Get user's friends
-    # user_friends = request.user.author.friends.all()
+    friends = get_friends(request.user.author)
 
-    # Filter posts based on visibility
-    post_list = Post.objects.annotate(
-        like_count=Count('likes')
-    ).filter(
-        (Q(visibility='PUBLIC'))  # Show public posts
-        #  Q(visibility='FRIENDS', author__in=user_friends))  # Show friends' posts || currently
-        & ~Q(visibility='DELETED')  # Exclude deleted posts
-        & ~Q(visibility='UNLISTED')  # Exclude unlisted posts
-    ).order_by('-published')
+    # Filter posts
+    post_list = Post.objects.filtered(
+        authors=friends,
+        visibilities=['PUBLIC', 'FRIENDS']
+    )
 
     # Handle likes for comments
     for post in post_list:
@@ -180,16 +175,12 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
 
 @login_required
 def my_posts(request):
-    try:
-        user = Author.objects.get(user=request.user)
-    except Author.DoesNotExist:
-        print("No author found")
-        return redirect('social:index')
+    user = request.user.author
 
     post_list = Post.objects.filtered(
         filter_type='author',
-        author=user,
-        visibilities='ALL'
+        authors=[user],
+        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED', 'DELETED']
     )
 
     # Pagination
@@ -197,7 +188,7 @@ def my_posts(request):
     page_number = request.GET.get('page')
     posts = paginator.get_page(page_number)
 
-    return render(request, 'social/my_posts.html', {'my_posts': posts})
+    return render(request, 'social/my_posts.html', {'posts': posts})
 
 @login_required
 def create_post(request):
@@ -228,7 +219,7 @@ def create_post(request):
         return render(request, 'social/create_post.html', {'form': form})
 
     except Exception as e:
-        print(f"Error creating post: {str(e)}")  # For debugging
+        print(f"Error creating post: {str(e)}")
         messages.error(request, "Error creating post. Please try again.")
 
     form = PostForm()

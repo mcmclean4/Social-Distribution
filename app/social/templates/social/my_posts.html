@@ -7,6 +7,6 @@
         <a href="{% url 'social:create_post' %}" class="btn btn-primary">Add New Post</a>
     </div>
 
-    {% include "social/_post_list.html" with posts=my_posts %}
+    {% include "social/_post_list.html" with posts=posts %}
 </div>
 {% endblock %}
