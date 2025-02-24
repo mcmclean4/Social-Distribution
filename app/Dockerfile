@@ -17,4 +17,4 @@ RUN pip install Pillow
 COPY . .
 
 # Ensure migrations are explicitly copied (optional, if needed)
-COPY ./social/migrations /app/social/migrations
+#COPY ./social/migrations /app/social/migrations

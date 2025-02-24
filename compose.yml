@@ -1,7 +1,7 @@
 ---
 services:
-  socialapp:
-    image: socialapp:latest
+  social:
+    image: social:latest
     build: ./app
     # command: python manage.py runserver 0.0.0.0:8000
     command: >
@@ -33,7 +33,7 @@ services:
       - "80:80"
       - "443:443"
     depends_on:
-      - socialapp
+      - social
     volumes:
       - ./app/Caddyfile:/etc/caddy/Caddyfile
 
