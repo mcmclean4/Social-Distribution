@@ -9,7 +9,7 @@ from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import PostForm
+from .forms import PostForm, EditProfileForm
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -20,6 +20,7 @@ from urllib.parse import unquote
 from django.db import transaction
 from django.conf import settings
 import json
+import os
 
 ######################################
 #           STREAM/INDEX AREA        
@@ -93,13 +94,8 @@ def register(request):
 
 @api_view(['GET', 'POST'])
 def get_author(request, id):
-    if request.POST:
-        author = Author.objects.filter(id = f"http://localhost:8000/social/api/authors/{id}").update(
-            profileImage = None, 
-            displayName = request.POST["displayName"]
-            )
-        return redirect('social:profile_page', id=id)
-    elif request.GET:
+    
+    if request.GET:
         author = Author.objects.get(
             id=f"http://localhost:8000/social/api/authors/{id}")
         serializer = AuthorSerializer(author)
@@ -115,8 +111,7 @@ def get_authors(request):
 @login_required
 def profile_page(request, id):
     #Get the author
-    currentUser = request.user
-    currentAuthor = Author.objects.filter(user=currentUser).get()
+    currentAuthor = Author.objects.filter(id=f"http://localhost:8000/social/api/authors/{id}").get()
     
     #Get all the posts
     posts = Post.objects.filter(author=currentAuthor).values()
@@ -135,18 +130,26 @@ def profile_page(request, id):
         }
         postsToRender.append(postDict)
         
-    return render(request, 'social/profile.html', {"posts": postsToRender, "author":currentAuthor})
+    return render(request, 'social/profile.html', {"posts": postsToRender, "author":currentAuthor, 'profile_author_id':id})
 
 @login_required
 def profile_edit(request, id):
+    if request.POST:
+        author = Author.objects.filter(id = f"http://localhost:8000/social/api/authors/{id}").get()
+        form = EditProfileForm(request.POST, request.FILES, instance=author)
+        print("VALID")
+        if form.is_valid():
+            
+            form.save()
+            return redirect('social:profile_page', id=id)
     currentUser = request.user
     currentAuthor = Author.objects.filter(user=currentUser).get()
-    
+    form = EditProfileForm(request.POST, request.FILES, instance=currentAuthor)
     if str(id) != currentAuthor.id.split('/')[-1]:
         return redirect('social:profile_page', id=id)
     else:
         print("correct")
-    return render(request, 'social/profile_edit.html')
+    return render(request, 'social/profile_edit.html', {'form': form})
 
 
 ######################################
