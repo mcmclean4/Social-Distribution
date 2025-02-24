@@ -11,7 +11,7 @@ from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author, Follow, FollowRequest,Inbox
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import PostForm
+from .forms import PostForm, EditProfileForm
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -32,6 +32,7 @@ from .serializers import PostLikeSerializer
 import requests  # Correct placement of requests import
 from django.conf import settings
 import json
+import os
 from rest_framework.pagination import PageNumberPagination
 from .utils import *
 
@@ -127,9 +128,7 @@ def register(request):
 
 @api_view(['GET'])
 def get_author(request, id):
-
-    author = Author.objects.get(
-        id=f"http://localhost:8000/social/api/authors/{id}")
+    author = get_object_or_404(Author, id=f"http://localhost:8000/social/api/authors/{id}")
     serializer = AuthorSerializer(author)
     return Response(serializer.data)
 
@@ -138,6 +137,49 @@ def get_authors(request):
     authors = Author.objects.all()
     serializer = AuthorSerializer(authors, many=True)
     return Response(serializer.data)
+
+@login_required
+def profile_page(request, id):
+    #Get the author
+    currentAuthor = Author.objects.filter(id=f"http://localhost:8000/social/api/authors/{id}").get()
+    
+    #Get all the posts
+    posts = Post.objects.filter(author=currentAuthor).values()
+    
+    #We need type
+    postsToRender = []
+    for post in posts:
+        print(post["id"])
+        postDict = {
+            "title": post["title"],
+            "image": post["image"],
+            "content": post["content"],
+            "contentType": post["contentType"],
+            "description": post["description"],
+            "id": post["internal_id"]
+        }
+        postsToRender.append(postDict)
+        
+    return render(request, 'social/profile.html', {"posts": postsToRender, "author":currentAuthor, 'profile_author_id':id})
+
+@login_required
+def profile_edit(request, id):
+    if request.POST:
+        author = Author.objects.filter(id = f"http://localhost:8000/social/api/authors/{id}").get()
+        form = EditProfileForm(request.POST, request.FILES, instance=author)
+        print("VALID")
+        if form.is_valid():
+            
+            form.save()
+            return redirect('social:profile_page', id=id)
+    currentUser = request.user
+    currentAuthor = Author.objects.filter(user=currentUser).get()
+    form = EditProfileForm(request.POST, request.FILES, instance=currentAuthor)
+    if str(id) != currentAuthor.id.split('/')[-1]:
+        return redirect('social:profile_page', id=id)
+    else:
+        print("correct")
+    return render(request, 'social/profile_edit.html', {'form': form})
 
 
 class AuthorPostListAPIView(generics.ListAPIView):

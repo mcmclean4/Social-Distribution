@@ -1,0 +1,16 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="{{ form.displayName.id_for_label }}">Display Name: </label>
+        {{ form.displayName }}
+        <label for="{{ form.profileImage.id_for_label }}">Upload a profile photo:</label>
+        {{ form.profileImage }}
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'social:profile_page' id=author_id %}" class="btn btn-secondary">Cancel</a>
+    </form>
+
+</div>
+{% endblock %}

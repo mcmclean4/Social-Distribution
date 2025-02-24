@@ -1,4 +1,5 @@
 from django import forms
+from .models import Post, Author
 from .models import Post
 from .models import Comment
 
@@ -14,6 +15,15 @@ class PostForm(forms.ModelForm):
             'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'visibility': forms.Select(attrs={'class': 'form-select'}),
         }
+
+class EditProfileForm(forms.ModelForm):
+    class Meta:
+        model = Author
+        fields = ['displayName', 'profileImage']
+        widgets={
+            'displayName': forms.TextInput(attrs={'class': 'form-control'}),
+            'profileImage': forms.ClearableFileInput(attrs={'class': 'form-control'})
+            }
 
 class CommentForm(forms.ModelForm):
     class Meta:

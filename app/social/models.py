@@ -24,7 +24,7 @@ class Author(models.Model):
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
-    profileImage = models.URLField(blank=True, null=True)
+    profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
     page = models.URLField(blank=True, null=True)  # HTML profile page
     # Flag to indicate if the author is a node administrator.
     isAdmin = models.BooleanField(default=False)

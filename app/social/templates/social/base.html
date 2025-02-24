@@ -25,6 +25,12 @@
                   Stream
                 </a>
               </li>
+              <li class="nav-item"></li>
+                <a class="nav-link" href="{% url 'social:profile_page' id=author_id %}">
+                  <span data-feather="file"></span>
+                  Profile
+                </a>
+              </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'social:my_posts' %}">
                   <span data-feather="file"></span>
