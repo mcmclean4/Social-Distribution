@@ -17,6 +17,21 @@
 
 </div>
 <script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Check if this cookie name matches the requested one
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".unfollow-button").forEach(button => {
             button.onclick = async function () {
@@ -25,9 +40,12 @@
                 let myAuthorId = "{{ my_author_id }}";  // Logged-in author's ID
                 
                 let confirmUnfollow = confirm(`Are you sure you want to unfollow ${authorName}?`);
+                if (!confirmUnfollow) {
+                    console.log("Unfollow canceled");
+                    return;
+                }
                 if (!confirmUnfollow) return;
-
-                // ✅ Send DELETE request to `/unfollow/` URL
+                console.log("Unfollowing author:", authorId);
                 let unfollowUrl = `/social/unfollow/`;
 
                 console.log("Unfollowing author:", authorId);
@@ -35,7 +53,8 @@
                 let response = await fetch(unfollowUrl, { 
                     method: "DELETE",
                     headers: { "Content-Type": "application/json",
-                            "X-CSRFToken": getCookie("csrftoken")
+                        "X-CSRFToken": getCookie("csrftoken") 
+                        
                      },
                     body: JSON.stringify({ followee_id: authorId })  //  Send followee ID in request body
                 });
