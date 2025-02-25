@@ -42,11 +42,6 @@ class PostSerializer(serializers.ModelSerializer):
     author = AuthorSerializer()
     class Meta:
         model = Post
-        # fields = [
-        #     'internal_id', 'type', 'title', 'id', 'page', 'description',
-        #     'contentType', 'content', 'image', 'author', 'published',
-        #     'visibility', 'likes', 'comments'
-        # ]
         fields = [
             'type', 'title', 'id', 'page', 'description',
             'contentType', 'content', 'image', 'author', 'published',
