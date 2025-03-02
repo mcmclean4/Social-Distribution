@@ -94,7 +94,7 @@
 
     <form action="{% url 'social:profile_edit' id=author_id %}" style="display: inline;">
         {% if author_id == profile_author_id %}
-        <button type="submit">Edit Profile</button>
+        <button class="btn btn-primary" type="submit">Edit Profile</button>
         {% endif %}
     </form>
     <div class="gridContainer">

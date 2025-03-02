@@ -69,24 +69,59 @@ def stream(request):
 ######################################
 
 
+# def login_page(request):
+#     if request.method == "POST":
+#         username = request.POST.get('username')
+#         password = request.POST.get('password')
+
+#         if not User.objects.filter(username=username).exists():
+#             messages.error(request, 'Username does not exist')
+#             return redirect('social:login')
+
+#         user = authenticate(username=username, password=password)
+
+#         if user is None:
+#             messages.error(request, 'Password does not match username')
+#             return redirect('social:login')
+
+#         else:
+#             login(request, user)
+#             return redirect('social:index')
+
+#     return render(request, 'social/login.html')
+
+from django.contrib.auth import authenticate, login
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth.models import User
+
 def login_page(request):
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        if not User.objects.filter(username=username).exists():
-            messages.error(request, 'Username does not exist')
+        # Check if the user exists
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            messages.error(request, 'Username does not exist. Please register.')
             return redirect('social:login')
 
+        # Authenticate the user
         user = authenticate(username=username, password=password)
 
         if user is None:
-            messages.error(request, 'Password does not match username')
+            messages.error(request, 'Password does not match username.')
             return redirect('social:login')
 
-        else:
-            login(request, user)
-            return redirect('social:index')
+        # Check if the account is active
+        if not user.is_active:
+            messages.error(request, 'Your account is not active. Please wait for admin approval.')
+            return redirect('social:login')
+
+        # Log the user in
+        login(request, user)
+        return redirect('social:index')
 
     return render(request, 'social/login.html')
 
@@ -96,33 +131,55 @@ def logout_page(request):
     return redirect('social:login')
 
 
+# def register(request):
+#     if request.method == "POST":
+#         print(request.POST)
+#         username = request.POST.get('username')
+#         password = request.POST.get('password')
+#         displayName = request.POST.get('displayName')
+
+#         if User.objects.filter(username=username).exists():
+#             messages.error(request, "Username already taken.")
+#             # return 400 since new user is not created
+#             return render(request, 'social/register.html', status=400)
+
+#         user = User.objects.create_user(username=username, password=password)
+
+#         host = "http://localhost:8000/social/api/"
+
+#         author = Author.objects.create(
+#             user=user, host=host, displayName=displayName)
+
+#         author.save()
+
+#         user = authenticate(request, username=username, password=password)
+#         if user is not None:
+#             login(request, user)
+#             return redirect('social:index')
+
+#         # create_author()
+
+#     return render(request, 'social/register.html')
+
 def register(request):
     if request.method == "POST":
-        print(request.POST)
         username = request.POST.get('username')
         password = request.POST.get('password')
         displayName = request.POST.get('displayName')
+        github = request.POST.get('github')
 
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken.")
-            # return 400 since new user is not created
             return render(request, 'social/register.html', status=400)
 
-        user = User.objects.create_user(username=username, password=password)
+        # Create user but set is_active=False until a superuser approves
+        user = User.objects.create_user(username=username, password=password, is_active=False)
 
         host = "http://localhost:8000/social/api/"
+        Author.objects.create(user=user, host=host, displayName=displayName, github=github)
 
-        author = Author.objects.create(
-            user=user, host=host, displayName=displayName)
-
-        author.save()
-
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            return redirect('social:index')
-
-        # create_author()
+        messages.success(request, "Your account has been created! A superuser must activate it before you can log in.")
+        return redirect('social:login')
 
     return render(request, 'social/register.html')
 
