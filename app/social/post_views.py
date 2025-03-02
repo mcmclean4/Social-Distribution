@@ -22,7 +22,6 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
             user=self.request.user,
             defaults={"type": "author", "displayName": self.request.user.username}
         )
-        # Save the post with the author
         serializer.save(author=author)
 
     def perform_destroy(self, instance):

@@ -6,39 +6,73 @@ from social.managers import PostManager
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
 
-class Author(models.Model):
+# class Author(models.Model):
 
+#     TYPE_CHOICES = [
+#         ('author', 'author'),
+#     ]
+#     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
+#     type = models.CharField(
+#         max_length=50, choices=TYPE_CHOICES, default='author',editable=False)
+#     # The full API URL for the author. This is unique.
+#     id = models.URLField(primary_key=True, unique=True, editable=False)
+
+#     #host is not unique
+#     #host = models.URLField(unique=True)
+#     host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
+
+#     # The node that “owns” this author. For remote authors, this points to their home node.
+#     displayName = models.CharField(max_length=255)
+#     github = models.URLField()
+#     profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
+#     page = models.URLField()  # HTML profile page
+#     # Flag to indicate if the author is a node administrator.
+#     isAdmin = models.BooleanField(default=False)
+
+#     def save(self, *args, **kwargs):
+#         if self._state.adding:
+
+#             last_author = Author.objects.order_by('id').last()
+#             try:
+#                 largest_current_id = int(last_author.id.split('/')[-1])
+#             except:
+#                 largest_current_id = 1
+
+#             self.id = f"http://localhost:8000/social/api/authors/{largest_current_id+1}"
+#         super().save(*args, **kwargs)
+
+#     def __str__(self):
+#         return self.displayName
+
+class Author(models.Model):
     TYPE_CHOICES = [
         ('author', 'author'),
     ]
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    type = models.CharField(
-        max_length=50, choices=TYPE_CHOICES, default='author')
-    # The full API URL for the author. This is unique.
-    id = models.URLField(primary_key=True, unique=True)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='author', editable=False)
+    id = models.URLField(primary_key=True, unique=True, editable=False)
 
-    #host is not unique
-    #host = models.URLField(unique=True)
-    host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
-
-    # The node that “owns” this author. For remote authors, this points to their home node.
+    host = models.URLField(null=True, blank=True)
     displayName = models.CharField(max_length=255)
     github = models.URLField(blank=True, null=True)
     profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
-    page = models.URLField(blank=True, null=True)  # HTML profile page
-    # Flag to indicate if the author is a node administrator.
+    page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self._state.adding:
+            last_author = Author.objects.order_by('-id').first()
+            
+            if last_author and last_author.id:
+                try:
+                    largest_current_id = int(last_author.id.rstrip('/').split('/')[-1])
+                except ValueError:
+                    largest_current_id = 0  # Default if parsing fails
+            else:
+                largest_current_id = 0  # If there are no existing authors
 
-            last_author = Author.objects.order_by('id').last()
-            try:
-                largest_current_id = int(last_author.id.split('/')[-1])
-            except:
-                largest_current_id = 1
+            self.id = f"http://localhost:8000/social/api/authors/{largest_current_id + 1}"
 
-            self.id = f"http://localhost:8000/social/api/authors/{largest_current_id+1}"
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -69,7 +103,7 @@ class Post(models.Model):
     objects = PostManager()
     type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(unique=True)
+    id = models.URLField(unique=True, editable=False)
     page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
@@ -81,7 +115,7 @@ class Post(models.Model):
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
     comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
-    internal_id = models.AutoField(primary_key=True)
+    internal_id = models.AutoField(primary_key=True, editable=False)
 
     class Meta:
         ordering = ['-published']

@@ -39,7 +39,7 @@
         {% endif %}
       </div>
 
-      <div class="mb-3">
+      <div class="mb-3" id="image-upload-section" style="display: none;">
         <label for="{{ form.image.id_for_label }}" class="form-label">Upload Image</label>
         {{ form.image }}
         {% if form.image.errors %}
@@ -62,4 +62,30 @@
 
     </form>
   </div>
+
+  <!-- JavaScript to toggle the image upload field -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const contentTypeSelect = document.querySelector('[name="contentType"]');
+      const imageUploadSection = document.getElementById('image-upload-section');
+
+      // Function to check the selected content type
+      function checkContentType() {
+        const selectedContentType = contentTypeSelect.value;
+
+        // Show the image upload if the content type is 'image/png;base64' or 'image/jpeg;base64'
+        if (selectedContentType === 'image/png;base64' || selectedContentType === 'image/jpeg;base64') {
+          imageUploadSection.style.display = 'block';
+        } else {
+          imageUploadSection.style.display = 'none';
+        }
+      }
+
+      // Run the check when the content type changes
+      contentTypeSelect.addEventListener('change', checkContentType);
+
+      // Initial check when the page loads
+      checkContentType();
+    });
+  </script>
 {% endblock %}

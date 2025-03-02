@@ -1,24 +1,35 @@
 from rest_framework import serializers
 from .models import Post, Author, User
-from .models import Follow
 
-class AuthorSerializer(serializers.Serializer):
-    user = User
-    type = serializers.CharField(required=True)
-    id = serializers.URLField(required=True)
-    # host = serializers.URLField(required=True)
-    displayName = serializers.CharField(required=True)
-    github = serializers.URLField()
-    profileImage = serializers.URLField()
-    page = serializers.URLField()
-    isAdmin = serializers.BooleanField()
+# class AuthorSerializer(serializers.Serializer):
+#     user = User
+#     type = serializers.CharField(required=True)
+#     id = serializers.URLField(required=True)
+#     # host = serializers.URLField(required=True)
+#     displayName = serializers.CharField(required=True)
+#     github = serializers.URLField()
+#     profileImage = serializers.URLField()
+#     page = serializers.URLField()
+#     isAdmin = serializers.BooleanField()
 
-    def create(self, validated_data):
-        return Author.objects.create(**validated_data)
+#     def create(self, validated_data):
+#         return Author.objects.create(**validated_data)
 
-    def edit(self, validated_data):
-        pass
+#     def edit(self, validated_data):
+#         pass
 
+class AuthorSerializer(serializers.ModelSerializer):
+    github = serializers.URLField(required=False, allow_blank=True)
+    profileImage = serializers.ImageField(required=False, allow_null=True)
+    page = serializers.URLField(required=False, allow_blank=True)
+
+    class Meta:
+        model = Author
+        fields = '__all__'
+        extra_kwargs = {
+            'user': {'read_only': True},
+            'id': {'read_only': True}
+        }
 
 class CommentSerializer(serializers.Serializer):
     id = serializers.URLField()
