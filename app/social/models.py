@@ -11,11 +11,11 @@ class Author(models.Model):
     TYPE_CHOICES = [
         ('author', 'author'),
     ]
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     type = models.CharField(
-        max_length=50, choices=TYPE_CHOICES, default='author')
+        max_length=50, choices=TYPE_CHOICES, default='author',editable=False)
     # The full API URL for the author. This is unique.
-    id = models.URLField(primary_key=True, unique=True)
+    id = models.URLField(primary_key=True, unique=True, editable=False)
 
     #host is not unique
     #host = models.URLField(unique=True)
@@ -23,8 +23,8 @@ class Author(models.Model):
 
     # The node that “owns” this author. For remote authors, this points to their home node.
     displayName = models.CharField(max_length=255)
-    github = models.URLField(blank=True, null=True)
-    profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
+    github = models.URLField()
+    profileImage = models.ImageField(upload_to='images/', default="https://i.imgur.com/7MUSXf9.png")
     page = models.URLField(blank=True, null=True)  # HTML profile page
     # Flag to indicate if the author is a node administrator.
     isAdmin = models.BooleanField(default=False)
@@ -69,7 +69,7 @@ class Post(models.Model):
     objects = PostManager()
     type = models.CharField(max_length=50, choices=POST_CHOICES, default='post')
     title = models.CharField(max_length=255)
-    id = models.URLField(unique=True)
+    id = models.URLField(unique=True, editable=False)
     page = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
@@ -81,7 +81,7 @@ class Post(models.Model):
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
     comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
-    internal_id = models.AutoField(primary_key=True)
+    internal_id = models.AutoField(primary_key=True, editable=False)
 
     class Meta:
         ordering = ['-published']
