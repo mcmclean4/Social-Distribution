@@ -10,6 +10,9 @@ app_name = 'social'
 
 urlpatterns = [
 
+    #ADMIN
+    path("sendCommand/", views.send_command, name="send_command"),
+    
     path("index/", views.stream, name="index"),
     path("login/", views.login_page, name='login'),
     path('logout/', views.logout_page, name='logout'),

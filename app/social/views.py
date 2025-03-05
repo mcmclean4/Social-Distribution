@@ -24,6 +24,9 @@ from django.db import transaction  # Correct placement of transaction import
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from .models import Post, Author
+from django.contrib.admin.sites import site
+from django.contrib.admin.views.decorators import staff_member_required
+from django.db import connection
 
 # Like
 from .models import Post, PostLike, Comment
@@ -160,6 +163,30 @@ def logout_page(request):
 #         # create_author()
 
 #     return render(request, 'social/register.html')
+
+@staff_member_required
+def custom_admin_view(request):
+    return render(request, 'admin/database.html')
+
+def send_command(request):
+    
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT * FROM social_author")
+        result = cursor.fetchall()
+        print(str(result))
+    
+    data = {
+        'output': repr(result)
+    }
+    return JsonResponse(data, status=200)
+    
+    """
+    process = subprocess.Popen(
+        ["psql", "-U", "postgres", "-d", "your_database_name"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    print(process.stdout)
+    """
+    return render(request, 'admin/database.html')
+    
 
 def register(request):
     if request.method == "POST":

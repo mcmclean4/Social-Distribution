@@ -1,0 +1,70 @@
+<style>
+
+    h2{
+        word-wrap: break-word;
+    }
+
+    #terminal_window{
+        width: 100%;
+        height: 300px; 
+        overflow-y: auto; 
+        border: 1px solid #ccc; 
+        padding: 10px;
+    }
+
+</style>
+
+{% extends "admin/base_site.html" %}
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+<div id="terminal_window"></div>
+
+<input type="text" id="input_text"></input>
+<button id="submit_button">Send</button>
+
+<script>
+    
+    document.addEventListener("DOMContentLoaded", function(){
+            main();
+    });
+
+
+    class Terminal{
+        constructor(){
+            this.terminal_window = document.getElementById("terminal_window");
+            this.input = document.getElementById("input_text");
+            this.submit_button = document.getElementById("submit_button");
+            
+            this.submit_button.addEventListener("click", this.update.bind(this))
+
+            this.terminal_window.innerHTML = "<h2>hello</h2>";
+        }
+
+        update(){
+
+            let responseData = null;
+
+            testing = fetch('{% url "social:send_command" %}', {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').content },
+                body: ""
+            }).then(response => {
+                if(!response.ok){
+                    throw new Error('Command was not valid');
+                }
+                return response.json();
+            }).then(data => {
+                console.log(data);
+                this.terminal_window.innerHTML = `<h2>${data.output}</h2>`;
+            })
+        
+        }
+    }
+
+    function main(){
+        terminal = new Terminal();
+    }
+    
+</script>
+{% endblock %}
+
