@@ -53,6 +53,7 @@ def stream(request):
 
     # Handle likes for comments
     for post in post_list:
+        post.is_liked = PostLike.objects.filter(post=post, author=request.user.author).exists()
         for comment in post.comments.all():
             comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
 

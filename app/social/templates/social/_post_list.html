@@ -6,7 +6,7 @@
                 <a href="{% url 'social:post_detail' post.internal_id %}" class="text-decoration-none text-dark">
                     {% if post.image %}
                         <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}"
-                            style="height: 250px; object-fit: cover;">
+                             style="height: 250px; object-fit: cover;">
                     {% endif %}
                     <div class="card-body">
                         <h5 class="card-title fw-semibold">{{ post.title }}</h5>
@@ -18,71 +18,61 @@
                     </div>
                 </a>
 
-                <div class="card-footer d-flex justify-content-between">
-                    <div class="like-section" data-post-id="{{ post.id }}" data-author-id="{{ post.author.id }}">
-                        <div class="btn btn-link text-decoration-none">
-                            <i class="bi bi-hand-thumbs-up"></i>
-                            <span class="like-text">Like</span>
-                            <span class="like-count" id="like-count-{{ post.id }}">{{ post.likes.count }}</span>
+                <!-- Like and Comment section -->
+                <div class="card-footer mt-4">
+                    <div class="d-flex justify-content-between">
+                        <div class="like-section" 
+                             data-post-id="{{ post.internal_id }}" 
+                             data-author-id="{{ post.author.id }}" 
+                             data-is-liked="{{ post.is_liked|yesno:'true,false' }}">
+                            <button class="btn btn-link text-decoration-none" 
+                                    onclick="handleLike('{{ post.author.id }}', '{{ post.internal_id }}')">
+                                <i id="like-icon-{{ post.internal_id }}" 
+                                   class="bi bi-hand-thumbs-up{% if post.is_liked %}-fill{% endif %}">
+                                </i>
+                                <span class="like-text">Like</span>
+                                <span class="like-count" id="like-count-{{ post.internal_id }}">{{ post.likes.count }}</span>
+                            </button>
                         </div>
+                        <button class="btn btn-link text-decoration-none" 
+                                onclick="toggleCommentSection('{{ post.internal_id }}')" 
+                                type="button">
+                            <i class="bi bi-chat"></i> 
+                            Comments (<span id="comment-count-{{ post.internal_id }}">{{ post.comments.count }}</span>)
+                        </button>
                     </div>
-                    <!-- Comment button -->
-                    <button class="btn btn-link text-decoration-none">
-                        <i class="bi bi-chat"></i>
-                        Comments ({{ post.comments.count }})
-                    </button>
-                </div>
 
-                <!-- Comment section -->
-                <div id="comment-section-{{ post.id }}" class="comment-section" style="display: none;">
-                    <!-- Existing comments -->
-                    <div class="comments-list mb-3">
-                        {% for comment in post.comments.all %}
-                        <div class="comment mb-2" id="comment-{{ comment.id }}">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <strong class="me-2">{{ comment.author.displayName }}</strong>
-                                    <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
-                                </div>
-                                <div class="comment-actions">
-                                    <button class="btn btn-link text-decoration-none comment-like-button p-0"
-                                            onclick="handleCommentLike('{{ post.author.id }}', '{{ post.id }}', '{{ comment.id }}')"
-                                            data-comment-id="{{ comment.id }}">
-                                        <i class="bi bi-hand-thumbs-up{% if comment.is_liked %}-fill{% endif %}"></i>
-                                        <span class="like-text">Like</span>
-                                        <span class="comment-like-count" id="comment-like-count-{{ comment.id }}">
-                                            {{ comment.likes.count }}
-                                        </span>
-                                    </button>
-                                </div>
+                    <!-- Comment section -->
+                    <div id="comment-section-{{ post.internal_id }}" class="comment-section mt-3" style="display: none;">
+                        <!-- Comment form -->
+                        <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.internal_id }}')" class="comment-form mb-3">
+                            {% csrf_token %}
+                            <div class="input-group">
+                                <textarea class="form-control" id="comment-input-{{ post.internal_id }}" 
+                                          placeholder="Write a comment..." rows="1"></textarea>
+                                <button class="btn btn-primary" type="submit">Post</button>
                             </div>
-                            <p class="mb-1">{{ comment.content }}</p>
+                        </form>
+
+                        <div class="comments-list">
+                            {% for comment in post.comments.all %}
+                                <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong class="me-2">{{ comment.author.displayName }}</strong>
+                                            <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
+                                        </div>
+                                        <button class="btn btn-link text-decoration-none p-0" 
+                                                onclick="handleCommentLike('{{ post.author.id }}', '{{ post.internal_id }}', '{{ comment.id }}')">
+                                            <i class="bi bi-hand-thumbs-up{% if comment.is_liked %}-fill{% endif %}"></i>
+                                            <span id="comment-like-count-{{ comment.id }}">{{ comment.likes.count }}</span>
+                                        </button>
+                                    </div>
+                                    <p class="mb-1">{{ comment.content }}</p>
+                                </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
                     </div>
-
-                    <!-- Comment form -->
-                    <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.id }}')" class="comment-form">
-                        {% csrf_token %}
-                        <div class="input-group">
-                            <textarea class="form-control"
-                                      id="comment-input-{{ post.id }}"
-                                      placeholder="Write a comment..."
-                                      rows="1"></textarea>
-                            <button class="btn btn-primary" type="submit">Post</button>
-                        </div>
-                    </form>
-
-                    {% if post.author.user == request.user %}
-                        <div class="d-flex">
-                            <a href="{% url 'social:update_post' post.internal_id %}" class="btn btn-warning btn-sm me-2">Edit</a>
-                            <form method="POST" action="{% url 'social:delete_post' post.internal_id %}" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                            </form>
-                        </div>
-                    {% endif %}
-
                 </div>
             </div>
         </div>
@@ -92,3 +82,132 @@
         </div>
     {% endfor %}
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".like-section").forEach(section => {
+            const postId = section.getAttribute("data-post-id");
+            const isLiked = section.getAttribute("data-is-liked") === "true";
+
+            const likeIcon = document.getElementById(`like-icon-${postId}`);
+            if (isLiked) {
+                likeIcon.classList.remove("bi-hand-thumbs-up");
+                likeIcon.classList.add("bi-hand-thumbs-up-fill");
+            } else {
+                likeIcon.classList.remove("bi-hand-thumbs-up-fill");
+                likeIcon.classList.add("bi-hand-thumbs-up");
+            }
+        });
+    });
+
+    async function handleLike(authorId, postId) {
+        try {
+            console.log('Full Author ID:', authorId);
+            console.log('Raw Post ID:', postId);
+
+            const authorNumber = authorId.includes('/authors/') 
+                ? authorId.split('/authors/')[1].split('/')[0] 
+                : authorId;
+
+            console.log('Extracted Author Number:', authorNumber);
+            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/like/`;
+            console.log('Making request to:', apiUrl);
+
+            const likeButton = document.querySelector(`[data-post-id="${postId}"]`);
+            const likeCount = document.getElementById(`like-count-${postId}`);
+            const likeIcon = likeButton.querySelector('i');
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({})
+            });
+
+            console.log('Response status:', response.status);
+            const data = await response.json();
+            console.log('Full Response Data:', data);
+
+            if (response.ok) {
+                if (data.action === 'liked') {
+                    likeIcon.classList.remove('bi-hand-thumbs-up');
+                    likeIcon.classList.add('bi-hand-thumbs-up-fill');
+                } else {
+                    likeIcon.classList.remove('bi-hand-thumbs-up-fill');
+                    likeIcon.classList.add('bi-hand-thumbs-up');
+                }
+                if (likeCount) {
+                    likeCount.textContent = data.like_count;
+                }
+            } else {
+                console.error('Error response:', data);
+            }
+        } catch (error) {
+            console.error('Catch Block Error:', error);
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function toggleCommentSection(postId) {
+        const commentSection = document.getElementById(`comment-section-${postId}`);
+        commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function handleComment(event, authorId, postId) {
+        event.preventDefault();
+
+        try {
+            const commentInput = document.getElementById(`comment-input-${postId}`);
+            const content = commentInput.value.trim();
+
+            if (!content) return;
+
+            const authorNumber = authorId.includes('/authors/') 
+                ? authorId.split('/authors/')[1].split('/')[0] 
+                : authorId;
+
+            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ content: content })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const commentsList = document.querySelector(`#comment-section-${postId} .comments-list`);
+                commentsList.insertAdjacentHTML('beforeend', `<div>${data.content}</div>`);
+
+                commentInput.value = '';
+                const commentCount = document.getElementById(`comment-count-${postId}`);
+                commentCount.textContent = parseInt(commentCount.textContent) + 1;
+            }
+        } catch (error) {
+            console.error('Error posting comment:', error);
+        }
+    }
+</script>
