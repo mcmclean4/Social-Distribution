@@ -54,7 +54,8 @@ class Author(models.Model):
 
     host = models.URLField(null=True, blank=True)
     displayName = models.CharField(max_length=255)
-    github = models.URLField(blank=True, null=True)
+    github = models.CharField(blank=True, null=True)
+    github_timestamp = models.DateTimeField(auto_now_add=True)
     profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)

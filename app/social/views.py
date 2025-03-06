@@ -48,9 +48,19 @@ from .github_activity import fetch_user_activity
 def stream(request):
     friends = get_friends(request.user.author)
 
-    print(f"calling fetch for user: {request.user.author.github}")
-    github_response = fetch_user_activity(request, request.user.author.github)
-    print(github_response)
+    # Check for recent github activity of the current user
+    if request.user.author.github:
+        print(f"calling fetch for user: {request.user.author.github}")
+        if not request.session.get("github_access_token"):
+            # Redirect the user to the authorization URL
+            return redirect("social:github_authorize")
+        
+        github_response = fetch_user_activity(request, request.user.author.github)
+        if github_response == "invalid_token":
+            # Token is invalid; redirect the user to reauthorize
+            return redirect("social:github_authorize")
+        print(github_response)
+        
 
     # Filter posts
     post_list = Post.objects.filtered(
