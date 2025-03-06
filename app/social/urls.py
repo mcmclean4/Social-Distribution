@@ -5,6 +5,7 @@ from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
 from .image_views import( getImageWithSerial, getImageWithFQID)
+from .github_activity import(github_authorize, github_callback)
 
 app_name = 'social'
 
@@ -33,6 +34,10 @@ urlpatterns = [
     path('post/<int:internal_id>/update/', post_views.update_post, name='update_post'),
     path('post/<int:internal_id>/delete/', post_views.delete_post, name='delete_post'),
     path('post/<int:internal_id>/', post_views.post_detail, name='post_detail'),
+
+    # Github authorization
+    path('github/authorize/', github_authorize, name='github_authorize'),
+    path('github/callback/', github_callback, name='github_callback'),
     
     path("api/authors/<str:author_id>/followers", FollowersListView.as_view(), name="get_followers_a"),
     path("api/authors/<str:author_id>/followers/", FollowersListView.as_view(), name="get_followers"),
