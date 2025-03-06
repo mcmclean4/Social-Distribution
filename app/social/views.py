@@ -36,6 +36,9 @@ import os
 from rest_framework.pagination import PageNumberPagination
 from .utils import *
 
+from .github_activity import fetch_user_activity
+
+
 
 ######################################
 #           STREAM/INDEX AREA        
@@ -44,6 +47,10 @@ from .utils import *
 @login_required
 def stream(request):
     friends = get_friends(request.user.author)
+
+    print(f"calling fetch for user: {request.user.author.github}")
+    github_response = fetch_user_activity(request.user.author.github)
+    print(github_response)
 
     # Filter posts
     post_list = Post.objects.filtered(
