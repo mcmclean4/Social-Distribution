@@ -41,21 +41,56 @@ def generate_jwt():
 
     return _cached_jwt
 
-
-def fetch_user_activity(username):
-    
-    url = f"https://api.github.com/users/{username}/events/public"
-    print(f"url is {url}")
-
+def get_installation_id(jwt_token):
+    url = "https://api.github.com/app/installations"
     headers = {
         "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {generate_jwt()}",
+        "Authorization": f"Bearer {jwt_token}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        installations = response.json()
+        return installations[0]["id"]  # Assuming the app is installed at least once
+    else:
+        print(f"Error fetching installations: {response.status_code} - {response.text}")
+        return None
+    
+def get_installation_token(jwt_token, installation_id):
+    url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {jwt_token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    response = requests.post(url, headers=headers)
+    if response.status_code == 201:
+        return response.json()["token"]
+    else:
+        print(f"Error fetching installation token: {response.status_code} - {response.text}")
+        return None
+
+def fetch_user_activity(username):
+    jwt_token = generate_jwt()
+    installation_id = get_installation_id(jwt_token)
+    if not installation_id:
+        return None
+
+    installation_token = get_installation_token(jwt_token, installation_id)
+    if not installation_token:
+        return None
+
+    url = f"https://api.github.com/users/{username}/events/public"
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {installation_token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }   
 
     response = requests.get(url, headers=headers)
-    print(response.status_code)
-    print(response)
+    print(f"Response Status Code: {response.status_code}")
+    print(f"Response Body: {response.text}")
+
     if response.status_code == 200:
         data = response.json()
         if data:  # If there's any activity, return it, else return None
