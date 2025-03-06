@@ -19,7 +19,6 @@ from .models import Post, Author, User
 #         pass
 
 class AuthorSerializer(serializers.ModelSerializer):
-    github = serializers.URLField(required=False, allow_blank=True)
     profileImage = serializers.ImageField(required=False, allow_null=True)
     page = serializers.URLField(required=False, allow_blank=True)
 
