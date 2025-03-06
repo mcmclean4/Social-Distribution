@@ -49,7 +49,7 @@ def stream(request):
     friends = get_friends(request.user.author)
 
     print(f"calling fetch for user: {request.user.author.github}")
-    github_response = fetch_user_activity(request.user.author.github)
+    github_response = fetch_user_activity(request, request.user.author.github)
     print(github_response)
 
     # Filter posts
