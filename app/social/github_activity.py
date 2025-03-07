@@ -18,7 +18,6 @@ def github_authorize(request):
     }
     
     url = f"https://github.com/login/oauth/authorize?{urllib.parse.urlencode(params)}"
-    print(f"going to url: {url}")
     return redirect(url)
 
 
@@ -27,7 +26,6 @@ def github_callback(request):
 
     code = request.GET.get("code")
     state = request.GET.get("state")
-    print('handling callback')
 
     # Exchange the code for a user access token
     response = requests.post(
@@ -82,15 +80,14 @@ def generate_new_posts(events, author):
     
     created_new_post = False
     last_updated = author.github_timestamp
-    print(events[0])
-    print(f"last_updated: {last_updated}")
+    #print(events[0])
+    #print(f"last_updated: {last_updated}")
     
     for event in events:
         event_time = datetime.fromisoformat(event['created_at'].replace("Z", "+00:00"))
-        print(f"event_time: {event_time}")
+        #print(f"event_time: {event_time}")
         # Only create posts for events that are more recent than the last time we fetched activity for this author
         if (last_updated > event_time):
-            print("ending for loop")
             break
         
         # Create a post for the event
