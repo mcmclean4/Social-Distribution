@@ -55,11 +55,10 @@ def stream(request):
             # Redirect the user to the authorization URL
             return redirect("social:github_authorize")
         
-        github_response = fetch_user_activity(request, request.user.author.github)
+        github_response = fetch_user_activity(request)
         if github_response == "invalid_token":
             # Token is invalid; redirect the user to reauthorize
             return redirect("social:github_authorize")
-        print(github_response)
         
 
     # Filter posts
