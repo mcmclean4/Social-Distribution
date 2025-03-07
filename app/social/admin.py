@@ -8,19 +8,13 @@ from .views import custom_admin_view
 # Register your models here.
 
 
-admin.site.register(Post)
-admin.site.register(Comment)
-admin.site.register(Follow)
-
-
-
 class CustomAdminSite(admin.AdminSite):
     site_header = "Social Admin Panel"
     
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('custom-page/', self.admin_view(custom_admin_view), name='custom-admin-page'),
+            path('sql/', self.admin_view(custom_admin_view), name='sql'),
         ]
         return custom_urls + urls
     
@@ -41,8 +35,8 @@ class CustomAdminSite(admin.AdminSite):
 
         # Add the custom link under the chosen app
         custom_app["models"].append({
-            "name": "Custom Admin Page",
-            "admin_url": "/admin/custom-page/",
+            "name": "SQL Queries",
+            "admin_url": "/admin/sql/",
             "view_only": True,
         })
 
@@ -52,3 +46,6 @@ admin_site = CustomAdminSite(name='custom_admin')
 
 admin_site.register(Author)
 admin_site.register(User)
+admin_site.register(Post)
+admin_site.register(Comment)
+admin_site.register(Follow)

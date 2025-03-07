@@ -168,6 +168,7 @@ def logout_page(request):
 def custom_admin_view(request):
     return render(request, 'admin/database.html')
 
+@staff_member_required
 def send_command(request):
     
     with connection.cursor() as cursor:
@@ -179,13 +180,18 @@ def send_command(request):
         'output': repr(result)
     }
     return JsonResponse(data, status=200)
+
+@staff_member_required
+def start_terminal(request):
     
-    """
-    process = subprocess.Popen(
-        ["psql", "-U", "postgres", "-d", "your_database_name"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    print(process.stdout)
-    """
-    return render(request, 'admin/database.html')
+    with connection.cursor() as cursor:
+        result = connection.introspection.table_names()
+        print(str(result))
+    
+    data = {
+        'output': result
+    }
+    return JsonResponse(data, status=200)
     
 
 def register(request):

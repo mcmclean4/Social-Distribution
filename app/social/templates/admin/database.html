@@ -12,12 +12,32 @@
         padding: 10px;
     }
 
+    #table_lists{
+        display: flex;
+        gap: 40px;
+    }
+
+    #table_list{
+        list-style-type: none;
+        padding: 0;
+    }
+
 </style>
 
 {% extends "admin/base_site.html" %}
 {% block content %}
 <meta name="csrf-token" content="{{ csrf_token }}">
-<div id="terminal_window"></div>
+<div>
+    <h2>Tables in database:</h2>
+    <div id="table_lists">
+        <ul id="table_list">
+        </ul>
+    </div>
+</div>
+
+<div id="terminal_window">
+    <h2 id="terminal_text"></h2>
+</div>
 
 <input type="text" id="input_text"></input>
 <button id="submit_button">Send</button>
@@ -32,12 +52,35 @@
     class Terminal{
         constructor(){
             this.terminal_window = document.getElementById("terminal_window");
+            this.terminal_text = document.getElementById("terminal_text");
             this.input = document.getElementById("input_text");
             this.submit_button = document.getElementById("submit_button");
-            
+            this.table_list = document.getElementById("table_list");
             this.submit_button.addEventListener("click", this.update.bind(this))
 
-            this.terminal_window.innerHTML = "<h2>hello</h2>";
+            this.start();
+
+        }
+
+        start(){
+            let responseData = null;
+
+            var testing = fetch('{% url "social:start_terminal" %}', {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').content },
+                body: ""
+            }).then(response => {
+                if(!response.ok){
+                    throw new Error('Command was not valid');
+                }
+                return response.json();
+            }).then(data => {
+                console.log(data[0]);
+                for (const table of data['output']){
+                    
+                    this.table_list.innerHTML += `<li>${table}</li>`;
+                }
+            })
         }
 
         update(){
@@ -54,8 +97,8 @@
                 }
                 return response.json();
             }).then(data => {
-                console.log(data);
-                this.terminal_window.innerHTML = `<h2>${data.output}</h2>`;
+                
+                this.terminal_text.innerHTML += `${data.output} <br></br>`;
             })
         
         }
