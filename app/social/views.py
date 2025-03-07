@@ -50,7 +50,6 @@ def stream(request):
 
     # Check for recent github activity of the current user
     if request.user.author.github:
-        print(f"calling fetch for user: {request.user.author.github}")
         if not request.session.get("github_access_token"):
             # Redirect the user to the authorization URL
             return redirect("social:github_authorize")
