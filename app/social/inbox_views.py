@@ -8,8 +8,9 @@ from django.db import transaction
 import requests
 import json
 from django.conf import settings
+from django.utils import timezone
 from .models import Author, Post, FollowRequest, Inbox, Like, Comment
-
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
 
 def follow_inbox_view(request):
@@ -49,7 +50,7 @@ def follow_inbox_view(request):
 
 class InboxView(APIView):
     """Handles fetching and storing items in an author's inbox."""
-
+    
     permission_classes = [AllowAny]
 
     def get(self, request, author_id):
@@ -68,13 +69,12 @@ class InboxView(APIView):
         if not inbox:
             return Response({"type": "inbox", "items": []}, status=status.HTTP_200_OK)
 
-        # Fetch and format items
         inbox_items = []
 
-        # Fetch and format follow requests
+        # Process follow requests
         for fr in inbox.inbox_follows.all():
-            follower_data = self.get_author_details(fr.follower_id)
-            followee_data = self.get_author_details(fr.followee.id)
+            follower_data = self.format_author(get_object_or_404(Author, id=fr.follower_id))
+            followee_data = self.format_author(fr.followee)
 
             if follower_data and followee_data:
                 inbox_items.append({
@@ -84,23 +84,19 @@ class InboxView(APIView):
                     "object": followee_data
                 })
 
-        # Fetch and format posts
+        # Process posts
         for post in inbox.inbox_posts.all():
-            post_data = self.get_post_details(post.id)
-            if post_data:
-                inbox_items.append(post_data)
+            inbox_items.append(self.format_post(post, author_id))
 
-        # Fetch and format likes
+        # Process likes using `format_likes()`
+        # Process each like individually
         for like in inbox.inbox_likes.all():
-            like_data = self.get_like_details(like.id)
-            if like_data:
-                inbox_items.append(like_data)
+            inbox_items.append(self.format_like(like))
 
-        # Fetch and format comments
+
+        # Process comments using `format_comments()`
         for comment in inbox.inbox_comments.all():
-            comment_data = self.get_comment_details(comment.id)
-            if comment_data:
-                inbox_items.append(comment_data)
+            inbox_items.append(self.format_comments(comment))
 
         print(f"Returning {len(inbox_items)} items in the inbox.")
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
@@ -125,35 +121,81 @@ class InboxView(APIView):
             print(f" Error fetching author details for {author_url}: {e}")
             return None
 
-    def get_post_details(self, post_url):
-        """Fetches post details from an API."""
-        try:
-            response = requests.get(post_url, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f" Error fetching post details for {post_url}: {e}")
-            return None
+    def format_author(self,author):
+        """Returns the formatted author object."""
+        return {
+            "type": "author",
+            "id": author.id,
+            "host": author.host,
+            "displayName": author.displayName,
+            "github": author.github if author.github else "",
+            "profileImage": author.profileImage.url if author.profileImage else "",
+            "page": author.page if author.page else ""
+        }
 
-    def get_like_details(self, like_url):
-        """Fetches like details from an API."""
-        try:
-            response = requests.get(like_url, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f" Error fetching like details for {like_url}: {e}")
-            return None
+    def format_likes(self,likes, author_id, obj_id):
+        """Returns formatted likes for a post or comment."""
+        return {
+            "type": "likes",
+            "id": f"{like.post}/likes",
+            "page": f"{settings.HOST}api/authors/{author_id}/posts/{obj_id}/likes",
+            "page_number": 1,
+            "size": 50,
+            "count": likes.count(),
+            "src": [
+                {
+                    "type": "like",
+                    "id": like.id,
+                    "published": like.published.isoformat(),
+                    "author": self.format_author(like.author),
+                    "object": like.post
+                }
+                for like in likes.all()[:5]  # Limit to 5 likes for efficiency
+            ]
+        }
 
-    def get_comment_details(self, comment_url):
-        """Fetches comment details from an API."""
-        try:
-            response = requests.get(comment_url, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f" Error fetching comment details for {comment_url}: {e}")
-            return None
+    def format_comments(self,comments, post_id, author_id):
+        """Returns formatted comments for a post."""
+        return {
+            "type": "comments",
+            "id": f"{post_id}/comments",
+            "page": f"{settings.HOST}api/authors/{author_id}/posts/{post_id}/comments",
+            "page_number": 1,
+            "size": 5,
+            "count": comments.count(),
+            "src": [
+                {
+                    "type": "comment",
+                    "id": comment.id,
+                    "post": comment.post.id,
+                    "comment": comment.content,
+                    "contentType": "text/markdown",
+                    "published": comment.published.isoformat(),
+                    "author": self.format_author(comment.author),
+                    "likes": self.format_likes(comment.likes, comment.id, author_id)
+                }
+                for comment in comments.all()[:5]  # Limit to 5 comments for efficiency
+            ]
+        }
+
+    def format_post(self, post, author_id):
+        """Returns the formatted post object."""
+        return {
+            "type": "post",
+            "id": post.id,
+            "title": post.title,
+            "description": post.description,
+            "contentType": post.contentType,
+            "content": post.content,
+            "published": post.published.isoformat(),
+            "visibility": post.visibility,
+            "page": post.page if post.page else "",
+            "author": self.format_author(post.author),
+            "comments": self.format_comments(post.comments, post.id, author_id),
+            "likes": self.format_likes(post.likes, post.id, author_id)
+        }
+
+
 
     def post(self, request, author_id):
         """Stores any incoming request (posts, likes, comments, follows) in the inbox."""
@@ -194,16 +236,104 @@ class InboxView(APIView):
             inbox.inbox_follows.add(follow_request)
 
         elif item_type == "Like":
-            like, _ = Like.objects.get_or_create(id=data["id"], defaults=data)
-            inbox.inbox_likes.add(like)
+            print("Received a like in the inbox")
 
-        elif item_type == "Comment":
-            comment, _ = Comment.objects.get_or_create(id=data["id"], defaults=data)
+            like_id = data.get("id")
+            like_object = data.get("object")  # The ID of the post being liked
+            like_author_id = data.get("author", {}).get("id", "")
+            like_published = data.get("published", timezone.now().isoformat())
+
+            if not (like_id and like_object and like_author_id):
+                return Response({"error": "Missing required like fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Retrieve the author (since all authors are local)
+            author_instance = get_object_or_404(Author, id=like_author_id)
+
+            # Only handling post likes
+            liked_post = get_object_or_404(Post, id=like_object)
+
+            # Create or update the like entry
+            post_like, _ = PostLike.objects.get_or_create(
+                defaults={
+                    "created_at": like_published,
+                    "author": author_instance,
+                    "object": liked_post
+                }
+            )
+
+            # ✅ Add the like to the inbox as a separate entry
+            inbox.inbox_likes.add(post_like)
+
+
+
+        elif item_type == "comment":
+            comment_id = data["id"]
+            comment_content = data.get("comment", "")
+            comment_author_id = data.get("author", {}).get("id", "")
+            comment_post_id = data.get("post", "")
+            comment_published = data.get("published", "")
+
+            # Ensure required fields are present
+            if not (comment_author_id and comment_post_id and comment_content):
+                return Response({"error": "Missing required comment fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Retrieve the author (since all authors are local)
+            author_instance = get_object_or_404(Author, id=comment_author_id)
+
+            # Retrieve the post
+            post_instance = get_object_or_404(Post, id=comment_post_id)
+
+            # Create the comment object
+            comment, _ = Comment.objects.update_or_create(
+                id=comment_id,
+                defaults={
+                    "type": "comment",
+                    "content": comment_content,
+                    "published": comment_published,
+                    "author": author_instance,
+                    "post": post_instance
+                }
+            )
             inbox.inbox_comments.add(comment)
 
-        elif item_type == "Post":
-            post, _ = Post.objects.get_or_create(id=data["id"], defaults=data)
+
+        elif item_type == "post":
+            print("Received a post in the inbox")
+            
+            post_id = data.get("id")
+            post_title = data.get("title", "")
+            post_description = data.get("description", "")
+            post_content = data.get("content", "")
+            post_contentType = data.get("contentType", "text/plain")
+            post_visibility = data.get("visibility", "PUBLIC")
+            post_published = data.get("published", timezone.now().isoformat())
+            post_page = data.get("page", "")
+            
+            post_author_id = data.get("author", {}).get("id", "")
+            
+            if not (post_id and post_author_id and post_title):
+                return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Retrieve the author (since all authors are local)
+            author_instance = get_object_or_404(Author, id=post_author_id)
+
+            # Create or update the post object
+            post, created = Post.objects.update_or_create(
+                id=post_id,
+                defaults={
+                    "title": post_title,
+                    "description": post_description,
+                    "content": post_content,
+                    "contentType": post_contentType,
+                    "visibility": post_visibility,
+                    "published": post_published,
+                    "author": author_instance,
+                    "page": post_page
+                }
+            )
+
             inbox.inbox_posts.add(post)
+
 
         else:
             return Response({"error": "Invalid type"}, status=status.HTTP_400_BAD_REQUEST)

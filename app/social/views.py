@@ -101,6 +101,7 @@ def login_page(request):
         username = request.POST.get('username')
         password = request.POST.get('password')
 
+
         # Check if the user exists
         try:
             user = User.objects.get(username=username)
@@ -459,9 +460,14 @@ def add_comment(request, author_id, post_id):
                 type='author',
                 displayName=request.user.username,
             )
-        
+        # Generate Comment URL-based ID
+        comment_internal_id = Comment.objects.count() + 1  # Ensure unique ID
+        comment_url_id = f"{request_user_author}/{comment_internal_id}"
+        print("DEBUG: commentID is", comment_url_id)
+
         # Create the comment
         comment = Comment.objects.create(
+            id=comment_url_id,
             type='comment',
             post=post,
             author=request_user_author,
