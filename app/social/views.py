@@ -66,6 +66,17 @@ def stream(request):
         authors=friends,
         visibilities=['PUBLIC', 'FRIENDS']
     )
+        # Add `is_liked` status to each post
+    for post in post_list:
+        if request.user.is_authenticated:
+            try:
+                author = request.user.author
+                post.is_liked = PostLike.objects.filter(post=post, author=author).exists()
+            except:
+                post.is_liked = False
+        else:
+            post.is_liked = False
+
 
     # Handle likes for comments
     for post in post_list:
