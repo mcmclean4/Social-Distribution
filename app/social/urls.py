@@ -1,6 +1,9 @@
 from django.urls import path
 from . import views
 from . import post_views
+from . import comment_views
+from . import comment_like_views
+from . import like_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
@@ -43,12 +46,47 @@ urlpatterns = [
     path("api/authors/<str:author_id>/followers/", FollowersListView.as_view(), name="get_followers"),
     path("api/authors/<str:author_id>/followers/<path:follower_fqid>", FollowerDetailView.as_view(), name="manage_follower"),
     path("api/authors/<str:author_id>/inbox",InboxView.as_view(), name="api_inbox"),
-    # Like post
-    path('api/authors/<str:author_id>/posts/<str:post_id>/like/', views.PostLikeView.as_view(), name='like_post'),
 
+    ############################## Like post
+    path('api/authors/<str:author_id>/posts/<str:post_id>/like/', views.PostLikeView.as_view(), name='like_post'),
+    # Who liked this comment
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_fqid>/likes/', 
+        comment_like_views.get_comment_likes, name='get_comment_likes'),
+
+    # Like a comment (POST)
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_fqid>/like/', 
+        comment_like_views.like_comment, name='like_comment'),
+
+    # Things liked by author
+    path('api/authors/<str:author_id>/liked/', 
+        like_views.get_liked_by_author, name='get_liked_by_author'),
+
+    # Get a single like
+    path('api/authors/<str:author_id>/liked/<str:like_serial>/', 
+        like_views.get_single_like, name='get_single_like'),
+
+    # Things liked by author (by FQID)
+    path('api/authors/<path:author_fqid>/liked/', 
+        like_views.get_liked_by_author_fqid, name='get_liked_by_author_fqid'),
+
+    # Get a single like by FQID
+    path('api/liked/<path:like_fqid>/', 
+        like_views.get_like_by_fqid, name='get_like_by_fqid'),
+    
+    # get likes
+    path('api/authors/<str:author_id>/posts/<str:post_id>/likes/', 
+        like_views.get_post_likes, name='get_post_likes'),
     # Comments
-    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/', add_comment, name='add_comment'),
-    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<str:comment_id>/like/', CommentLikeView.as_view(), name='like_comment'),
+    path('api/authors/<str:author_id>/posts/<str:post_serial>/comments/', 
+        comment_views.get_post_comments, name='post_comments'),  # Handles both GET and POST
+    path('api/posts/<path:post_fqid>/comments/', 
+        comment_views.get_comments_by_post_fqid, name='get_comments_by_post_fqid'),
+    path('api/authors/<str:author_id>/posts/<str:post_serial>/comments/<path:remote_comment_fqid>/', 
+        comment_views.get_specific_comment, name='get_specific_comment'),
+
+    # Comment like  
+    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_id>/like/', 
+        comment_like_views.like_comment, name='like_comment'),
 
     path("my_posts/", views.my_posts, name="my_posts"),
     path("inbox/", inbox_view, name="inbox"),

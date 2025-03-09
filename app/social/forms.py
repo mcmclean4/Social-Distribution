@@ -25,10 +25,14 @@ class EditProfileForm(forms.ModelForm):
             'profileImage': forms.ClearableFileInput(attrs={'class': 'form-control'})
             }
 
+# In forms.py
+
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ['content']
+        fields = ['comment', 'contentType'] 
+        
         widgets = {
-            'content': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'})
+            'comment': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'contentType': forms.Select(attrs={'class': 'form-control'}),
         }
