@@ -27,7 +27,8 @@ from .models import Post, Author
 
 # Like
 from .models import Post, PostLike, Comment
-from .serializers import PostLikeSerializer
+from .serializers import LikeSerializer
+from .models import Like
 
 import requests  # Correct placement of requests import
 from django.conf import settings
@@ -68,10 +69,15 @@ def stream(request):
 
     # Handle likes for comments
     for post in post_list:
-        post.is_liked = PostLike.objects.filter(post=post, author=request.user.author).exists()
         for comment in post.comments.all():
-            comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
-
+            if request.user.is_authenticated:
+                try:
+                    author = request.user.author
+                    comment.is_liked = Like.objects.filter(author=author, object=comment.id).exists()
+                except:
+                    comment.is_liked = False
+            else:
+                comment.is_liked = False
     # Pagination
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')

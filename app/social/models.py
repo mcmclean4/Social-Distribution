@@ -54,7 +54,7 @@ class Author(models.Model):
 
     host = models.URLField(null=True, blank=True)
     displayName = models.CharField(max_length=255)
-    github = models.CharField(blank=True, null=True)
+    github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
     profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
     page = models.URLField(blank=True, null=True)
@@ -87,6 +87,8 @@ class Author(models.Model):
 class Post(models.Model):
     POST_CHOICES = [
         ('post', 'post'),
+        ('comment', 'Comment'),
+
     ]
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
@@ -114,10 +116,14 @@ class Post(models.Model):
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
+    # comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     internal_id = models.AutoField(primary_key=True, editable=False)
 
+    @property
+    def comments(self):
+        from .models import Comment
+        return Comment.objects.filter(post=self.id)
     class Meta:
         ordering = ['-published']
 
@@ -146,23 +152,44 @@ class PostLike(models.Model):
 # Comment: Represents a comment on a post.
 # =============================================================================
 
-class Comment(models.Model):
-    id = models.URLField(primary_key=True)
-    type = models.CharField(max_length=50)
-    post = models.ForeignKey(
-        Post, related_name='comments_on_post', on_delete=models.CASCADE)
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
-    content = models.TextField()
-    published = models.DateTimeField()
-    likes = models.ManyToManyField('Author', related_name='comment_likes', blank=True)
+from django.db import models
+from django.contrib.auth.models import User
+import uuid
+from django.utils import timezone
 
+class Comment(models.Model):
+    type = models.CharField(max_length=10, default="comment")
+    id = models.URLField(primary_key=True)
+    internal_id = models.UUIDField(default=uuid.uuid4, editable=False)  # Remove unique=True for now
+    author = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='comments')
+    comment = models.TextField()  
+    contentType = models.CharField(max_length=50, default="text/markdown")
+    published = models.DateTimeField(default=timezone.now)
+    post = models.URLField() 
+    
+    def save(self, *args, **kwargs):
+        # Generate the ID if it's not set
+        if not self.id:
+            # Format: http://[host]/api/authors/[author_id]/commented/[internal_id]
+
+            current_site = "localhost:8000"
+            
+            # Extract author ID from the author object
+            author_id_part = self.author.id.split('/')[-1]
+            
+            self.id = f"http://{current_site}/api/authors/{author_id_part}/commented/{self.internal_id}"
+        
+        super().save(*args, **kwargs)
+    
     class Meta:
         ordering = ['-published']
-
+    
     def __str__(self):
-        return f"Comment by {self.author.displayName} on {self.post.title}"
+        return f"Comment by {self.author.displayName} on {self.published.strftime('%Y-%m-%d')}"
 
-
+    def get_likes_count(self):
+        from .models import Like
+        return Like.objects.filter(object=self.id).count()
 # =============================================================================
 # Follow: Represents a relationship between two authors (follower and followee).
 # =============================================================================
@@ -208,8 +235,34 @@ class Follow(models.Model):
 class Comments(models.Model):
     type = models.CharField(max_length=50)
 
+# In models.py (if not already defined)
 class Like(models.Model):
-    type = models.CharField(max_length=50)
+    type = models.CharField(max_length=10, default="like")
+    id = models.URLField(primary_key=True)
+    author = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='liked_items')
+    object = models.URLField()  # URL of the liked object (post or comment)
+    published = models.DateTimeField(default=timezone.now)
+    
+    def save(self, *args, **kwargs):
+        if not self.id:
+            # Generate the ID
+
+            current_site = "localhost:8000"
+            
+            # Extract author ID from the author object
+            author_id_part = self.author.id.split('/')[-1]
+            
+            # Generate a unique ID for this like
+            import uuid
+            like_id = uuid.uuid4()
+            
+            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/liked/{like_id}"
+        
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        ordering = ['-published']
+        unique_together = ('author', 'object')  # Prevent duplicate likes
 
 class Likes(models.Model):
     type = models.CharField(max_length=50)
