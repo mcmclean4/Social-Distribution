@@ -75,10 +75,11 @@ urlpatterns = [
     path('api/liked/<path:like_fqid>/', 
         like_views.get_like_by_fqid, name='get_like_by_fqid'),
     
-    # get likes
+    # likes API
     path('api/authors/<str:author_id>/posts/<str:post_id>/likes/', 
         like_views.get_post_likes, name='get_post_likes'),
-    # Comments
+
+    # Comments API
     path('api/authors/<str:author_id>/posts/<str:post_serial>/comments/', 
         comment_views.get_post_comments, name='post_comments'),  # Handles both GET and POST
     path('api/posts/<path:post_fqid>/comments/', 
@@ -89,6 +90,17 @@ urlpatterns = [
     # Comment like  
     path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_id>/like/', 
         comment_like_views.like_comment, name='like_comment'),
+
+    # Commented API
+    path('api/authors/<str:author_id>/commented/',  # works
+        comment_views.get_author_comments, name='get_author_comments'),
+    path('api/authors/<path:author_fqid>/commented/', # works 
+        comment_views.get_author_comments_by_fqid, name='get_author_comments_by_fqid'),
+    path('api/authors/<str:author_id>/commented/<str:comment_serial>/', # works
+        comment_views.get_specific_comment_by_serial, name='get_specific_comment_by_serial'),
+    path('api/commented/<path:comment_fqid>/', # works
+        comment_views.get_comment_by_fqid, name='get_comment_by_fqid'),
+
 
     path("my_posts/", views.my_posts, name="my_posts"),
     path("inbox/", inbox_view, name="inbox"),
