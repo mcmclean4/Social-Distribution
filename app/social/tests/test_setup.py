@@ -34,7 +34,6 @@ class TestSetUp(TestCase):
 
 
     '''
-    @override_settings(MEDIA_ROOT="/home/ubuntu/w25-project-mod-cornsilk/mediafiles")
     def setUp(self):
         User.objects.all().delete()
         Author.objects.all().delete()
@@ -62,9 +61,6 @@ class TestSetUp(TestCase):
         print("Existing authors before creating new one:")
         for author in Author.objects.all():
             print(author.id, author.user_id)
-
-        self.pfp_image_url = self.generate_pfp_image()
-        print(self.pfp_image_url)
         
         # Create an Author instance in the test database
         self.author = Author.objects.create(
@@ -74,7 +70,7 @@ class TestSetUp(TestCase):
             host="http://localhost:8000/social/api/",
             displayName="Test Author",
             github="http://github.com/realgithubuser",
-            profileImage=self.pfp_image_url,
+            profileImage=self.generate_test_image(),
             page=f"http://localhost:8000/social/authors/{2}",
             isAdmin=False
         )
@@ -108,7 +104,7 @@ class TestSetUp(TestCase):
                 "id": f"http://localhost:8000/social/api/authors/{author_serial}",
                 "displayName": self.author.displayName,
                 "github": self.author.github,
-                "profileImage": self.author.profileImage,
+                "profileImage": "http://localhost:8000/static/images/pfp.jpg",
                 "page": f"http://localhost:8000/social/authors/{author_serial}",
                 "isAdmin": self.author.isAdmin
             },
@@ -133,7 +129,7 @@ class TestSetUp(TestCase):
                 "id": f"http://localhost:8000/social/api/authors/{author_serial}",
                 "displayName": self.author.displayName,
                 "github": self.author.github,
-                "profileImage": self.author.profileImage,
+                "profileImage": "http://localhost:8000/static/images/pfp.jpg",
                 "page": f"http://localhost:8000/social/authors/{author_serial}",
                 "isAdmin": self.author.isAdmin
             },
@@ -142,7 +138,7 @@ class TestSetUp(TestCase):
             "likes": [],
             "comments": []
         }
-
+        
         # Create a test image in memory
         self.image = self.generate_test_image()
         # data for a post with an image
@@ -159,13 +155,13 @@ class TestSetUp(TestCase):
             "contentType": "image/png;base64",
             "content": "placeholder content",
             "image": self.image,
-            "author": mark_safe(json.dumps(AuthorSerializer(self.author).data)),
+            "author": AuthorSerializer(self.author).data,
             "published": "2015-03-09T13:07:04+00:00",
             "visibility": "PUBLIC",
             "likes": [],
             "comments": []
         }
-
+        
 
         return super().setUp()
     
@@ -174,8 +170,6 @@ class TestSetUp(TestCase):
         self.register_url = reverse('social:register')
         self.get_authors_url = reverse('social:get_authors')
         self.get_author_url = lambda author_id: reverse('social:get_author', kwargs={'id' : author_id})
-
-        
 
         # Set up needed for test_indentity.py
         self.register_data = {
@@ -203,20 +197,3 @@ class TestSetUp(TestCase):
         image.seek(0)
         return SimpleUploadedFile("test_image.png", image.getvalue(), content_type="image/png")
     
-    def generate_pfp_image(self):
-        image = io.BytesIO()
-        img = Image.new("RGB", (100, 100), color=(255, 0, 0))  # Create a red image
-        img.save(image, format="PNG")
-        image.seek(0)
-
-        # Define the relative path inside MEDIA_ROOT
-        file_path = "test_images/test_image.png"
-
-        # Save image using Django's storage system
-        if default_storage.exists(file_path):
-            default_storage.delete(file_path)  # Ensure clean test images
-
-        saved_path = default_storage.save(file_path, ContentFile(image.getvalue()))
-
-        # Return the relative media URL (Django will serve this correctly)
-        return settings.MEDIA_URL + saved_path  # Returns "/media/test_images/test_image.png"

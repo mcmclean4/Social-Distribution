@@ -19,7 +19,7 @@ from .models import Post, Author, User
 #         pass
 
 class AuthorSerializer(serializers.ModelSerializer):
-    profileImage = serializers.ImageField(required=False, allow_null=True)
+    profileImage = serializers.URLField(required=False, allow_blank=True)
     page = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
