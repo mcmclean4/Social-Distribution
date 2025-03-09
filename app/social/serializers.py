@@ -33,18 +33,27 @@ class AuthorSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
-    
+    page = serializers.SerializerMethodField()
     class Meta:
         model = Comment
-        fields = ['type', 'id', 'author', 'comment', 'contentType', 'published', 'post']
-        read_only_fields = ['id', 'published', 'type']
+        fields = ['type', 'id', 'author', 'comment', 'contentType', 'published', 'post', 'page']
+        read_only_fields = ['id', 'published', 'type','page']
         
     def to_representation(self, instance):
-        # Custom representation to match the required API format
         representation = super().to_representation(instance)
-        # Add any additional formatting if needed
+        
+        # If page is not set, derive it from the post URL
+        if 'page' not in representation or not representation['page']:
+            post_url = representation.get('post', '')
+            if post_url:
+                # Generate a page URL (frontend URL) from the API URL
+                representation['page'] = post_url.replace('/api/', '/')
         return representation
-
+    def get_page(self, obj):
+        # Generate a page URL from the post URL
+        if obj.post:
+            return obj.post.replace('/api/', '/')
+        return None
 class LikeSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
     
