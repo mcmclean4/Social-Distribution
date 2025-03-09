@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from social.managers import PostManager
+from django.utils import timezone
+
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
@@ -145,7 +147,7 @@ class Post(models.Model):
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now) 
 
 
 # =============================================================================

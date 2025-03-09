@@ -133,53 +133,54 @@ class InboxView(APIView):
             "page": author.page if author.page else ""
         }
 
-    def format_likes(self,likes, author_id, obj_id):
-        """Returns formatted likes for a post or comment."""
+    def format_like(self, like):
+        """Returns formatted likes for the inbox."""
+        return {
+            "type": "like",
+            "id": like.id,
+            "published": like.published.isoformat(),
+            "author": self.format_author(like.author),
+            "object": like.object,  # This is now a URLField (string)
+        }
+
+
+    def format_comments(self, comment):
+        """Returns a formatted comment object with likes nested inside."""
+        print("Commrnt_post id is: ", comment.post)
+        return {
+            "type": "comment",
+            "id": comment.id,
+            "post": comment.post,  # Post is now a URL
+            "comment": comment.comment,  # Use `comment.comment`
+            "contentType": comment.contentType,
+            "published": comment.published.isoformat(),
+            "author": self.format_author(comment.author),  # Format author details
+            "likes": self.format_comment_likes(comment)  # Nested likes inside comment
+        }
+
+    def format_comment_likes(self, comment):
+        """Returns formatted likes for a comment."""
         return {
             "type": "likes",
-            "id": f"{like.post}/likes",
-            "page": f"{settings.HOST}api/authors/{author_id}/posts/{obj_id}/likes",
-            "page_number": 1,
-            "size": 50,
-            "count": likes.count(),
+            "id": f"{comment.id}/likes",
+            "page": f"{settings.HOST}api/authors/{comment.author.id}/commented/{comment.id}/likes",
+            "page_number": 1,  # Pagination metadata
+            "size": 50,  # Default page size
+            "count": Like.objects.filter(object=comment.id).count(),  # Count total likes for this comment
             "src": [
                 {
                     "type": "like",
                     "id": like.id,
                     "published": like.published.isoformat(),
-                    "author": self.format_author(like.author),
-                    "object": like.post
+                    "author": self.format_author(like.author),  # Format author details
+                    "object": comment.id  # The comment being liked
                 }
-                for like in likes.all()[:5]  # Limit to 5 likes for efficiency
-            ]
-        }
-
-    def format_comments(self,comments, post_id, author_id):
-        """Returns formatted comments for a post."""
-        return {
-            "type": "comments",
-            "id": f"{post_id}/comments",
-            "page": f"{settings.HOST}api/authors/{author_id}/posts/{post_id}/comments",
-            "page_number": 1,
-            "size": 5,
-            "count": comments.count(),
-            "src": [
-                {
-                    "type": "comment",
-                    "id": comment.id,
-                    "post": comment.post.id,
-                    "comment": comment.content,
-                    "contentType": "text/markdown",
-                    "published": comment.published.isoformat(),
-                    "author": self.format_author(comment.author),
-                    "likes": self.format_likes(comment.likes, comment.id, author_id)
-                }
-                for comment in comments.all()[:5]  # Limit to 5 comments for efficiency
+                for like in Like.objects.filter(object=comment.id).order_by("-published")[:5]  # Limit to 5 likes
             ]
         }
 
     def format_post(self, post, author_id):
-        """Returns the formatted post object."""
+        """Returns the formatted post object in the correct structure."""
         return {
             "type": "post",
             "id": post.id,
@@ -190,9 +191,9 @@ class InboxView(APIView):
             "published": post.published.isoformat(),
             "visibility": post.visibility,
             "page": post.page if post.page else "",
-            "author": self.format_author(post.author),
-            "comments": self.format_comments(post.comments, post.id, author_id),
-            "likes": self.format_likes(post.likes, post.id, author_id)
+            "author": self.format_author(post.author),  # Post author
+            "comments": self.format_comments(post),  #  comments
+            "likes": self.format_likes(post)  # likes
         }
 
 
@@ -288,10 +289,10 @@ class InboxView(APIView):
                 id=comment_id,
                 defaults={
                     "type": "comment",
-                    "content": comment_content,
+                    "comment": comment_content,
                     "published": comment_published,
                     "author": author_instance,
-                    "post": post_instance
+                    "post": comment_post_id 
                 }
             )
             inbox.inbox_comments.add(comment)
