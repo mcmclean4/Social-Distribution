@@ -29,7 +29,7 @@ class FollowersAPITests(TestCase):
             displayName="Lara Croft",
             host="http://localhost:8000/social/api/",
             github="http://github.com/laracroft",
-            profileImage="http://localhost:8000/static/images/laracroft.jpg",
+            profileImage=None,
             page="http://localhost:8000/social/authors/1"
         )
         self.author2 = Author.objects.create(
@@ -37,7 +37,7 @@ class FollowersAPITests(TestCase):
             displayName="Greg Johnson",
             host="http://localhost:8000/social/api/",
             github="http://github.com/gjohnson",
-            profileImage="https://i.imgur.com/k7XVwpB.jpeg",
+            profileImage=None,
             page="http://localhost:8000/social/authors/greg"
         )
         # Refresh to obtain the actual generated IDs.
@@ -70,7 +70,7 @@ class FollowersAPITests(TestCase):
                 "host": self.author2.host,
                 "displayName": self.author2.displayName,
                 "github": self.author2.github,
-                "profileImage": self.author2.profileImage,
+                "profileImage": str(self.author2.profileImage) if self.author2.profileImage else "",
                 "page": self.author2.page,
             },
             "object": {
@@ -79,7 +79,7 @@ class FollowersAPITests(TestCase):
                 "host": self.author1.host,
                 "displayName": self.author1.displayName,
                 "github": self.author1.github,
-                "profileImage": self.author1.profileImage,
+                "profileImage": str(self.author1.profileImage) if self.author1.profileImage else "",
                 "page": self.author1.page,
             }
         }
@@ -101,12 +101,15 @@ class FollowersAPITests(TestCase):
         self.assertEqual(post_response.status_code, 201)
         
         tail_id = self.author1.id.split('/')[-1]
-        
+
         # Approve the follow request by sending a PUT request to the followers API.
-        followers_url = reverse("social:get_followers_a", kwargs={"author_id": tail_id})
+        self.client.force_login(self.user1)  # Log in user1 (the followee)
+        followers_url = reverse("social:get_followers", kwargs={"author_id": tail_id})
         put_data = {"id": self.author2.id}
         put_response = self.client.put(followers_url, data=put_data, format="json")
-        self.assertEqual(put_response.status_code, 200)
+
+        self.assertEqual(put_response.status_code, 200)  # Expecting 200
+
         self.assertIn("approved", put_response.data.get("message", "").lower())
         
         # Check in the database that the FollowRequest status is now "accepted".
