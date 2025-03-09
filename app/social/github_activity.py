@@ -64,7 +64,7 @@ def fetch_user_activity(request):
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         # Successfully retrieved list of github events, create posts for them if needed
-        #print(response.json()) # debugging
+        # print(response.json()) # debugging
         generate_new_posts(response.json(), request.user.author)
     elif response.status_code == 401:
         # Token is invalid (expired or revoked)
@@ -80,12 +80,12 @@ def generate_new_posts(events, author):
     
     created_new_post = False
     last_updated = author.github_timestamp
-    #print(events[0])
-    #print(f"last_updated: {last_updated}")
+    # print(events[0])
+    print(f"last_updated: {last_updated}")
     
     for event in events:
         event_time = datetime.fromisoformat(event['created_at'].replace("Z", "+00:00"))
-        #print(f"event_time: {event_time}")
+        print(f"event_time: {event_time}")
         # Only create posts for events that are more recent than the last time we fetched activity for this author
         if (last_updated > event_time):
             break

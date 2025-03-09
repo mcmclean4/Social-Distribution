@@ -24,7 +24,8 @@ class AuthorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Author
-        fields = '__all__'
+        # fields = '__all__'
+        fields = ['type', 'id', 'host' , 'displayName', 'github', 'profileImage', 'page']
         extra_kwargs = {
             'user': {'read_only': True},
             'id': {'read_only': True}
