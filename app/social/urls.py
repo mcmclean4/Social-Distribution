@@ -9,6 +9,8 @@ from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
 from .image_views import( getImageWithSerial, getImageWithFQID)
 from .github_activity import(github_authorize, github_callback)
+from .comment_views import(get_post_comments,get_comments_by_post_fqid, get_specific_comment)
+from .comment_like_views import(get_comment_likes,like_comment)
 
 app_name = 'social'
 

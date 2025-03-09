@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from social.managers import PostManager
+from django.utils import timezone
+
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
@@ -146,6 +148,7 @@ class Post(models.Model):
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now) 
 
 
 # =============================================================================
@@ -278,7 +281,7 @@ class Posts(models.Model):
 class Inbox(models.Model):
     author = models.ForeignKey('Author', on_delete=models.CASCADE)
     type = models.CharField(max_length=30, default='inbox')
-    inbox_posts = models.ManyToManyField(Posts,blank = True)
-    inbox_likes = models.ManyToManyField(Like, blank=True)
+    inbox_posts = models.ManyToManyField(Post,blank = True)
+    inbox_likes = models.ManyToManyField(PostLike, blank=True)
     inbox_follows = models.ManyToManyField(FollowRequest, blank=True)
-    inbox_comments = models.ManyToManyField(Comments,  blank=True)
+    inbox_comments = models.ManyToManyField(Comment,  blank=True)
