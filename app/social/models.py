@@ -56,7 +56,7 @@ class Author(models.Model):
     displayName = models.CharField(max_length=255)
     github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
-    profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
+    profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
 
@@ -88,14 +88,15 @@ class Post(models.Model):
     POST_CHOICES = [
         ('post', 'post'),
         ('comment', 'Comment'),
-
     ]
+
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
     ]
+
     CONTENT_VISIBILITY_CHOICES = [
         ('PUBLIC', 'Public'),
         ('FRIENDS', 'Friends'),
