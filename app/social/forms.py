@@ -1,7 +1,7 @@
 from django import forms
 from .models import Post, Author
-from .models import Post
 from .models import Comment
+from django.core.exceptions import ValidationError
 
 class PostForm(forms.ModelForm):
     class Meta:
@@ -25,8 +25,6 @@ class EditProfileForm(forms.ModelForm):
             'profileImage': forms.ClearableFileInput(attrs={'class': 'form-control'})
             }
 
-# In forms.py
-
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
@@ -36,3 +34,20 @@ class CommentForm(forms.ModelForm):
             'comment': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'contentType': forms.Select(attrs={'class': 'form-control'}),
         }
+
+class RegisterForm(forms.Form):
+    username = forms.CharField(max_length=100)
+    password = forms.CharField(widget=forms.PasswordInput)
+    confirm_password = forms.CharField(widget=forms.PasswordInput)
+    displayName = forms.CharField(max_length=100)
+    github = forms.CharField(required=False)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        confirm_password = cleaned_data.get("confirm_password")
+
+        if password != confirm_password:
+            raise ValidationError("The two password fields must match.")
+
+        return cleaned_data
