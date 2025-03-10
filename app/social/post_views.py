@@ -67,7 +67,7 @@ def my_posts(request):
 
     # Debugging: Print all fetched posts (force flush)
     print("Retrieved Posts:", post_list.values_list("title", "visibility"), flush=True)
-    sys.stdout.flush()  # ✅ Force immediate output
+    sys.stdout.flush()  # Force immediate output
 
     # Pagination
     paginator = Paginator(post_list, 10)
