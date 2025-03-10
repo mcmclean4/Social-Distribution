@@ -14,6 +14,8 @@ from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from .models import Post
+import sys
+
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -56,11 +58,16 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 def my_posts(request):
     user = request.user.author
 
+    # Fetch posts
     post_list = Post.objects.filtered(
         filter_type='author',
         authors=[user],
-        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED', 'DELETED']
+        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED']
     )
+
+    # Debugging: Print all fetched posts (force flush)
+    print("Retrieved Posts:", post_list.values_list("title", "visibility"), flush=True)
+    sys.stdout.flush()  # ✅ Force immediate output
 
     # Pagination
     paginator = Paginator(post_list, 10)
@@ -68,6 +75,8 @@ def my_posts(request):
     posts = paginator.get_page(page_number)
 
     return render(request, 'social/my_posts.html', {'posts': posts})
+
+
 
 @login_required
 def create_post(request):
@@ -148,9 +157,7 @@ def update_post(request, internal_id):
     return render(request, 'social/update_post.html', {'form': form})
 
 
-from django.shortcuts import render, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from .models import Post
+
 
 @login_required
 def post_detail(request, internal_id):
@@ -158,7 +165,7 @@ def post_detail(request, internal_id):
     can_view = False  # Flag to track if the user is allowed to see the post
 
     # Author can always see their own posts
-    if post.author == request.user.author and post.visibility == 'DELETED':
+    if post.author == request.user.author and post.visibility != 'DELETED':
         can_view = True
 
     elif post.visibility == 'PUBLIC':

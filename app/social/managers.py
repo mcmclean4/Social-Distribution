@@ -22,6 +22,8 @@ class PostManager(models.Manager):
 
         # Filter by visibilities if provided; otherwise, exclude DELETED, UNLISTED, and FRIENDS by default
         if visibilities and isinstance(visibilities, list) and all(isinstance(item, str) for item in visibilities):
+            # Always exclude DELETED, even if visibilities is provided
+            visibilities = [v for v in visibilities if v != 'DELETED']
             qs = qs.filter(visibility__in=visibilities)
             if 'FRIENDS' in visibilities:
                 # Only include FRIENDS posts if they are in the author list

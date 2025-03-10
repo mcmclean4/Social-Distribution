@@ -235,7 +235,8 @@ def profile_page(request, id):
     currentAuthor = Author.objects.filter(id=f"http://localhost:8000/social/api/authors/{id}").get()
     
     #Get all the posts
-    posts = Post.objects.filter(author=currentAuthor).values()
+    posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
+
     
     #We need type
     postsToRender = []
