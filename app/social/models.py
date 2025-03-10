@@ -23,6 +23,18 @@ class Author(models.Model):
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
 
+    @property
+    def friends(self):
+        """
+        Returns a QuerySet of all authors who are mutual followers.
+        """
+        followees = Follow.objects.filter(follower_id=self.id).values_list('followee', flat=True)
+        followers = Follow.objects.filter(followee=self).values_list('follower_id', flat=True)
+
+        # Mutual followers = people who follow this user & are followed back
+        mutual_followers = Author.objects.filter(id__in=followees).filter(id__in=followers)
+        return mutual_followers
+
     def save(self, *args, **kwargs):
         if self._state.adding:
             last_author = Author.objects.order_by('-id').first()

@@ -1,0 +1,11 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <div class="card shadow-sm border-light rounded p-4">
+        <h2 class="text-danger">{{ message }}</h2>
+        <p class="text-muted">If you believe this is an error, please contact the author.</p>
+        <a href="{% url 'social:index' %}" class="btn btn-primary mt-3">Back to Stream</a>
+    </div>
+</div>
+{% endblock %}
