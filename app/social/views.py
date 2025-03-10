@@ -27,7 +27,8 @@ from .models import Post, Author
 
 # Like
 from .models import Post, PostLike, Comment
-from .serializers import PostLikeSerializer
+from .serializers import LikeSerializer
+from .models import Like
 
 import requests  # Correct placement of requests import
 from django.conf import settings
@@ -65,13 +66,29 @@ def stream(request):
         authors=friends,
         visibilities=['PUBLIC', 'FRIENDS']
     )
+        # Add `is_liked` status to each post
+    for post in post_list:
+        if request.user.is_authenticated:
+            try:
+                author = request.user.author
+                post.is_liked = PostLike.objects.filter(post=post, author=author).exists()
+            except:
+                post.is_liked = False
+        else:
+            post.is_liked = False
+
 
     # Handle likes for comments
     for post in post_list:
-        post.is_liked = PostLike.objects.filter(post=post, author=request.user.author).exists()
         for comment in post.comments.all():
-            comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
-
+            if request.user.is_authenticated:
+                try:
+                    author = request.user.author
+                    comment.is_liked = Like.objects.filter(author=author, object=comment.id).exists()
+                except:
+                    comment.is_liked = False
+            else:
+                comment.is_liked = False
     # Pagination
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
@@ -115,6 +132,7 @@ def login_page(request):
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
+
 
         # Check if the user exists
         try:
@@ -474,9 +492,14 @@ def add_comment(request, author_id, post_id):
                 type='author',
                 displayName=request.user.username,
             )
-        
+        # Generate Comment URL-based ID
+        comment_internal_id = Comment.objects.count() + 1  # Ensure unique ID
+        comment_url_id = f"{request_user_author}/{comment_internal_id}"
+        print("DEBUG: commentID is", comment_url_id)
+
         # Create the comment
         comment = Comment.objects.create(
+            id=comment_url_id,
             type='comment',
             post=post,
             author=request_user_author,

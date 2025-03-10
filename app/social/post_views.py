@@ -145,6 +145,8 @@ def update_post(request, internal_id):
 
 def post_detail(request, internal_id):
     post = get_object_or_404(Post, internal_id=internal_id)
+    for comment in post.comments.all():
+        comment.like_count = comment.get_likes_count()
     return render(request, 'social/post_detail.html', {'post': post})
 
 @api_view(['PUT'])
