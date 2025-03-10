@@ -48,7 +48,7 @@ class Author(models.Model):
                 largest_current_id = 0  # If there are no existing authors
 
             self.id = f"http://localhost:8000/social/api/authors/{largest_current_id + 1}"
-
+            self.page = f"http://localhost:8000/social/profile/{largest_current_id + 1}"
         super().save(*args, **kwargs)
 
     def __str__(self):
