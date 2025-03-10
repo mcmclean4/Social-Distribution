@@ -26,7 +26,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Post, Author
 from django.contrib.admin.sites import site
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db import connection
+from django.db import connection, DatabaseError
 
 # Like
 from .models import Post, PostLike, Comment
@@ -170,12 +170,15 @@ def custom_admin_view(request):
 
 @staff_member_required
 def send_command(request):
-    
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT * FROM social_author")
-        result = cursor.fetchall()
-        print(str(result))
-    
+    data = json.loads(request.body)
+    print(data)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(data["input_text"])
+            result = cursor.fetchall()
+            print(str(result))
+    except DatabaseError as e:
+        result = e
     data = {
         'output': repr(result)
     }
