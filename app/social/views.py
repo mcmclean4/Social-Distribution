@@ -260,7 +260,6 @@ def profile_edit(request, id):
         form = EditProfileForm(request.POST, request.FILES, instance=author)
         print("VALID")
         if form.is_valid():
-            
             form.save()
             return redirect('social:profile_page', id=id)
     currentUser = request.user

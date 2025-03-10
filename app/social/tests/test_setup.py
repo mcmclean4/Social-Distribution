@@ -142,8 +142,6 @@ class TestSetUp(TestCase):
         # Create a test image in memory
         self.image = self.generate_test_image()
         # data for a post with an image
-        print("debugging image")
-        print(self.image)
         author_json_string = json.dumps(AuthorSerializer(self.author).data)
         self.image_post_data = {
             "type": "post",
@@ -170,6 +168,8 @@ class TestSetUp(TestCase):
         self.register_url = reverse('social:register')
         self.get_authors_url = reverse('social:get_authors')
         self.get_author_url = lambda author_id: reverse('social:get_author', kwargs={'id' : author_id})
+        self.profile_page_url = lambda author_id: reverse('social:profile_page', kwargs={'id' : author_id})
+        self.profile_edit_url = lambda author_id: reverse('social:profile_edit', kwargs={'id' : author_id})
 
         # Set up needed for test_indentity.py
         self.register_data = {

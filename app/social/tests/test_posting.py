@@ -181,8 +181,6 @@ class TestPosting(TestSetUp):
         visit_response = self.client.get(self.post_create_url)
         self.assertEqual(visit_response.status_code, 200)
         self.assertTemplateUsed(visit_response, 'social/create_post.html')
-
-        
         
         # Submit the plaintext post as a form with POST request
         submit_response = self.client.post(self.post_create_url, self.plaintext_post_data, format='json')
