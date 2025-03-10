@@ -49,7 +49,8 @@ def github_callback(request):
 def fetch_user_activity(request):
     ''' Checks if the current user has any recent github activity that should generate new posts'''
 
-    username = request.user.author.github
+    author_github_url = request.user.author.github
+    username = author_github_url.split("https://github.com/")[-1]
     access_token = request.session.get("github_access_token")
     if not access_token:
         print("no access token")
@@ -80,12 +81,12 @@ def generate_new_posts(events, author):
     
     created_new_post = False
     last_updated = author.github_timestamp
-    # print(events[0])
-    print(f"last_updated: {last_updated}")
+    #print(events[0])
+    #print(f"last_updated: {last_updated}")
     
     for event in events:
         event_time = datetime.fromisoformat(event['created_at'].replace("Z", "+00:00"))
-        print(f"event_time: {event_time}")
+        #print(f"event_time: {event_time}")
         # Only create posts for events that are more recent than the last time we fetched activity for this author
         if (last_updated > event_time):
             break
