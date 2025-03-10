@@ -141,7 +141,7 @@ class Comment(models.Model):
             # Extract author ID from the author object
             author_id_part = self.author.id.split('/')[-1]
             
-            self.id = f"http://{current_site}/api/authors/{author_id_part}/commented/{self.internal_id}"
+            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/commented/{self.internal_id}"
         
         super().save(*args, **kwargs)
     

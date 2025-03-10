@@ -18,7 +18,7 @@ def get_comment_likes(request, author_id, post_serial, comment_fqid):
             return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)
         
         # Get all likes for this comment
-        likes = Like.objects.filter(object=comment.id)
+        likes = Like.objects.filter(object=comment.id).order_by("published")
         
         # Serialize the likes
         like_serializer = LikeSerializer(likes, many=True)
@@ -35,6 +35,7 @@ def get_comment_likes(request, author_id, post_serial, comment_fqid):
         })
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 def like_comment(request, author_id, post_id, comment_fqid):
     """

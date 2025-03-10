@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Post, Author, User, Comment, Like
+import re
 
 # class AuthorSerializer(serializers.Serializer):
 #     user = User
@@ -47,13 +48,14 @@ class CommentSerializer(serializers.ModelSerializer):
             post_url = representation.get('post', '')
             if post_url:
                 # Generate a page URL (frontend URL) from the API URL
-                representation['page'] = post_url.replace('/api/', '/')
+                representation['page'] = re.sub(r'/api/authors/\d+', '', post_url) + '/'
         return representation
     def get_page(self, obj):
         # Generate a page URL from the post URL
         if obj.post:
-            return obj.post.replace('/api/', '/')
+            return re.sub(r'/api/authors/\d+', '', obj.post)  + '/'
         return None
+
 class LikeSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
     

@@ -52,7 +52,7 @@ urlpatterns = [
     ############################## Like post
     path('api/authors/<str:author_id>/posts/<str:post_id>/like/', views.PostLikeView.as_view(), name='like_post'),
     # Who liked this comment
-    path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_fqid>/likes/', 
+    path('api/authors/<str:author_id>/posts/<str:post_serial>/comments/<path:comment_fqid>/likes/', 
         comment_like_views.get_comment_likes, name='get_comment_likes'),
 
     # Like a comment (POST)
