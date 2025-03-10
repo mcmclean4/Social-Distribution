@@ -1,48 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 from social.managers import PostManager
+from django.utils import timezone
 
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
-
-# class Author(models.Model):
-
-#     TYPE_CHOICES = [
-#         ('author', 'author'),
-#     ]
-#     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
-#     type = models.CharField(
-#         max_length=50, choices=TYPE_CHOICES, default='author',editable=False)
-#     # The full API URL for the author. This is unique.
-#     id = models.URLField(primary_key=True, unique=True, editable=False)
-
-#     #host is not unique
-#     #host = models.URLField(unique=True)
-#     host = models.URLField(null=True, blank=True)  # ✅ Allow duplicate hosts
-
-#     # The node that “owns” this author. For remote authors, this points to their home node.
-#     displayName = models.CharField(max_length=255)
-#     github = models.URLField()
-#     profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
-#     page = models.URLField()  # HTML profile page
-#     # Flag to indicate if the author is a node administrator.
-#     isAdmin = models.BooleanField(default=False)
-
-#     def save(self, *args, **kwargs):
-#         if self._state.adding:
-
-#             last_author = Author.objects.order_by('id').last()
-#             try:
-#                 largest_current_id = int(last_author.id.split('/')[-1])
-#             except:
-#                 largest_current_id = 1
-
-#             self.id = f"http://localhost:8000/social/api/authors/{largest_current_id+1}"
-#         super().save(*args, **kwargs)
-
-#     def __str__(self):
-#         return self.displayName
 
 class Author(models.Model):
     TYPE_CHOICES = [
@@ -54,10 +17,23 @@ class Author(models.Model):
 
     host = models.URLField(null=True, blank=True)
     displayName = models.CharField(max_length=255)
-    github = models.URLField(blank=True, null=True)
-    profileImage = models.ImageField(upload_to='images/', blank=True, null=True)
+    github = models.CharField(blank=True, null=True,max_length=100)
+    github_timestamp = models.DateTimeField(auto_now_add=True)
+    profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
+
+    @property
+    def friends(self):
+        """
+        Returns a QuerySet of all authors who are mutual followers.
+        """
+        followees = Follow.objects.filter(follower_id=self.id).values_list('followee', flat=True)
+        followers = Follow.objects.filter(followee=self).values_list('follower_id', flat=True)
+
+        # Mutual followers = people who follow this user & are followed back
+        mutual_followers = Author.objects.filter(id__in=followees).filter(id__in=followers)
+        return mutual_followers
 
     def save(self, *args, **kwargs):
         if self._state.adding:
@@ -72,7 +48,7 @@ class Author(models.Model):
                 largest_current_id = 0  # If there are no existing authors
 
             self.id = f"http://localhost:8000/social/api/authors/{largest_current_id + 1}"
-
+            self.page = f"http://localhost:8000/social/profile/{largest_current_id + 1}"
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -86,13 +62,16 @@ class Author(models.Model):
 class Post(models.Model):
     POST_CHOICES = [
         ('post', 'post'),
+        ('comment', 'Comment'),
     ]
+
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
     ]
+
     CONTENT_VISIBILITY_CHOICES = [
         ('PUBLIC', 'Public'),
         ('FRIENDS', 'Friends'),
@@ -113,10 +92,14 @@ class Post(models.Model):
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-    comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
+    # comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     internal_id = models.AutoField(primary_key=True, editable=False)
 
+    @property
+    def comments(self):
+        from .models import Comment
+        return Comment.objects.filter(post=self.id)
     class Meta:
         ordering = ['-published']
 
@@ -138,28 +121,51 @@ class Post(models.Model):
 class PostLike(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now) 
 
 
 # =============================================================================
 # Comment: Represents a comment on a post.
 # =============================================================================
 
-class Comment(models.Model):
-    type = models.CharField(max_length=50)
-    post = models.ForeignKey(
-        Post, related_name='comments_on_post', on_delete=models.CASCADE)
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
-    content = models.TextField()
-    published = models.DateTimeField()
-    likes = models.ManyToManyField('Author', related_name='comment_likes', blank=True)
+from django.db import models
+from django.contrib.auth.models import User
+import uuid
+from django.utils import timezone
 
+class Comment(models.Model):
+    type = models.CharField(max_length=10, default="comment")
+    id = models.URLField(primary_key=True)
+    internal_id = models.UUIDField(default=uuid.uuid4, editable=False)  # Remove unique=True for now
+    author = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='comments')
+    comment = models.TextField()  
+    contentType = models.CharField(max_length=50, default="text/markdown")
+    published = models.DateTimeField(default=timezone.now)
+    post = models.URLField() 
+    
+    def save(self, *args, **kwargs):
+        # Generate the ID if it's not set
+        if not self.id:
+            # Format: http://[host]/api/authors/[author_id]/commented/[internal_id]
+
+            current_site = "localhost:8000"
+            
+            # Extract author ID from the author object
+            author_id_part = self.author.id.split('/')[-1]
+            
+            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/commented/{self.internal_id}"
+        
+        super().save(*args, **kwargs)
+    
     class Meta:
         ordering = ['-published']
-
+    
     def __str__(self):
-        return f"Comment by {self.author.displayName} on {self.post.title}"
+        return f"Comment by {self.author.displayName} on {self.published.strftime('%Y-%m-%d')}"
 
-
+    def get_likes_count(self):
+        from .models import Like
+        return Like.objects.filter(object=self.id).count()
 # =============================================================================
 # Follow: Represents a relationship between two authors (follower and followee).
 # =============================================================================
@@ -205,8 +211,34 @@ class Follow(models.Model):
 class Comments(models.Model):
     type = models.CharField(max_length=50)
 
+# In models.py (if not already defined)
 class Like(models.Model):
-    type = models.CharField(max_length=50)
+    type = models.CharField(max_length=10, default="like")
+    id = models.URLField(primary_key=True)
+    author = models.ForeignKey('Author', on_delete=models.CASCADE, related_name='liked_items')
+    object = models.URLField()  # URL of the liked object (post or comment)
+    published = models.DateTimeField(default=timezone.now)
+    
+    def save(self, *args, **kwargs):
+        if not self.id:
+            # Generate the ID
+
+            current_site = "localhost:8000"
+            
+            # Extract author ID from the author object
+            author_id_part = self.author.id.split('/')[-1]
+            
+            # Generate a unique ID for this like
+            import uuid
+            like_id = uuid.uuid4()
+            
+            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/liked/{like_id}"
+        
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        ordering = ['-published']
+        unique_together = ('author', 'object')  # Prevent duplicate likes
 
 class Likes(models.Model):
     type = models.CharField(max_length=50)
@@ -222,7 +254,7 @@ class Posts(models.Model):
 class Inbox(models.Model):
     author = models.ForeignKey('Author', on_delete=models.CASCADE)
     type = models.CharField(max_length=30, default='inbox')
-    inbox_posts = models.ManyToManyField(Posts,blank = True)
-    inbox_likes = models.ManyToManyField(Like, blank=True)
+    inbox_posts = models.ManyToManyField(Post,blank = True)
+    inbox_likes = models.ManyToManyField(PostLike, blank=True)
     inbox_follows = models.ManyToManyField(FollowRequest, blank=True)
-    inbox_comments = models.ManyToManyField(Comments,  blank=True)
+    inbox_comments = models.ManyToManyField(Comment,  blank=True)

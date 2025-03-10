@@ -10,6 +10,12 @@ from django.contrib import messages
 from rest_framework.permissions import IsAuthenticated
 from .models import Post, Author
 from .forms import PostForm
+from django.shortcuts import render, get_object_or_404
+from django.http import Http404
+from django.contrib.auth.decorators import login_required
+from .models import Post
+import sys
+
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -52,11 +58,16 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 def my_posts(request):
     user = request.user.author
 
+    # Fetch posts
     post_list = Post.objects.filtered(
         filter_type='author',
         authors=[user],
-        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED', 'DELETED']
+        visibilities=['PUBLIC', 'FRIENDS', 'UNLISTED']
     )
+
+    # Debugging: Print all fetched posts (force flush)
+    print("Retrieved Posts:", post_list.values_list("title", "visibility"), flush=True)
+    sys.stdout.flush()  # Force immediate output
 
     # Pagination
     paginator = Paginator(post_list, 10)
@@ -64,6 +75,8 @@ def my_posts(request):
     posts = paginator.get_page(page_number)
 
     return render(request, 'social/my_posts.html', {'posts': posts})
+
+
 
 @login_required
 def create_post(request):
@@ -143,9 +156,42 @@ def update_post(request, internal_id):
 
     return render(request, 'social/update_post.html', {'form': form})
 
+
+
+
+@login_required
 def post_detail(request, internal_id):
     post = get_object_or_404(Post, internal_id=internal_id)
+    can_view = False  # Flag to track if the user is allowed to see the post
+
+    # Author can always see their own posts
+    if post.author == request.user.author and post.visibility != 'DELETED':
+        can_view = True
+
+    elif post.visibility == 'PUBLIC':
+        can_view = True
+
+    elif post.visibility == 'FRIENDS':
+        if request.user.is_authenticated and request.user.author in post.author.friends:
+            can_view = True
+
+    elif post.visibility == 'UNLISTED':
+        can_view = True  # Anyone with the link can view
+
+    elif post.visibility == 'DELETED':
+        message = "This post has been deleted."
+        return render(request, 'social/restricted_post.html', {'message': message})
+
+    if not can_view:
+        message = "You do not have permission to view this post."
+        return render(request, 'social/restricted_post.html', {'message': message})
+
+    # Add like count for comments
+    for comment in post.comments.all():
+        comment.like_count = comment.get_likes_count()
+
     return render(request, 'social/post_detail.html', {'post': post})
+
 
 @api_view(['PUT'])
 def api_update_post(request, internal_id):

@@ -332,3 +332,5 @@ build/
 tests/report/
 tests/screenshots/
 staticfiles/
+
+/social-github-fetcher.2025-03-05.private-key.pem

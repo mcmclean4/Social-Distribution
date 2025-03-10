@@ -30,7 +30,8 @@ from django.db import connection, DatabaseError
 
 # Like
 from .models import Post, PostLike, Comment
-from .serializers import PostLikeSerializer
+from .serializers import LikeSerializer
+from .models import Like
 
 import requests  # Correct placement of requests import
 from django.conf import settings
@@ -38,6 +39,9 @@ import json
 import os
 from rest_framework.pagination import PageNumberPagination
 from .utils import *
+
+from .github_activity import fetch_user_activity
+
 
 
 ######################################
@@ -48,17 +52,46 @@ from .utils import *
 def stream(request):
     friends = get_friends(request.user.author)
 
+    # Check for recent github activity of the current user
+    if request.user.author.github:
+        if not request.session.get("github_access_token"):
+            # Redirect the user to the authorization URL
+            return redirect("social:github_authorize")
+        
+        github_response = fetch_user_activity(request)
+        if github_response == "invalid_token":
+            # Token is invalid; redirect the user to reauthorize
+            return redirect("social:github_authorize")
+        
+
     # Filter posts
     post_list = Post.objects.filtered(
         authors=friends,
         visibilities=['PUBLIC', 'FRIENDS']
     )
+        # Add `is_liked` status to each post
+    for post in post_list:
+        if request.user.is_authenticated:
+            try:
+                author = request.user.author
+                post.is_liked = PostLike.objects.filter(post=post, author=author).exists()
+            except:
+                post.is_liked = False
+        else:
+            post.is_liked = False
+
 
     # Handle likes for comments
     for post in post_list:
         for comment in post.comments.all():
-            comment.is_liked = request.user.author in comment.likes.all() if request.user.is_authenticated else False
-
+            if request.user.is_authenticated:
+                try:
+                    author = request.user.author
+                    comment.is_liked = Like.objects.filter(author=author, object=comment.id).exists()
+                except:
+                    comment.is_liked = False
+            else:
+                comment.is_liked = False
     # Pagination
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
@@ -102,6 +135,7 @@ def login_page(request):
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
+
 
         # Check if the user exists
         try:
@@ -237,7 +271,8 @@ def profile_page(request, id):
     currentAuthor = Author.objects.filter(id=f"http://localhost:8000/social/api/authors/{id}").get()
     
     #Get all the posts
-    posts = Post.objects.filter(author=currentAuthor).values()
+    posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
+
     
     #We need type
     postsToRender = []
@@ -262,7 +297,6 @@ def profile_edit(request, id):
         form = EditProfileForm(request.POST, request.FILES, instance=author)
         print("VALID")
         if form.is_valid():
-            
             form.save()
             return redirect('social:profile_page', id=id)
     currentUser = request.user
@@ -494,9 +528,14 @@ def add_comment(request, author_id, post_id):
                 type='author',
                 displayName=request.user.username,
             )
-        
+        # Generate Comment URL-based ID
+        comment_internal_id = Comment.objects.count() + 1  # Ensure unique ID
+        comment_url_id = f"{request_user_author}/{comment_internal_id}"
+        print("DEBUG: commentID is", comment_url_id)
+
         # Create the comment
         comment = Comment.objects.create(
+            id=comment_url_id,
             type='comment',
             post=post,
             author=request_user_author,
