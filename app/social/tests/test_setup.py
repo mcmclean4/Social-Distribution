@@ -54,7 +54,7 @@ class TestSetUp(TestCase):
         # inlcude auto_id argument for paths with variable
         self.post_update_url = lambda author_serial, post_serial: reverse('social:update_post', kwargs={'id': author_serial, 'internal_id': post_serial})
         self.post_general_url = lambda author_serial, post_serial: reverse('social:get_author_and_post', kwargs={'author_id': author_serial, 'internal_id': post_serial})
-        self.post_detail_url = lambda post_id: reverse('social:post_detail', kwargs={'auto_id': post_id})
+        self.post_detail_url = lambda internal_id: reverse('social:post_detail', kwargs={'internal_id': internal_id})
         self.post_delete_url = lambda post_id: reverse('social:delete_post', kwargs={'auto_id': post_id})
         self.post_create_url = reverse('social:create_post')
 
@@ -160,9 +160,9 @@ class TestSetUp(TestCase):
             "comments": []
         }
         
-
         return super().setUp()
     
+
     def setUpIdentity(self):
 
         self.register_url = reverse('social:register')
@@ -184,27 +184,11 @@ class TestSetUp(TestCase):
             "displayName": "test_displayName2"
         }
 
+
     def setUpReading(self):
         self.stream_url = reverse('social:index')
-        self.user2 = User.objects.create_user(username="test_user2", password="password")
+        
 
-        # Create a second Author instance to test friends only posts
-        self.author2 = Author.objects.create(
-            user=self.user2,
-            type="author",
-            #id=f"http://localhost:8000/social/api/authors/{2}",
-            host="http://localhost:8000/social/api/",
-            displayName="Test Author2",
-            github="",
-            profileImage=self.generate_test_image(),
-            page=f"http://localhost:8000/social/authors/{3}",
-            isAdmin=False
-        )
-
-        self.author2.refresh_from_db()
-        self.user2.author = self.author2
-        self.author2.save()
-    
     def tearDown(self):
         print("Cleaning up test data...")
         return super().tearDown()

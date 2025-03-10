@@ -3,7 +3,7 @@ from .test_setup import TestSetUp
 class TestReading(TestSetUp):
 
     '''
-    Reading 1a & 2. Stream page successfully shows all public posts, with the most recent first
+    Reading 1a, 2 & Sharing 4. Stream page successfully shows all public posts, with the most recent first
     '''
     def test_stream(self):
         # Create first post

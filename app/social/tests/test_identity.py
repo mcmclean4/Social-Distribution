@@ -29,7 +29,7 @@ class TestIdentity(TestSetUp):
     '''
     Identity 2. Successfully create multiple authors
     '''
-    def test_create_multiple_muthors(self):
+    def test_create_multiple_authors(self):
         # Create author
         response = self.client.post(
             self.register_url, self.register_data)
