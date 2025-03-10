@@ -158,7 +158,7 @@ def post_detail(request, internal_id):
     can_view = False  # Flag to track if the user is allowed to see the post
 
     # Author can always see their own posts
-    if post.author == request.user.author:
+    if post.author == request.user.author and post.visibility == 'DELETED':
         can_view = True
 
     elif post.visibility == 'PUBLIC':
