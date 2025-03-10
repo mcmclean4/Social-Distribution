@@ -44,6 +44,7 @@ class TestSetUp(TestCase):
         
 
         self.setUpIdentity()
+        self.setUpReading()
 
         # ** EVERYTHING BELOW WAS MADE FOR TEST_POSTING.PY **
         # So may or may not need everything for other test files.
@@ -69,7 +70,7 @@ class TestSetUp(TestCase):
             #id=f"http://localhost:8000/social/api/authors/{2}",
             host="http://localhost:8000/social/api/",
             displayName="Test Author",
-            github="http://github.com/realgithubuser",
+            github="",
             profileImage=self.generate_test_image(),
             page=f"http://localhost:8000/social/authors/{2}",
             isAdmin=False
@@ -117,10 +118,9 @@ class TestSetUp(TestCase):
         # data for a CommonMark post
         self.markdown_post_data = {
             "type": "post",
-            "title":"A post title about a post about web dev",
+            "title": "A different title for the markdown post",
             "id":f"http://localhost:8000/social/api/authors/{author_serial}/posts/{1}",
             "page": self.author.page,
-            "title":"A post title about a post about web dev",
             "description":"This post discusses stuff -- brief",
             "contentType": "text/markdown",
             "content": "# Header **bold text**",
@@ -183,6 +183,27 @@ class TestSetUp(TestCase):
             "password": "password2",
             "displayName": "test_displayName2"
         }
+
+    def setUpReading(self):
+        self.stream_url = reverse('social:index')
+        self.user2 = User.objects.create_user(username="test_user2", password="password")
+
+        # Create a second Author instance to test friends only posts
+        self.author2 = Author.objects.create(
+            user=self.user2,
+            type="author",
+            #id=f"http://localhost:8000/social/api/authors/{2}",
+            host="http://localhost:8000/social/api/",
+            displayName="Test Author2",
+            github="",
+            profileImage=self.generate_test_image(),
+            page=f"http://localhost:8000/social/authors/{3}",
+            isAdmin=False
+        )
+
+        self.author2.refresh_from_db()
+        self.user2.author = self.author2
+        self.author2.save()
     
     def tearDown(self):
         print("Cleaning up test data...")

@@ -43,10 +43,6 @@ class TestPosting(TestSetUp):
     '''
 
     def test_edit_post(self):
-        print("Existing posts before creating:")
-        for post in Post.objects.all():
-            print(post.id)
-
         # Create a post
         create_response = self.client.post(
             self.posts_url, self.plaintext_post_data, format="json")
@@ -62,20 +58,9 @@ class TestPosting(TestSetUp):
         self.plaintext_post_data['contentType'] = "text/markdown"
         self.plaintext_post_data['content'] = "Updated content"
 
-        print("DEBUG ***************************")
-        print(create_response.data['id'])
-        print(self.plaintext_post_data['id'])
-        print(author_serial)
-        print(post_serial)
-
-        print("Existing posts before updating:")
-        for post in Post.objects.all():
-            print(post.id)
-
         # Submit the changes with PUT request
         update_response = self.client.put(
             self.post_general_url(author_serial, post_serial), self.plaintext_post_data, format="json")
-        print(update_response)
         self.assertEqual(update_response.status_code, 200)
 
         # Get post from db and check all the updated fields are correct and has kept the same id

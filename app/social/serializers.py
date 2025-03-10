@@ -19,7 +19,8 @@ from .models import Post, Author, User, Comment, Like
 #         pass
 
 class AuthorSerializer(serializers.ModelSerializer):
-    profileImage = serializers.URLField(required=False, allow_blank=True)
+    profileImage = serializers.URLField(required=False, allow_blank=True)   # Need urlfield for tests
+    #profileImage = serializers.ImageField(required=False, allow_blank=True)
     page = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
