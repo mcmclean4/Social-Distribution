@@ -4,12 +4,12 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework.test import APIClient
 from django.conf import settings
-from social.models import Author, Inbox, FollowRequest
+from social.models import Author, Inbox, FollowRequest, Post
 from unittest.mock import patch, MagicMock
 
 """
 test the user stories for sending friend request and being able to see the friend request
-Checks the API endpoint Inbox
+Checks the API endpoint Inbox: comment and follow request
 """
 class InboxPostTests(TestCase):
     def setUp(self):
@@ -27,7 +27,7 @@ class InboxPostTests(TestCase):
             displayName="Lara Croft",
             host="http://localhost:8000/social/api/",
             github="http://github.com/laracroft",
-            profileImage="http://localhost:8000/static/images/laracroft.jpg",
+            profileImage=None,
             page="http://localhost:8000/social/authors/1"
         )
         self.author2 = Author.objects.create(
@@ -35,7 +35,7 @@ class InboxPostTests(TestCase):
             displayName="Greg Johnson",
             host="http://localhost:8000/social/api/",
             github="http://github.com/gjohnson",
-            profileImage="https://i.imgur.com/k7XVwpB.jpeg",
+            profileImage=None,
             page="http://localhost:8000/social/authors/greg"
         )
         
@@ -64,7 +64,7 @@ class InboxPostTests(TestCase):
                 "host": self.author2.host,
                 "displayName": self.author2.displayName,
                 "github": self.author2.github,
-                "profileImage": self.author2.profileImage,
+                "profileImage": str(self.author2.profileImage) if self.author2.profileImage else "",  # Convert to string or empty
                 "page": self.author2.page,
             },
             "object": {
@@ -73,7 +73,7 @@ class InboxPostTests(TestCase):
                 "host": self.author1.host,
                 "displayName": self.author1.displayName,
                 "github": self.author1.github,
-                "profileImage": self.author1.profileImage,
+                "profileImage": str(self.author1.profileImage) if self.author1.profileImage else "",  # Convert to string or empty
                 "page": self.author1.page,
             }
         }
@@ -113,7 +113,7 @@ class InboxPostTests(TestCase):
                 "host": self.author2.host,
                 "displayName": self.author2.displayName,
                 "github": self.author2.github,
-                "profileImage": self.author2.profileImage,
+                "profileImage": str(self.author2.profileImage) if self.author2.profileImage else "",
                 "page": self.author2.page,
             },
             "object": {
@@ -122,7 +122,7 @@ class InboxPostTests(TestCase):
                 "host": self.author1.host,
                 "displayName": self.author1.displayName,
                 "github": self.author1.github,
-                "profileImage": self.author1.profileImage,
+                "profileImage": str(self.author1.profileImage) if self.author2.profileImage else "",
                 "page": self.author1.page,
             }
         }
@@ -144,7 +144,7 @@ class InboxPostTests(TestCase):
                     "host": self.author1.host,
                     "displayName": self.author1.displayName,
                     "github": self.author1.github,
-                    "profileImage": self.author1.profileImage,
+                    "profileImage": str(self.author1.profileImage) if self.author1.profileImage else "",
                     "page": self.author1.page,
                 }
             elif url == self.author2.id:
@@ -153,7 +153,7 @@ class InboxPostTests(TestCase):
                     "host": self.author2.host,
                     "displayName": self.author2.displayName,
                     "github": self.author2.github,
-                    "profileImage": self.author2.profileImage,
+                    "profileImage": str(self.author2.profileImage) if self.author2.profileImage else "",
                     "page": self.author2.page,
                 }
             else:
@@ -182,3 +182,54 @@ class InboxPostTests(TestCase):
         # Verify the object details match author1.
         obj = follow_item.get("object", {})
         self.assertEqual(obj.get("displayName"), self.author1.displayName)
+
+    def test_post_comment_to_inbox(self):
+        """
+        Test posting a comment to an author's inbox and verifying if it is stored correctly.
+        """
+        # First, create a post
+        post = Post.objects.create(
+            title="Test Post",
+            description="This is a test post description",
+            contentType="text/markdown",
+            content="This is a test post content.",
+            author=self.author1,
+            visibility="PUBLIC"
+        )
+        post.refresh_from_db()
+
+        # Create comment data
+        data = {
+            "type": "comment",
+            "id": f"{self.author2.host}authors/{self.author2.id}/commented/101",
+            "post": post.id,
+            "comment": "This is a test comment on your post.",
+            "contentType": "text/markdown",
+            "published": "2025-03-08T23:00:00-07:00",
+            "author": {
+                "type": "author",
+                "id": self.author2.id,
+                "host": self.author2.host,
+                "displayName": self.author2.displayName,
+                "github": self.author2.github,
+                "profileImage": str(self.author2.profileImage) if self.author2.profileImage else "",
+                "page": self.author2.page,
+            }
+        }
+        
+        # Build the inbox URL
+        tail_id = self.author1.id.split('/')[-1]
+        url = reverse("social:api_inbox", kwargs={"author_id": tail_id})
+        
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("received and stored", response.data.get("message", ""))
+        
+        # Verify in the database that the comment was added to the Inbox
+        inbox = Inbox.objects.get(author=self.author1)
+        comments = inbox.inbox_comments.all()
+        self.assertEqual(comments.count(), 1)
+        comment = comments.first()
+        self.assertEqual(comment.comment, "This is a test comment on your post.")
+        self.assertEqual(comment.post, post.id)
+        self.assertEqual(comment.author.id, self.author2.id)

@@ -101,7 +101,7 @@ def get_post_likes(request, author_id, post_id):
         post = Post.objects.get(id=post_url)
         
         # Get all likes for this post
-        likes = Like.objects.filter(object=post_url)
+        likes = Like.objects.filter(object=post_url).order_by("published")
         
         # Serialize the likes
         like_serializer = LikeSerializer(likes, many=True)
