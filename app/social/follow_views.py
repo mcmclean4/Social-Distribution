@@ -18,7 +18,7 @@ class FollowersListView(APIView):
     
     def get(self, request, author_id):
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
         author = get_object_or_404(Author, id=expected_author_id)
         followers = Follow.objects.filter(followee=author)
         
@@ -43,7 +43,7 @@ class FollowersListView(APIView):
         Approves a follow request by adding the author from the JSON body to the followers list.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
         print(f"Approving follow request for: {expected_author_id}")
 
@@ -88,7 +88,7 @@ class FollowersListView(APIView):
         The follower ID is expected in the request body.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
         print(f" Removing follower for: {expected_author_id}")
 
@@ -123,7 +123,7 @@ class FollowerDetailView(APIView):
         """
         author_id = unquote(author_id)
         follower_fqid = unquote(follower_fqid)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
         print(f" Checking if {expected_author_id} follows {follower_fqid}")
 
@@ -201,26 +201,17 @@ def following_view(request):
         return redirect('social:register')  # Redirect if no author profile
 
     my_author = request.user.author  # Get logged-in author's profile
-    my_author_id = my_author.id  #  Full author ID
+    my_author_id = my_author.id  # Full author ID
 
-    #  Find authors the user is following from the `Follow` table
-    following_entries = Follow.objects.filter(follower_id=my_author_id)
+    #  Find authors the user is following from the `Follow` table and get their author objects
+    following_entries = Follow.objects.filter(follower_id=my_author_id).select_related('followee')
 
-    following_authors = []
-    for follow in following_entries:
-        try:
-            response = requests.get(follow.followee.id, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            author_data = response.json()
-            following_authors.append(author_data)
-        except requests.exceptions.RequestException as e:
-            print(f" Error fetching author {follow.followee.id}: {e}")
+    following_authors = [follow.followee for follow in following_entries]  # Retrieve author objects
 
     return render(request, "social/following.html", {
         "my_author_id": my_author_id,
         "following_authors": following_authors,  # List of followed authors
     })
-
 
 def unfollow_view(request):
     """Handles unfollowing an author by deleting the follow object in the database."""
@@ -255,43 +246,24 @@ def unfollow_view(request):
 
 
 def friends_view(request):
-    """Shows a list of friends (mutual followers) of the logged-in user"""
+    """Shows a list of friends (mutual followers) of the logged-in user."""
 
     #  Get logged-in user
     if not hasattr(request.user, 'author'):
         return redirect('social:register')  # Redirect to register if no author profile
 
-    my_author = request.user.author
+    my_author = request.user.author  # Get logged-in author's profile
     my_author_id = my_author.id
 
     print(f"Checking friends for: {my_author.displayName} ({my_author_id})")
 
-    # Get people I follow
-    following_ids = set(Follow.objects.filter(follower_id=my_author_id).values_list("followee_id", flat=True))
+    # Use the `friends` property from the `Author` model
+    friends = my_author.friends.all()  # QuerySet of mutual followers
 
-    #  Get people who follow me
-    followers_ids = set(Follow.objects.filter(followee_id=my_author_id).values_list("follower_id", flat=True))
-
-    #  Find mutual followers (friends)
-    friends_ids = following_ids.intersection(followers_ids)
-
-    #  Fetch full author details for friends
-    friends = []
-    for friend_id in friends_ids:
-        try:
-            response = requests.get(friend_id, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            friend_data = response.json()
-            friends.append(friend_data)
-        except requests.exceptions.RequestException as e:
-            print(f" Error fetching friend details for {friend_id}: {e}")
-
-    print(f" Found {len(friends)} friends")
+    print(f"Found {friends.count()} friends")
 
     # Render `friends.html` and pass the friends list
     return render(request, "social/friends.html", {
         "my_author": my_author,
         "friends": friends
     })
-
-

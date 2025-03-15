@@ -42,6 +42,10 @@ from .utils import *
 
 from .github_activity import fetch_user_activity
 
+def get_base_url(request):
+    """Extracts the base URL (protocol + domain) from the request"""
+    return f"{request.scheme}://{request.get_host()}"
+
 
 
 ######################################
@@ -245,7 +249,10 @@ def register(request):
         # Create user but set is_active=False until a superuser approves
         user = User.objects.create_user(username=username, password=password, is_active=False)
 
-        host = "http://localhost:8000/social/api/"
+        # Get the host from the request
+        host_url = request.build_absolute_uri('/').rstrip('/')
+        host = f"{host_url}/social/api/"
+        
         Author.objects.create(user=user, host=host, displayName=displayName, github=github)
 
         messages.success(request, "Your account has been created! A superuser must activate it before you can log in.")
@@ -255,29 +262,42 @@ def register(request):
 
 @api_view(['GET'])
 def get_author(request, id):
-    author = get_object_or_404(Author, id=f"http://localhost:8000/social/api/authors/{id}")
+    """
+    Retrieves an author using the correct full ID format.
+    """
+    base_url = get_base_url(request)  # Get request's base URL dynamically
+    full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct the correct ID
+
+    author = get_object_or_404(Author, id=full_author_id)
     serializer = AuthorSerializer(author)
     return Response(serializer.data)
 
 @api_view(['GET'])
 def get_authors(request):
-    authors = Author.objects.all()
+    """
+    Retrieves authors whose `host` starts with the requesting base URL.
+    """
+    base_url = get_base_url(request)  # Extract base domain
+    authors = Author.objects.filter(host__startswith=base_url)  # Allow flexibility
+
     serializer = AuthorSerializer(authors, many=True)
     return Response(serializer.data)
 
 @login_required
 def profile_page(request, id):
-    #Get the author
-    currentAuthor = Author.objects.filter(id=f"http://localhost:8000/social/api/authors/{id}").get()
+    """Retrieves the profile page of an author."""
+    base_url = get_base_url(request)  # Get the correct host dynamically
+    full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct correct ID
     
-    #Get all the posts
+    # Get the author
+    currentAuthor = get_object_or_404(Author, id=full_author_id)
+    
+    # Get all posts by this author (excluding deleted)
     posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
 
-    
-    #We need type
+    # Format posts for rendering
     postsToRender = []
     for post in posts:
-        print(post["id"])
         postDict = {
             "title": post["title"],
             "image": post["image"],
@@ -288,25 +308,34 @@ def profile_page(request, id):
         }
         postsToRender.append(postDict)
         
-    return render(request, 'social/profile.html', {"posts": postsToRender, "author":currentAuthor, 'profile_author_id':id})
+    return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id})
 
 @login_required
 def profile_edit(request, id):
-    if request.POST:
-        author = Author.objects.filter(id = f"http://localhost:8000/social/api/authors/{id}").get()
+    """
+    Allows an author to edit their profile.
+    """
+    base_url = get_base_url(request)  # Get the correct host dynamically
+    full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct correct ID
+    
+    if request.method == "POST":
+        author = get_object_or_404(Author, id=full_author_id)
         form = EditProfileForm(request.POST, request.FILES, instance=author)
-        print("VALID")
+
         if form.is_valid():
             form.save()
             return redirect('social:profile_page', id=id)
+
     currentUser = request.user
-    currentAuthor = Author.objects.filter(user=currentUser).get()
-    form = EditProfileForm(request.POST, request.FILES, instance=currentAuthor)
+    currentAuthor = get_object_or_404(Author, user=currentUser)
+    form = EditProfileForm(instance=currentAuthor)
+
+    # Ensure the user is editing their own profile
     if str(id) != currentAuthor.id.split('/')[-1]:
         return redirect('social:profile_page', id=id)
-    else:
-        print("correct")
+
     return render(request, 'social/profile_edit.html', {'form': form})
+
 
 
 class AuthorPostListAPIView(generics.ListAPIView):
@@ -355,7 +384,7 @@ class PostLikeView(APIView):
         """Check if the current user has liked the post"""
         try:
             # Construct the full post ID
-            full_post_id = f"http://localhost:8000/posts/{post_id}"
+            full_post_id = f"{request.get_host()}/social/posts/{post_id}"
             print(f"Looking for post with ID: {full_post_id}")
             
             post = get_object_or_404(Post, id=full_post_id)

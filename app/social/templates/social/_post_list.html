@@ -205,7 +205,7 @@
                     contentType: "text/markdown",
                     author: {
                         // Include the current user's author ID
-                        id: `http://localhost:8000/social/api/authors/${authorNumber}`
+                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
                     }
                 })
             });
@@ -216,13 +216,16 @@
                 const data = await response.json();
                 console.log('Comment Response:', data);
                 
-                const commentsList = document.querySelector('.comments-list');
+                const commentsList = document.querySelector(`#comment-section-${postId} .comments-list`);
                 const newComment = createCommentElement(data);
                 commentsList.insertAdjacentHTML('beforeend', newComment);
                 
                 commentInput.value = '';
                 
                 const commentCount = document.getElementById(`comment-count-${postId}`);
+                if (commentCount) {
+                    commentCount.textContent = parseInt(commentCount.textContent) + 1;
+                }
                 commentCount.textContent = parseInt(commentCount.textContent) + 1;
             } else {
                 // Handle error response

@@ -58,7 +58,7 @@ class InboxView(APIView):
         Fetches all items (posts, likes, comments, follow requests) in the inbox.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
         print(f"Fetching inbox for: {expected_author_id}")
 
@@ -163,7 +163,7 @@ class InboxView(APIView):
         return {
             "type": "likes",
             "id": f"{comment.id}/likes",
-            "page": f"{settings.HOST}api/authors/{comment.author.id}/commented/{comment.id}/likes",
+            "page": f"http://{request.get_host()}/social/api/authors/{comment.author.id}/commented/{comment.id}/likes",
             "page_number": 1,  # Pagination metadata
             "size": 50,  # Default page size
             "count": Like.objects.filter(object=comment.id).count(),  # Count total likes for this comment
@@ -202,7 +202,7 @@ class InboxView(APIView):
         """Stores any incoming request (posts, likes, comments, follows) in the inbox."""
 
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
         print(f"Receiving new inbox item for: {expected_author_id}")
         author = get_object_or_404(Author, id=expected_author_id)
@@ -262,7 +262,7 @@ class InboxView(APIView):
                 }
             )
 
-            # ✅ Add the like to the inbox as a separate entry
+            #  Add the like to the inbox as a separate entry
             inbox.inbox_likes.add(post_like)
 
 
@@ -352,7 +352,7 @@ class InboxView(APIView):
         updates the FollowRequest status to "denied," and removes it from the Inbox only.
         """
         author_id = unquote(author_id)
-        expected_author_id = f"{settings.HOST}api/authors/{author_id}"
+        expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
         author = get_object_or_404(Author, id=expected_author_id)
 
         try:

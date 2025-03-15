@@ -304,7 +304,7 @@
                     contentType: "text/markdown",
                     author: {
                         // Include the current user's author ID
-                        id: `http://localhost:8000/social/api/authors/${authorNumber}`
+                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
                     }
                 })
             });

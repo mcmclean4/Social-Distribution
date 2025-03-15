@@ -15,7 +15,7 @@ from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from .models import Post
 import sys
-
+import uuid
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -219,12 +219,14 @@ def api_delete_post(request, internal_id):
 @api_view(['GET'])
 def api_get_author_and_all_post(request, id):
     try:
-        author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{id}")
+        author = Author.objects.get(id=f"http://{request.get_host()}/social/api/authors/{id}")
     except Author.DoesNotExist:
         return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
     
     posts = Post.objects.filter(author=author)
-    post_serializer = PostSerializer(posts, many=True)
+
+  
+    post_serializer = PostSerializer(posts, many=True, context={'request': request})
 
     author_serializer = AuthorSerializer(author)
 
@@ -239,10 +241,10 @@ def get_author_and_post(request, author_id, internal_id):
     if (request.method == "GET"):
         try:
             # Get the author by id
-            author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
-            
-            # Get the post by internal_id and make sure it's linked to the correct author
-            post = Post.objects.get(internal_id=internal_id, author=author)
+            author = get_object_or_404(Author, id__endswith=f"/social/api/authors/{author_id}")
+            # Retrieve the post
+            post = get_object_or_404(Post, internal_id=internal_id, author=author)
+
         except Author.DoesNotExist:
             return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
         except Post.DoesNotExist:
@@ -285,7 +287,7 @@ def get_author_and_post(request, author_id, internal_id):
 def api_get_post_by_id(request, id):
     try:
         # Construct the full URL for the post
-        post_url = f"http://localhost:8000/social/api/authors/2/posts/{id}"
+        post_url = f"http://{request.get_host()}/social/api/authors/2/posts/{id}"
         
         print(f"Attempting to fetch post with URL: {post_url}")
         
