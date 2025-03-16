@@ -25,7 +25,6 @@ class Author(models.Model):
     displayName = models.CharField(max_length=255, unique=True)
     github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
-    # profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
     profileImage = models.URLField(blank=True, default=BLANK_PIC_URL)
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
@@ -58,8 +57,8 @@ class Author(models.Model):
             self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
             self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
 
-        if not self.profileImage:
-            self.profileImage = BLANK_PIC_URL
+        # if not self.profileImage:
+        #     self.profileImage = BLANK_PIC_URL
 
         super().save(*args, **kwargs)
 

@@ -2,13 +2,11 @@ from rest_framework import serializers
 from .models import Post, Author, User, Comment, Like
 import re
 
-BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
-
 class AuthorSerializer(serializers.ModelSerializer):
     # Need urlfield for these tests: posting, identity, reading, sharing
     #profileImage = serializers.URLField(required=False, allow_blank=True)   
     # profileImage = serializers.ImageField(required=False, allow_null=True)
-    profileImage = serializers.URLField(default=BLANK_PIC_URL)
+    profileImage = serializers.URLField()
     page = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:

@@ -2,6 +2,7 @@ from django import forms
 from .models import Post, Author
 from .models import Comment
 from django.core.exceptions import ValidationError
+import re
 
 class PostForm(forms.ModelForm):
     class Meta:
@@ -20,11 +21,17 @@ class EditProfileForm(forms.ModelForm):
     class Meta:
         model = Author
         fields = ['displayName', 'profileImage']
-        widgets={
-            'displayName': forms.TextInput(attrs={'class': 'form-control'}),
-            'profileImage': forms.ClearableFileInput(attrs={'class': 'form-control'})
-            }
         
+    def clean_profileImage(self):
+        profile_image_url = self.cleaned_data.get('profileImage')
+        
+        # Check if the URL ends with .jpeg or .png
+        if profile_image_url:
+            if not re.match(r'^https?://.*\.(jpeg|jpg|png)$', profile_image_url, re.IGNORECASE):
+                raise forms.ValidationError("Please provide a valid image URL (ending in .jpeg, .jpg, or .png).")
+        
+        return profile_image_url
+    
     def clean_displayName(self):
         display_name = self.cleaned_data['displayName']
         # Check if displayName is already taken
