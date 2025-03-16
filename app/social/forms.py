@@ -16,6 +16,11 @@ class PostForm(forms.ModelForm):
             'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
             'visibility': forms.Select(attrs={'class': 'form-select'}),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Exclude 'DELETED' from the visibility choices
+        self.fields['visibility'].choices = [
+            choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
 
 class EditProfileForm(forms.ModelForm):
     class Meta:
