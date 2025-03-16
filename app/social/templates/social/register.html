@@ -44,7 +44,7 @@
             </div>
         
             <div class="mb-3">
-                <label for="github" class="form-label">GitHub Username</label>
+                <label for="github" class="form-label">GitHub Username (Optional)</label>
                 <input type="text" id="github" name="github" class="form-control" placeholder="Enter GitHub Username">
                 <div class="text-danger">{{ form.github.errors }}</div>
             </div>
@@ -62,14 +62,14 @@
 </div>
 
 <script>
-    // Function to automatically prepend "https://github.com/" to the GitHub username field
-    document.getElementById("github").addEventListener("input", function() {
-        let githubInput = document.getElementById("github");
-        let username = githubInput.value;
+    // Function to automatically prepend "https://github.com/" to the GitHub username field when form is submitted
+    document.querySelector("form").addEventListener("submit", function(event) {
+        const githubInput = document.getElementById("github");
+        let githubUsername = githubInput.value.trim();
 
-        // Check if the username does not already start with the GitHub URL
-        if (!username.startsWith("https://github.com/")) {
-            githubInput.value = "https://github.com/" + username;
+        // If the input is not empty and doesn't already start with the GitHub URL
+        if (githubUsername && !githubUsername.startsWith("https://github.com/")) {
+            githubInput.value = "https://github.com/" + githubUsername;  // Prepend the GitHub URL
         }
     });
 
