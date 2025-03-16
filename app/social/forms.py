@@ -24,6 +24,13 @@ class EditProfileForm(forms.ModelForm):
             'displayName': forms.TextInput(attrs={'class': 'form-control'}),
             'profileImage': forms.ClearableFileInput(attrs={'class': 'form-control'})
             }
+        
+    def clean_displayName(self):
+        display_name = self.cleaned_data['displayName']
+        # Check if displayName is already taken
+        if Author.objects.filter(displayName=display_name).exclude(id=self.instance.id).exists():
+            raise forms.ValidationError("This display name is already taken. Please choose another one.")
+        return display_name
 
 class CommentForm(forms.ModelForm):
     class Meta:

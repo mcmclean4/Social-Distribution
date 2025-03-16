@@ -4,34 +4,29 @@ from social.managers import PostManager
 from django.utils import timezone
 from urllib.parse import urlparse
 import uuid
-from urllib.parse import urlparse
 
+BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
 
 def get_base_url(full_url):
     """Extracts the protocol + domain/IP from a full URL."""
     parsed_url = urlparse(full_url)
     return f"{parsed_url.scheme}://{parsed_url.netloc}"  # Keeps protocol + domain/IP
 
-
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
 
-
-
 class Author(models.Model):
-    TYPE_CHOICES = [
-        ('author', 'author'),
-    ]
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
-    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='author', editable=False)
+    type = models.CharField(max_length=50, default='author', editable=False)
     id = models.URLField(primary_key=True, unique=True, editable=False)
 
     host = models.URLField(null=True, blank=True)
-    displayName = models.CharField(max_length=255)
+    displayName = models.CharField(max_length=255, unique=True)
     github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
-    profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
+    # profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
+    profileImage = models.URLField(blank=True, default=BLANK_PIC_URL)
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
 
@@ -62,6 +57,9 @@ class Author(models.Model):
             base_url = get_base_url(self.host) if self.host else "http://localhost:8000"
             self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
             self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
+
+        if not self.profileImage:
+            self.profileImage = BLANK_PIC_URL
 
         super().save(*args, **kwargs)
 

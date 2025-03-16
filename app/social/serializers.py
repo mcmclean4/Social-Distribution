@@ -2,32 +2,17 @@ from rest_framework import serializers
 from .models import Post, Author, User, Comment, Like
 import re
 
-# class AuthorSerializer(serializers.Serializer):
-#     user = User
-#     type = serializers.CharField(required=True)
-#     id = serializers.URLField(required=True)
-#     # host = serializers.URLField(required=True)
-#     displayName = serializers.CharField(required=True)
-#     github = serializers.URLField()
-#     profileImage = serializers.URLField()
-#     page = serializers.URLField()
-#     isAdmin = serializers.BooleanField()
-
-#     def create(self, validated_data):
-#         return Author.objects.create(**validated_data)
-
-#     def edit(self, validated_data):
-#         pass
+BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
 
 class AuthorSerializer(serializers.ModelSerializer):
     # Need urlfield for these tests: posting, identity, reading, sharing
     #profileImage = serializers.URLField(required=False, allow_blank=True)   
-    profileImage = serializers.ImageField(required=False, allow_null=True)
+    # profileImage = serializers.ImageField(required=False, allow_null=True)
+    profileImage = serializers.URLField(default=BLANK_PIC_URL)
     page = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
         model = Author
-        # fields = '__all__'
         fields = ['type', 'id', 'host' , 'displayName', 'github', 'profileImage', 'page']
         extra_kwargs = {
             'user': {'read_only': True},

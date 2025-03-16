@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Q
 from .serializers import PostSerializer, AuthorSerializer
-from .models import Post, Author, Follow, FollowRequest,Inbox
+from .models import Post, Author, Follow, FollowRequest,Inbox, User
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import PostForm, EditProfileForm
@@ -27,6 +27,8 @@ from .models import Post, Author
 from django.contrib.admin.sites import site
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import connection, DatabaseError
+from django.contrib import messages
+from django.shortcuts import render, redirect
 
 # Like
 from .models import Post, PostLike, Comment
@@ -108,28 +110,6 @@ def stream(request):
 #           AUTHOR AREA             
 ######################################
 
-
-# def login_page(request):
-#     if request.method == "POST":
-#         username = request.POST.get('username')
-#         password = request.POST.get('password')
-
-#         if not User.objects.filter(username=username).exists():
-#             messages.error(request, 'Username does not exist')
-#             return redirect('social:login')
-
-#         user = authenticate(username=username, password=password)
-
-#         if user is None:
-#             messages.error(request, 'Password does not match username')
-#             return redirect('social:login')
-
-#         else:
-#             login(request, user)
-#             return redirect('social:index')
-
-#     return render(request, 'social/login.html')
-
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -139,7 +119,6 @@ def login_page(request):
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
-
 
         # Check if the user exists
         try:
@@ -170,37 +149,6 @@ def login_page(request):
 def logout_page(request):
     logout(request)
     return redirect('social:login')
-
-
-# def register(request):
-#     if request.method == "POST":
-#         print(request.POST)
-#         username = request.POST.get('username')
-#         password = request.POST.get('password')
-#         displayName = request.POST.get('displayName')
-
-#         if User.objects.filter(username=username).exists():
-#             messages.error(request, "Username already taken.")
-#             # return 400 since new user is not created
-#             return render(request, 'social/register.html', status=400)
-
-#         user = User.objects.create_user(username=username, password=password)
-
-#         host = "http://localhost:8000/social/api/"
-
-#         author = Author.objects.create(
-#             user=user, host=host, displayName=displayName)
-
-#         author.save()
-
-#         user = authenticate(request, username=username, password=password)
-#         if user is not None:
-#             login(request, user)
-#             return redirect('social:index')
-
-#         # create_author()
-
-#     return render(request, 'social/register.html')
 
 @staff_member_required
 def custom_admin_view(request):
@@ -233,7 +181,6 @@ def start_terminal(request):
         'output': result
     }
     return JsonResponse(data, status=200)
-    
 
 def register(request):
     if request.method == "POST":
@@ -242,6 +189,16 @@ def register(request):
         displayName = request.POST.get('displayName')
         github = request.POST.get('github')
 
+        # If the GitHub field is empty, set it to None (null)
+        if not github.strip():
+            github = None
+
+        # Check if the displayName is already taken
+        if Author.objects.filter(displayName=displayName).exists():
+            messages.error(request, "Display Name already taken. Please choose another.")
+            return render(request, 'social/register.html', status=400)
+
+        # Check if the username is already taken
         if User.objects.filter(username=username).exists():
             messages.error(request, "Username already taken.")
             return render(request, 'social/register.html', status=400)
@@ -253,12 +210,15 @@ def register(request):
         host_url = request.build_absolute_uri('/').rstrip('/')
         host = f"{host_url}/social/api/"
         
+        # Create the Author object with github being None if it was empty
         Author.objects.create(user=user, host=host, displayName=displayName, github=github)
 
+        # Display success message
         messages.success(request, "Your account has been created! A superuser must activate it before you can log in.")
         return redirect('social:login')
 
     return render(request, 'social/register.html')
+
 
 @api_view(['GET'])
 def get_author(request, id):
@@ -317,25 +277,34 @@ def profile_edit(request, id):
     """
     base_url = get_base_url(request)  # Get the correct host dynamically
     full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct correct ID
+
+    # Ensure the user is editing their own profile
+    currentUser = request.user
+    currentAuthor = get_object_or_404(Author, user=currentUser)
+
+    if str(id) != currentAuthor.id.split('/')[-1]:
+        return redirect('social:profile_page', id=id)
     
     if request.method == "POST":
         author = get_object_or_404(Author, id=full_author_id)
-        form = EditProfileForm(request.POST, request.FILES, instance=author)
+        form = EditProfileForm(request.POST, instance=author)
 
+        # Check if form is valid first
         if form.is_valid():
-            form.save()
-            return redirect('social:profile_page', id=id)
+            # Check if the displayName is already taken by another user
+            new_display_name = form.cleaned_data.get('displayName', None)
+            if new_display_name and Author.objects.filter(displayName=new_display_name).exclude(id=author.id).exists():
+                form.add_error('displayName', 'This display name is already taken. Please choose another.')
+                messages.error(request, 'This display name is already taken. Please choose another.')
+            else:
+                # If no errors, save the form
+                form.save()
+                return redirect('social:profile_page', id=id)
 
-    currentUser = request.user
-    currentAuthor = get_object_or_404(Author, user=currentUser)
-    form = EditProfileForm(instance=currentAuthor)
-
-    # Ensure the user is editing their own profile
-    if str(id) != currentAuthor.id.split('/')[-1]:
-        return redirect('social:profile_page', id=id)
+    else:
+        form = EditProfileForm(instance=currentAuthor)
 
     return render(request, 'social/profile_edit.html', {'form': form})
-
 
 
 class AuthorPostListAPIView(generics.ListAPIView):
