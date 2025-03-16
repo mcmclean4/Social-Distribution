@@ -270,6 +270,11 @@ def profile_page(request, id):
         
     return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id})
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .forms import EditProfileForm
+from .models import Author
+
 @login_required
 def profile_edit(request, id):
     """
@@ -289,22 +294,26 @@ def profile_edit(request, id):
         author = get_object_or_404(Author, id=full_author_id)
         form = EditProfileForm(request.POST, instance=author)
 
-        # Check if form is valid first
         if form.is_valid():
-            # Check if the displayName is already taken by another user
             new_display_name = form.cleaned_data.get('displayName', None)
             if new_display_name and Author.objects.filter(displayName=new_display_name).exclude(id=author.id).exists():
                 form.add_error('displayName', 'This display name is already taken. Please choose another.')
                 messages.error(request, 'This display name is already taken. Please choose another.')
             else:
-                # If no errors, save the form
+                # Save the form data (including profileImage URL)
                 form.save()
+
+                # If we reach this point, the form is valid, and the image URL should be saved
+                messages.success(request, 'Profile updated successfully!')
                 return redirect('social:profile_page', id=id)
+        else:
+            messages.error(request, 'There was an error updating your profile. Please check the image URL.')
 
     else:
         form = EditProfileForm(instance=currentAuthor)
 
     return render(request, 'social/profile_edit.html', {'form': form})
+
 
 
 class AuthorPostListAPIView(generics.ListAPIView):
