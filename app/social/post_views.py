@@ -136,9 +136,9 @@ def delete_post(request, internal_id):
         post = Post.objects.get(internal_id=internal_id)
         
         # Print debug information
-        print(f"Post ID: {internal_id}")
-        print(f"Post Author: {post.author.user}")
-        print(f"Current User: {request.user}")
+        # print(f"Post ID: {internal_id}")
+        # print(f"Post Author: {post.author.user}")
+        # print(f"Current User: {request.user}")
         
         # Then check if user is author
         if post.author.user != request.user:
