@@ -1,10 +1,11 @@
+import base64
 import json
 from django.test import TestCase
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework.test import APIClient
 from django.conf import settings
-from social.models import Author, Inbox, FollowRequest, Post
+from social.models import Author, Inbox, FollowRequest, Post, Node
 from unittest.mock import patch, MagicMock
 
 """
@@ -42,12 +43,25 @@ class InboxPostTests(TestCase):
         # Refresh objects to get the actual generated IDs.
         self.author1.refresh_from_db()
         self.author2.refresh_from_db()
-        
+
         # Create an empty Inbox for author1.
         self.inbox = Inbox.objects.create(author=self.author1)
-        
-        # Initialize the DRF APIClient.
+
+        # Create a remote Node to simulate node-to-node requests.
+        self.remote_node = Node.objects.create(
+            name="TestNode",
+            base_url="http://remotenode.com/",
+            auth_username="testnodeuser",
+            auth_password="testnodepass",  # Note: In production use hashed passwords.
+            enabled=True
+        )
+        # Set up valid HTTP Basic Auth header using the remote node's credentials.
+        credentials = base64.b64encode(b"testnodeuser:testnodepass").decode("utf-8")
+        self.remote_auth_header = "Basic " + credentials
+
+        # Initialize the DRF APIClient and set its credentials to simulate a remote node.
         self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION=self.remote_auth_header)
 
     def test_post_follow_request_to_inbox(self):
         """
