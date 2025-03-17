@@ -64,33 +64,49 @@
 </div>
 
 <script>
-    // Show/hide text content field based on content type selection
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
     const contentTypeSelect = document.getElementById('{{ form.contentType.id_for_label }}');
     const contentField = document.getElementById('content-field');
     const imageField = document.getElementById('image-field');
     const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
-    
+    const imageInput = document.getElementById('{{ form.image.id_for_label }}');
+
     function updateFields() {
         const contentType = contentTypeSelect.value;
-        if (contentType === 'image/png;base64' || contentType === 'image/jpeg;base64' || contentType === 'application/base64') {
-            contentField.style.display = 'none';
-            imageField.style.display = 'block';
-            // Remove required attribute when hidden
+        const isImage = contentType === 'image/png;base64' || contentType === 'image/jpeg;base64' || contentType === 'application/base64';
+
+        contentField.style.display = isImage ? 'none' : 'block';
+        imageField.style.display = isImage ? 'block' : 'none';
+
+        if (isImage) {
             contentTextarea.removeAttribute('required');
+            imageInput.setAttribute('required', 'required');
         } else {
-            contentField.style.display = 'block';
-            imageField.style.display = 'block';
-            // Add required attribute when visible
             contentTextarea.setAttribute('required', 'required');
+            imageInput.removeAttribute('required');
         }
     }
-    
-    // Run once on page load
+
+    function validateImageUpload() {
+        const contentType = contentTypeSelect.value;
+        const file = imageInput.files[0];
+
+        if (!file) return; // No file selected, no need to validate
+
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+
+        if (contentType === 'image/png;base64' && fileExtension !== 'png') {
+            alert('Please upload a PNG file for PNG content type.');
+            imageInput.value = ''; // Clear invalid file
+        } else if (contentType === 'image/jpeg;base64' && !['jpeg', 'jpg'].includes(fileExtension)) {
+            alert('Please upload a JPEG file for JPEG content type.');
+            imageInput.value = ''; // Clear invalid file
+        }
+    }
+
     updateFields();
-    
-    // Run when content type changes
     contentTypeSelect.addEventListener('change', updateFields);
+    imageInput.addEventListener('change', validateImageUpload);
 });
 </script>
 {% endblock %}
