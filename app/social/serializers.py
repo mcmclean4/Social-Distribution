@@ -59,7 +59,7 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'type', 'title', 'id', 'page', 'description',
-            'contentType', 'content', 'image', 'author', 'published',
+            'contentType', 'content', 'author', 'published',
             'visibility', 'likes', 'comments'
         ]
         

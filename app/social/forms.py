@@ -3,25 +3,47 @@ from .models import Post, Author
 from .models import Comment
 from django.core.exceptions import ValidationError
 import re
+import base64
+from io import BytesIO
+from PIL import Image
 
 class PostForm(forms.ModelForm):
+    image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    
     class Meta:
         model = Post
-        fields = ['title', 'description', 'contentType', 'content', 'image', 'visibility']
+        fields = ['title', 'description', 'contentType', 'content', 'visibility']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'description': forms.TextInput(attrs={'class': 'form-control'}),
             'contentType': forms.Select(attrs={'class': 'form-select'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
-            'image': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'required': False}),  # Remove required attribute
             'visibility': forms.Select(attrs={'class': 'form-select'}),
         }
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Exclude 'DELETED' from the visibility choices
-        self.fields['visibility'].choices = [
-            choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
+        self.fields['visibility'].choices = [choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
+        self.fields['image'].help_text = "Upload an image if content type is an image format."
+        # Make content not required at the form level
+        self.fields['content'].required = False
 
+    def clean(self):
+        cleaned_data = super().clean()
+        content_type = cleaned_data.get('contentType')
+        content = cleaned_data.get('content')
+        
+        # Validate based on content type
+        if content_type in ['image/png;base64', 'image/jpeg;base64', 'application/base64']:
+            if self.data and not self.files.get('image'):
+                self.add_error('image', 'Please upload an image for this content type.')
+        else:
+            # Only require content for text content types
+            if not content:
+                self.add_error('content', 'This field is required for text content types.')
+        
+        return cleaned_data
 class EditProfileForm(forms.ModelForm):
     class Meta:
         model = Author
