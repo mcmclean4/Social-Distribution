@@ -1,65 +1,96 @@
 {% extends 'social/base.html' %}
 
 {% block content %}
-  <div class="container mt-4">
+<div class="container mt-4">
     <h1 class="mb-3">Create Post</h1>
-
+    
     <form method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
-      {% csrf_token %}
-
-      <div class="mb-3">
-        <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
-        {{ form.title }}
-        {% if form.title.errors %}
-          <div class="text-danger">{{ form.title.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
-        {{ form.description }}
-        {% if form.description.errors %}
-          <div class="text-danger">{{ form.description.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label for="{{ form.contentType.id_for_label }}" class="form-label">Content Type</label>
-        {{ form.contentType }}
-        {% if form.contentType.errors %}
-          <div class="text-danger">{{ form.contentType.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
-        {{ form.content }}
-        {% if form.content.errors %}
-          <div class="text-danger">{{ form.content.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label for="{{ form.image.id_for_label }}" class="form-label">Upload Image</label>
-        {{ form.image }}
-        {% if form.image.errors %}
-          <div class="text-danger">{{ form.image.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="mb-3">
-        <label for="{{ form.visibility.id_for_label }}" class="form-label">Visibility</label>
-        {{ form.visibility }}
-        {% if form.visibility.errors %}
-          <div class="text-danger">{{ form.visibility.errors|striptags }}</div>
-        {% endif %}
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Post</button>
-        <a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
-      </div>
-
+        {% csrf_token %}
+        
+        <div class="mb-3">
+            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+              <div class="text-danger">{{ form.title.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+            {{ form.description }}
+            {% if form.description.errors %}
+              <div class="text-danger">{{ form.description.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.contentType.id_for_label }}" class="form-label">Content Type</label>
+            {{ form.contentType }}
+            {% if form.contentType.errors %}
+              <div class="text-danger">{{ form.contentType.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3" id="content-field">
+            <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
+            {{ form.content }}
+            {% if form.content.errors %}
+              <div class="text-danger">{{ form.content.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3" id="image-field">
+            <label for="{{ form.image.id_for_label }}" class="form-label">Upload Image</label>
+            {{ form.image }}
+            <small class="form-text text-muted">{{ form.image.help_text }}</small>
+            {% if form.image.errors %}
+              <div class="text-danger">{{ form.image.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="{{ form.visibility.id_for_label }}" class="form-label">Visibility</label>
+            {{ form.visibility }}
+            {% if form.visibility.errors %}
+              <div class="text-danger">{{ form.visibility.errors|striptags }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Post</button>
+            <a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
+        </div>
     </form>
-  </div>
+</div>
+
+<script>
+    // Show/hide text content field based on content type selection
+    document.addEventListener('DOMContentLoaded', function() {
+    const contentTypeSelect = document.getElementById('{{ form.contentType.id_for_label }}');
+    const contentField = document.getElementById('content-field');
+    const imageField = document.getElementById('image-field');
+    const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+    
+    function updateFields() {
+        const contentType = contentTypeSelect.value;
+        if (contentType === 'image/png;base64' || contentType === 'image/jpeg;base64' || contentType === 'application/base64') {
+            contentField.style.display = 'none';
+            imageField.style.display = 'block';
+            // Remove required attribute when hidden
+            contentTextarea.removeAttribute('required');
+        } else {
+            contentField.style.display = 'block';
+            imageField.style.display = 'block';
+            // Add required attribute when visible
+            contentTextarea.setAttribute('required', 'required');
+        }
+    }
+    
+    // Run once on page load
+    updateFields();
+    
+    // Run when content type changes
+    contentTypeSelect.addEventListener('change', updateFields);
+});
+</script>
 {% endblock %}

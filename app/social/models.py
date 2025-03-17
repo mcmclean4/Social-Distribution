@@ -4,6 +4,8 @@ from social.managers import PostManager
 from django.utils import timezone
 from urllib.parse import urlparse
 import uuid
+import base64
+from django.core.files.base import ContentFile
 
 BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
 
@@ -79,6 +81,7 @@ class Post(models.Model):
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
+        ('application/base64', 'Base64 Image'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
     ]
@@ -98,12 +101,10 @@ class Post(models.Model):
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
     content = models.TextField()
-    image = models.ImageField(upload_to='images/', blank=True, null=True)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-    # comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     internal_id = models.AutoField(primary_key=True, editable=False)
 
