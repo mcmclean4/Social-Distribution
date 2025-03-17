@@ -4,6 +4,21 @@ from social.managers import PostManager
 from django.utils import timezone
 
 # =============================================================================
+# Node
+# =============================================================================
+
+class Node(models.Model):
+    name = models.CharField(max_length=100)
+    base_url = models.URLField(unique=True)
+    auth_username = models.CharField(max_length=100) # TODO: Figure this out
+    auth_password = models.CharField(max_length=100) # TODO: Figure this out
+    enabled = models.BooleanField(default=True)  # Controls whether this node can communicate
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+# =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
 

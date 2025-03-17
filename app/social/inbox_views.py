@@ -10,6 +10,7 @@ import json
 from django.conf import settings
 from django.utils import timezone
 from .models import Author, Post, FollowRequest, Inbox, Like, Comment
+from .authentication import NodeBasicAuthentication
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
 
@@ -51,7 +52,7 @@ def follow_inbox_view(request):
 class InboxView(APIView):
     """Handles fetching and storing items in an author's inbox."""
     
-    permission_classes = [AllowAny]
+    authentication_classes = [NodeBasicAuthentication]
 
     def get(self, request, author_id):
         """

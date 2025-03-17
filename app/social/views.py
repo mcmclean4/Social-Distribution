@@ -1,7 +1,7 @@
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from rest_framework import generics, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView 
 from rest_framework.permissions import AllowAny
@@ -32,6 +32,7 @@ from django.db import connection, DatabaseError
 from .models import Post, PostLike, Comment
 from .serializers import LikeSerializer
 from .models import Like
+from .authentication import NodeBasicAuthentication
 
 import requests  # Correct placement of requests import
 from django.conf import settings
