@@ -1,7 +1,12 @@
 # authentication.py
 import base64
+
+from django.contrib.auth import authenticate
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+from django.contrib.auth.models import User
+
+from app.settings import CURRENT_NODE_URL
 from .models import Node
 
 class NodeBasicAuthentication(BaseAuthentication):
@@ -10,8 +15,11 @@ class NodeBasicAuthentication(BaseAuthentication):
     Checks against Node.auth_username and Node.auth_password.
     """
     def authenticate(self, request):
+        print("Authentication request:", request, "\n  request data:", request.data)
         auth_header = request.META.get('HTTP_AUTHORIZATION')
+
         if not auth_header:
+            print("  Authentication header is missing")
             return None  # No auth provided; DRF will return a 401
 
         try:
@@ -28,17 +36,27 @@ class NodeBasicAuthentication(BaseAuthentication):
         except Exception:
             raise AuthenticationFailed("Invalid basic auth credentials.")
 
+        # Grab node object to attempt to check credentials
         try:
-            node = Node.objects.get(auth_username=username)
+            #node = Node.objects.get(auth_username=username)
+            node = Node.objects.get(base_url=CURRENT_NODE_URL)
         except Node.DoesNotExist:
             raise AuthenticationFailed("Invalid node credentials.")
-
         if not node.enabled:
             raise AuthenticationFailed("This node is disabled.")
 
-        # For production, store hashed passwords and compare securely.
-        if node.auth_password != password:
+        # Check login, return user object
+        if node.auth_password != password or node.auth_username != username:
             raise AuthenticationFailed("Invalid node credentials.")
+
+        '''
+        try:
+            user = User.objects.get(username=username)
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                return user, None
+        except User.DoesNotExist:
+        '''
 
         # Return the node instance as the authenticated user.
         return (node, None)

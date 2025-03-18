@@ -29,6 +29,10 @@ class Node(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def is_authenticated(self):
+        return True
+
 # =============================================================================
 # Author: Represents a user (local or remote) who can post, follow, etc.
 # =============================================================================
