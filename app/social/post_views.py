@@ -15,7 +15,10 @@ from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from .models import Post
 import sys
-
+import uuid
+import base64
+from io import BytesIO
+from PIL import Image
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -76,43 +79,55 @@ def my_posts(request):
 
     return render(request, 'social/my_posts.html', {'posts': posts})
 
-
-
 @login_required
 def create_post(request):
-    # First check if Author exists for the user
     try:
         author = Author.objects.get(user=request.user)
     except Author.DoesNotExist:
-        # Create new Author if doesn't exist
         author = Author.objects.create(
             user=request.user,
             type='author',
             displayName=request.user.username,
         )
         author.save()
-
+    
     try:
         if request.method == "POST":
             form = PostForm(request.POST, request.FILES)
             if form.is_valid():
-                # Get the cleaned data from the form.
                 post = form.save(commit=False)
                 post.author = author
+                
+                # Handle image upload if present
+                if 'image' in request.FILES:
+                    image = request.FILES['image']
+                    
+                    # Determine content type based on image format
+                    img_format = image.name.split('.')[-1].lower()
+                    if img_format == 'png':
+                        post.contentType = 'image/png;base64'
+                    elif img_format in ['jpg', 'jpeg']:
+                        post.contentType = 'image/jpeg;base64'
+                    else:
+                        post.contentType = 'application/base64'
+                    
+                    # Convert image to base64
+                    image_data = base64.b64encode(image.read()).decode('utf-8')
+                    post.content = image_data
+                
                 post.save()
                 return redirect('social:index')
         else:
             form = PostForm()
-
+        
         return render(request, 'social/create_post.html', {'form': form})
-
+    
     except Exception as e:
         print(f"Error creating post: {str(e)}")
         messages.error(request, "Error creating post. Please try again.")
-
+    
     form = PostForm()
     return render(request, 'social/create_post.html', {'form': form})
-
 
 @login_required
 def delete_post(request, internal_id):
@@ -121,9 +136,9 @@ def delete_post(request, internal_id):
         post = Post.objects.get(internal_id=internal_id)
         
         # Print debug information
-        print(f"Post ID: {internal_id}")
-        print(f"Post Author: {post.author.user}")
-        print(f"Current User: {request.user}")
+        # print(f"Post ID: {internal_id}")
+        # print(f"Post Author: {post.author.user}")
+        # print(f"Current User: {request.user}")
         
         # Then check if user is author
         if post.author.user != request.user:
@@ -144,20 +159,43 @@ def delete_post(request, internal_id):
 @login_required
 def update_post(request, internal_id):
     post = get_object_or_404(Post, internal_id=internal_id, author__user=request.user)
-
-    if request.method == "POST":
-        form = PostForm(request.POST, request.FILES, instance=post)
-        if form.is_valid():
-            form.save()
-            return redirect('social:index')
-
-    else:
+    
+    try:
+        if request.method == "POST":
+            form = PostForm(request.POST, request.FILES, instance=post)
+            if form.is_valid():
+                updated_post = form.save(commit=False)
+                
+                # Handle image upload if present
+                if 'image' in request.FILES:
+                    image = request.FILES['image']
+                    
+                    # Determine content type based on image format
+                    img_format = image.name.split('.')[-1].lower()
+                    if img_format == 'png':
+                        updated_post.contentType = 'image/png;base64'
+                    elif img_format in ['jpg', 'jpeg']:
+                        updated_post.contentType = 'image/jpeg;base64'
+                    else:
+                        updated_post.contentType = 'application/base64'
+                    
+                    # Convert image to base64
+                    image_data = base64.b64encode(image.read()).decode('utf-8')
+                    updated_post.content = image_data
+                
+                updated_post.save()
+                return redirect('social:index')
+        else:
+            form = PostForm(instance=post)
+        
+        return render(request, 'social/update_post.html', {'form': form, 'post': post})
+    
+    except Exception as e:
+        print(f"Error updating post: {str(e)}")
+        messages.error(request, "Error updating post. Please try again.")
+        
         form = PostForm(instance=post)
-
-    return render(request, 'social/update_post.html', {'form': form})
-
-
-
+    return render(request, 'social/update_post.html', {'form': form, 'post': post})
 
 @login_required
 def post_detail(request, internal_id):
@@ -219,12 +257,14 @@ def api_delete_post(request, internal_id):
 @api_view(['GET'])
 def api_get_author_and_all_post(request, id):
     try:
-        author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{id}")
+        author = Author.objects.get(id=f"http://{request.get_host()}/social/api/authors/{id}")
     except Author.DoesNotExist:
         return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
     
     posts = Post.objects.filter(author=author)
-    post_serializer = PostSerializer(posts, many=True)
+
+  
+    post_serializer = PostSerializer(posts, many=True, context={'request': request})
 
     author_serializer = AuthorSerializer(author)
 
@@ -239,10 +279,10 @@ def get_author_and_post(request, author_id, internal_id):
     if (request.method == "GET"):
         try:
             # Get the author by id
-            author = Author.objects.get(id=f"http://localhost:8000/social/api/authors/{author_id}")
-            
-            # Get the post by internal_id and make sure it's linked to the correct author
-            post = Post.objects.get(internal_id=internal_id, author=author)
+            author = get_object_or_404(Author, id__endswith=f"/social/api/authors/{author_id}")
+            # Retrieve the post
+            post = get_object_or_404(Post, internal_id=internal_id, author=author)
+
         except Author.DoesNotExist:
             return Response({'error': 'Author not found'}, status=status.HTTP_404_NOT_FOUND)
         except Post.DoesNotExist:
@@ -285,7 +325,7 @@ def get_author_and_post(request, author_id, internal_id):
 def api_get_post_by_id(request, id):
     try:
         # Construct the full URL for the post
-        post_url = f"http://localhost:8000/social/api/authors/2/posts/{id}"
+        post_url = f"http://{request.get_host()}/social/api/authors/2/posts/{id}"
         
         print(f"Attempting to fetch post with URL: {post_url}")
         

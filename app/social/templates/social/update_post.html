@@ -3,10 +3,10 @@
 {% block content %}
   <div class="container mt-4">
     <h2 class="mb-3">Edit Post</h2>
-
+    
     <form method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
       {% csrf_token %}
-
+      
       <div class="mb-3">
         <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
         {{ form.title }}
@@ -14,7 +14,7 @@
           <div class="text-danger">{{ form.title.errors|striptags }}</div>
         {% endif %}
       </div>
-
+      
       <div class="mb-3">
         <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
         {{ form.description }}
@@ -23,30 +23,26 @@
         {% endif %}
       </div>
 
-      <div class="mb-3">
-        <label for="{{ form.contentType.id_for_label }}" class="form-label">Content Type</label>
-        {{ form.contentType }}
-        {% if form.contentType.errors %}
-          <div class="text-danger">{{ form.contentType.errors|striptags }}</div>
-        {% endif %}
-      </div>
+      <!-- Keep contentType hidden but still pass it -->
+      <input type="hidden" name="{{ form.contentType.name }}" value="{{ form.contentType.value }}">
 
-      <div class="mb-3">
+      <div class="mb-3" id="content-field">
         <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
         {{ form.content }}
         {% if form.content.errors %}
           <div class="text-danger">{{ form.content.errors|striptags }}</div>
         {% endif %}
       </div>
-
-      <div class="mb-3">
+      
+      <div class="mb-3" id="image-field">
         <label for="{{ form.image.id_for_label }}" class="form-label">Upload Image</label>
-        {{ form.image }}
+        <input type="file" name="{{ form.image.name }}" id="{{ form.image.id_for_label }}" class="form-control">
+        <small class="form-text text-muted">{{ form.image.help_text }}</small>
         {% if form.image.errors %}
           <div class="text-danger">{{ form.image.errors|striptags }}</div>
         {% endif %}
       </div>
-
+      
       <div class="mb-3">
         <label for="{{ form.visibility.id_for_label }}" class="form-label">Visibility</label>
         {{ form.visibility }}
@@ -54,11 +50,57 @@
           <div class="text-danger">{{ form.visibility.errors|striptags }}</div>
         {% endif %}
       </div>
-
+      
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">Update</button>
         <a href="{% url 'social:index' %}" class="btn btn-secondary">Back to Stream</a>
       </div>
     </form>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentType = "{{ form.contentType.value }}"; // Get the content type set for the post
+        const contentField = document.getElementById('content-field');
+        const imageField = document.getElementById('image-field');
+        const imageInput = document.getElementById('{{ form.image.id_for_label }}');
+        const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+
+        function updateFields() {
+            const isImage = contentType === 'image/png;base64' || contentType === 'image/jpeg;base64' || contentType === 'application/base64';
+
+            // Show/hide content and image fields based on the content type
+            contentField.style.display = isImage ? 'none' : 'block';
+            imageField.style.display = isImage ? 'block' : 'none';
+
+            if (isImage) {
+                contentTextarea.removeAttribute('required');
+                imageInput.setAttribute('required', 'required');
+            } else {
+                contentTextarea.setAttribute('required', 'required');
+                imageInput.removeAttribute('required');
+            }
+        }
+
+        // Image validation for file upload
+        function validateImageUpload() {
+            const file = imageInput.files[0];
+            if (!file) return; // No file selected, no need to validate
+
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+
+            if (contentType === 'image/png;base64' && fileExtension !== 'png') {
+                alert('Please upload a PNG file for PNG content type.');
+                imageInput.value = ''; // Clear invalid file
+            } else if (contentType === 'image/jpeg;base64' && !['jpeg', 'jpg'].includes(fileExtension)) {
+                alert('Please upload a JPEG file for JPEG content type.');
+                imageInput.value = ''; // Clear invalid file
+            }
+        }
+
+        updateFields();
+        imageInput.addEventListener('change', validateImageUpload);
+    });
+  </script>
+
 {% endblock %}

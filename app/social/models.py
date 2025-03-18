@@ -2,6 +2,17 @@ from django.db import models
 from django.contrib.auth.models import User
 from social.managers import PostManager
 from django.utils import timezone
+from urllib.parse import urlparse
+import uuid
+import base64
+from django.core.files.base import ContentFile
+
+BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
+
+def get_base_url(full_url):
+    """Extracts the protocol + domain/IP from a full URL."""
+    parsed_url = urlparse(full_url)
+    return f"{parsed_url.scheme}://{parsed_url.netloc}"  # Keeps protocol + domain/IP
 
 # =============================================================================
 # Node
@@ -23,18 +34,15 @@ class Node(models.Model):
 # =============================================================================
 
 class Author(models.Model):
-    TYPE_CHOICES = [
-        ('author', 'author'),
-    ]
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
-    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='author', editable=False)
+    type = models.CharField(max_length=50, default='author', editable=False)
     id = models.URLField(primary_key=True, unique=True, editable=False)
 
     host = models.URLField(null=True, blank=True)
-    displayName = models.CharField(max_length=255)
+    displayName = models.CharField(max_length=255, unique=True)
     github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
-    profileImage = models.ImageField(upload_to='images/', blank=True, default="images/default_profile.png")
+    profileImage = models.URLField(blank=True, default=BLANK_PIC_URL)
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
 
@@ -62,8 +70,13 @@ class Author(models.Model):
             else:
                 largest_current_id = 0  # If there are no existing authors
 
-            self.id = f"http://localhost:8000/social/api/authors/{largest_current_id + 1}"
-            self.page = f"http://localhost:8000/social/profile/{largest_current_id + 1}"
+            base_url = get_base_url(self.host) if self.host else "http://localhost:8000"
+            self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
+            self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
+
+        # if not self.profileImage:
+        #     self.profileImage = BLANK_PIC_URL
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -83,6 +96,7 @@ class Post(models.Model):
     CONTENT_TYPE_CHOICES = [
         ('text/plain', 'Plain Text'),
         ('text/markdown', 'Markdown'),
+        ('application/base64', 'Base64 Image'),
         ('image/png;base64', 'PNG'),
         ('image/jpeg;base64', 'JPEG'),
     ]
@@ -102,12 +116,10 @@ class Post(models.Model):
     description = models.CharField(max_length=255)
     contentType = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES)
     content = models.TextField()
-    image = models.ImageField(upload_to='images/', blank=True, null=True)
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-    # comments = models.ManyToManyField('Comment', related_name='post_comments', blank=True)
 
     internal_id = models.AutoField(primary_key=True, editable=False)
 
@@ -123,14 +135,19 @@ class Post(models.Model):
 
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
-            # Get the last post based on the auto-incrementing internal_id field
-            last_post = Post.objects.order_by('internal_id').last()
-            next_internal_id = last_post.internal_id + 1 if last_post else 1
-            # Extract the authorId from the author URL (assuming author.id is a URL)
+        is_new = self._state.adding  #  Check if it's a new post
+
+        super().save(*args, **kwargs)  # Save first so `internal_id` is assigned
+
+        if is_new:  # Now use `internal_id`, since it's assigned after saving
             author_id = self.author.id.split('/')[-1]
-            self.id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{next_internal_id}"
-        super().save(*args, **kwargs)
+            base_url = get_base_url(self.author.host) if self.author.host else "http://localhost:8000"
+
+            #  Update `id` and `page` fields after the object is saved
+            self.id = f"{base_url}/social/api/authors/{author_id}/posts/{self.internal_id}"
+            self.page = f"{base_url}/social/post/{self.internal_id}/"
+
+            super().save(update_fields=["id", "page"])  #  Save again to update `id` and `page`
 
 
 class PostLike(models.Model):
@@ -143,10 +160,7 @@ class PostLike(models.Model):
 # Comment: Represents a comment on a post.
 # =============================================================================
 
-from django.db import models
-from django.contrib.auth.models import User
-import uuid
-from django.utils import timezone
+
 
 class Comment(models.Model):
     type = models.CharField(max_length=10, default="comment")
@@ -163,13 +177,16 @@ class Comment(models.Model):
         if not self.id:
             # Format: http://[host]/api/authors/[author_id]/commented/[internal_id]
 
-            current_site = "localhost:8000"
-            
             # Extract author ID from the author object
             author_id_part = self.author.id.split('/')[-1]
             
-            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/commented/{self.internal_id}"
-        
+            base_url = get_base_url(self.author.id)
+
+            # Extract author ID from the author object
+            author_id_part = self.author.id.split('/')[-1]
+
+            # Construct the unique comment ID
+            self.id = f"{base_url}/social/api/authors/{author_id_part}/comments/{self.internal_id}"     
         super().save(*args, **kwargs)
     
     class Meta:
@@ -206,7 +223,7 @@ class FollowRequest(models.Model):
         unique_together = ("follower_id", "followee")  # Prevent duplicate follow requests
 
     def __str__(self):
-        return f"{self.follower_id} -> {self.followee.display_name} ({self.status})"
+        return f"{self.follower_id} -> {self.followee.displayName} ({self.status})"
 
 
 
@@ -221,7 +238,7 @@ class Follow(models.Model):
         unique_together = ("follower_id", "followee")  # Prevent duplicate follow entries
 
     def __str__(self):
-        return f"{self.follower_id} follows {self.followee.display_name}"
+        return f"{self.follower_id} follows {self.followee.displayName}"
 
 class Comments(models.Model):
     type = models.CharField(max_length=50)
@@ -235,20 +252,19 @@ class Like(models.Model):
     published = models.DateTimeField(default=timezone.now)
     
     def save(self, *args, **kwargs):
-        if not self.id:
-            # Generate the ID
+        if not self.id:  # Only generate an ID if none is provided
+            # Extract base URL from the author's ID dynamically
+            base_url = get_base_url(self.author.id)
 
-            current_site = "localhost:8000"
-            
             # Extract author ID from the author object
             author_id_part = self.author.id.split('/')[-1]
-            
+
             # Generate a unique ID for this like
-            import uuid
             like_id = uuid.uuid4()
-            
-            self.id = f"http://{current_site}/social/api/authors/{author_id_part}/liked/{like_id}"
-        
+
+            # Construct the unique like ID
+            self.id = f"{base_url}/social/api/authors/{author_id_part}/liked/{like_id}"
+
         super().save(*args, **kwargs)
     
     class Meta:

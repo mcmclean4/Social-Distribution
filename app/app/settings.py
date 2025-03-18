@@ -161,7 +161,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-HOST = "http://localhost:8000/social/"
+
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
 CORS_ALLOWED_ORIGINS = [
@@ -173,6 +173,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
+    "http://10.2.7.95",
 ]
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")

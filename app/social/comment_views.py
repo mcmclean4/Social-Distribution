@@ -15,8 +15,8 @@ def get_post_comments(request, author_id, post_serial):
     try:
         # Construct the full post ID URL
 
-        #post_id = f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}"
-        post_id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_serial}"
+        post_id = f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}"
+        #post_id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_serial}"
         print("Post id is,", post_id)
         post = Post.objects.get(id=post_id)
         
@@ -40,13 +40,18 @@ def get_post_comments(request, author_id, post_serial):
         elif request.method == 'POST':
             # Handle adding a new comment
             author_data = request.data.get('author', {})
+
+            print("author is",author_data)
+            
             author_id_val = author_data.get('id')
+
+            print("author is",author_id_val)
             
             if not author_id_val:
                 return Response({"error": "Author ID is required"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Try to get the author, or create a new one if it's a remote author
-            try:
+            try: 
                 author = Author.objects.get(id=author_id_val)
             except Author.DoesNotExist:
                 # For remote authors, might want to create a placeholder
