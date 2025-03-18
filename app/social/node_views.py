@@ -39,7 +39,6 @@ class NodeRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        print("NODE POST REQUEST:", request.data)
         serializer = NodeSerializer(data=request.data)
         if serializer.is_valid():
             node = serializer.save()
