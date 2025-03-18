@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Post, Author, User, Comment, Like
+from .models import Post, Author, User, Comment, Like, Node
 import re
 
 # class AuthorSerializer(serializers.Serializer):
@@ -139,3 +139,20 @@ class FollowRequestSerializer(serializers.Serializer):
     summary = serializers.CharField(allow_blank=True, required=False)
     actor = AuthorSerializer()
     object = AuthorSerializer()
+
+class NodeSerializer(serializers.ModelSerializer):
+    # Mark auth_password as write-only so that it is not returned in API responses.
+    auth_password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Node
+        fields = [
+            "id",
+            "name",
+            "base_url",
+            "auth_username",
+            "auth_password",
+            "enabled",
+            "created_at"
+        ]
+        read_only_fields = ["id", "enabled", "created_at"]

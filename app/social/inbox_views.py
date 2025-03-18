@@ -52,7 +52,8 @@ def follow_inbox_view(request):
 class InboxView(APIView):
     """Handles fetching and storing items in an author's inbox."""
     
-    authentication_classes = [NodeBasicAuthentication]
+    permission_classes = [AllowAny]
+    #authentication_classes = [NodeBasicAuthentication]
 
     def get(self, request, author_id):
         """
