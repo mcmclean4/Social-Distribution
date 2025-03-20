@@ -234,6 +234,17 @@ def get_author(request, id):
     return Response(serializer.data)
 
 @api_view(['GET'])
+def get_author_with_fqid(request, author_fqid):
+    '''
+    Returns an author using the author's fqid
+    '''
+    author_fqid = unquote(author_fqid)
+    author = get_object_or_404(Author, id=author_fqid)
+    serializer = AuthorSerializer(author)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
 def get_authors(request):
     """
     Retrieves authors whose `host` starts with the requesting base URL.
@@ -261,7 +272,7 @@ def profile_page(request, id):
     for post in posts:
         postDict = {
             "title": post["title"],
-            "image": post["image"],
+            #"image": post["image"],
             "content": post["content"],
             "contentType": post["contentType"],
             "description": post["description"],

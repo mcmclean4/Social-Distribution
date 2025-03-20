@@ -9,7 +9,7 @@ from urllib.parse import unquote
 
 
 @api_view(['GET'])
-def getImageWithSerial(request, author_serial, post_serial):
+def get_image_with_serial(request, author_serial, post_serial):
     '''
     Returns a post's image as binary given the author and post serial numbers
     '''
@@ -22,7 +22,7 @@ def getImageWithSerial(request, author_serial, post_serial):
 
 
 @api_view(['GET'])
-def getImageWithFQID(request, post_fqid):
+def get_image_with_fqid(request, post_fqid):
     '''
     Returns a post's image as binary given the post's fqid (assuming percent encoded)
     '''

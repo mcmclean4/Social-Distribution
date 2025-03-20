@@ -13,6 +13,7 @@ from .forms import PostForm
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
+from urllib.parse import unquote
 from .models import Post
 import sys
 import uuid
@@ -55,6 +56,39 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         # Instead of deleting, mark the post as deleted
         instance.visibility = 'DELETED'
         instance.save()
+
+@api_view(['GET'])
+@login_required
+def get_post_with_fqid(request, post_fqid):
+    '''
+    Returns a post using the post's fqid
+    '''
+    post_fqid = unquote(post_fqid)
+    post = get_object_or_404(Post, id=post_fqid)
+
+    can_view = False  # Flag to track if the user is allowed to see the post
+
+    # Author can always see their own posts
+    if post.author == request.user.author and post.visibility != 'DELETED':
+        can_view = True
+
+    elif post.visibility == 'PUBLIC':
+        can_view = True
+
+    elif post.visibility == 'FRIENDS':
+        if request.user.is_authenticated and request.user.author in post.author.friends:
+            can_view = True
+
+    elif post.visibility == 'UNLISTED':
+        can_view = True  # Anyone with the link can view
+
+    if not can_view or post.visibility == 'DELETED':
+        # Return 403 forbidden code
+        return Response({"detail": "You do not have permission to view this post."}, status=status.HTTP_403_FORBIDDEN)
+        
+    serializer = PostSerializer(post)
+    return Response(serializer.data)
+
 
 
 @login_required
