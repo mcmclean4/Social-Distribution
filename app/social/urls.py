@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 from . import views
 from . import post_views
 from . import comment_views
@@ -34,18 +34,17 @@ urlpatterns = [
     path('profile/<int:id>', views.profile_page, name='profile_page'),
     path('profile/<int:id>/edit', views.profile_edit, name="profile_edit"),
     path('api/authors/<int:id>', views.get_author, name='get_author'),
-    path('api/authors/<path:author_fqid>', views.get_author_with_fqid, name='get_author_with_fqid'),
 
+    # Image Posts
+    path('api/authors/<int:author_serial>/posts/<int:post_serial>/image', get_image_with_serial, name='get_image_with_serial'),
+    re_path(r'^api/posts/(?P<post_fqid>.+)/image$', get_image_with_fqid, name='get_image_with_FQID'),   # Use a regex pattern to explicitly match the URL without the "/image" suffix
 
     path('api/posts/', post_views.PostListCreateAPIView.as_view(), name='post_list_create'), # getting all the posts
     path('api/posts/<int:internal_id>/', post_views.PostDetailAPIView.as_view(), name='post_detail'),  # getting all the posts as well as updating, deleting them
     path('api/posts/<path:post_fqid>', post_views.get_post_with_fqid, name='post_detail_with_fqid'),
     path('api/authors/<int:id>/posts/', post_views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
     path('api/authors/<int:author_id>/posts/<int:internal_id>/', post_views.get_author_and_post, name='get_author_and_post'),
-
-    # Image Posts
-    path('api/authors/<int:author_serial>/posts/<int:post_serial>/image', get_image_with_serial, name='get_image_with_serial'),
-    path('api/posts/<path:post_fqid>/image', get_image_with_fqid, name='get_image_with_FQID'),
+    re_path(r'^api/authors/(?P<author_fqid>.+)$', views.get_author_with_fqid, name='get_author_with_fqid'), # needs to be after the get_author_and_post line
 
     path('post/', post_views.create_post, name='create_post'),
     path('post/<int:internal_id>/update/', post_views.update_post, name='update_post'),

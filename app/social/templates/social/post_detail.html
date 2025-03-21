@@ -19,6 +19,14 @@
                           <span>Edit</span>
                       </a>
                   </li>
+                  {% if 'image' in post.contentType or post.contentType == 'application/base64' %}
+                  <li>
+                      <button class="dropdown-item d-flex align-items-center" type="button" onclick="copyImageLink('{{ post.id }}', '{{ post.author.host }}')">
+                          <i class="bi bi-link me-2"></i>
+                          <span>Copy Image Link</span>
+                      </button>
+                  </li>
+                  {% endif %}
                   <li><hr class="dropdown-divider"></li>  
                   <li>
                     <button class="dropdown-item d-flex align-items-center text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -71,6 +79,18 @@
                             <button type="submit" class="btn btn-danger">Delete</button>
                         </form>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copy Link Feedback Toast -->
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+            <div id="linkToast" class="toast align-items-center text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-check-circle me-2"></i> Image link copied to clipboard!
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
             </div>
         </div>
@@ -144,6 +164,31 @@
 {% endblock %}
 
 <script>
+    // Function to copy image link to clipboard
+    function copyImageLink(postId, authorHost) {
+        // Ensure we have the base URL from the author's host
+        const baseUrl = authorHost.endsWith('/') ? authorHost.slice(0, -1) : authorHost;
+        
+        // Build the URL for the image endpoint
+        // Use the part before "/authors/" as the base URL for the /posts/ endpoint
+        const apiBaseUrl = baseUrl.split('/api/')[0];
+        const encodedPostId = encodeURIComponent(postId);
+        const imageUrl = `${apiBaseUrl}/posts/${encodedPostId}/image`;
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(imageUrl)
+            .then(() => {
+                // Show success toast
+                const toast = new bootstrap.Toast(document.getElementById('linkToast'));
+                toast.show();
+            })
+            .catch(err => {
+                console.error('Could not copy text: ', err);
+                alert('Failed to copy link to clipboard');
+            });
+    }
+
+
     async function handleLike(authorId, postId) {
         try {
             console.log('Full Author ID:', authorId);
