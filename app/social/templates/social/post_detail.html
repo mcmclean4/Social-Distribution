@@ -51,6 +51,7 @@
             {% if post.contentType == 'text/plain' %}
               <div class="fs-5 content">{{ post.content|linebreaks }}</div>
             {% elif post.contentType == 'text/markdown' %}
+              <div id="debug-markdown" style="display: none;">{{ post.content }}</div>
               <div class="fs-5 content" id="markdown-content">{{ post.content }}</div>
             {% elif 'image' in post.contentType or post.contentType == 'application/base64' %}
               <div class="text-center my-4">
