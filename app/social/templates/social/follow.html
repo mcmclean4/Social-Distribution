@@ -4,11 +4,20 @@
 <div class="container mt-4">
     <h2>Follow Authors</h2>
 
-    <h3>Click an Author to Follow</h3>
+    <h4>Follow Remote Authors</h4>
+    <select id="node-select" class="form-select mb-3">
+        <option value="">-- Select a node --</option>
+        {% for node in nodes %}
+            <option value="{{ node.base_url }}">{{ node.base_url }}</option>
+        {% endfor %}
+    </select>
 
+    <div id="remote-authors" class="mb-4"></div>
+
+    <h4>Local Authors</h4>
     {% if authors %}
-        {% for author in authors %}
         <ul>
+        {% for author in authors %}
             <li>
                 <button class="follow-button btn btn-primary btn-sm" 
                         data-author-id="{{ author.id }}" 
@@ -20,22 +29,21 @@
                     Follow {{ author.displayName }} ({{ author.id }})
                 </button>
             </li>
-        </ul>
         {% endfor %}
+        </ul>
     {% else %}
-        <p>No authors available</p>  <!-- ✅ Moved outside <ul> -->
+        <p>No authors available</p>  
     {% endif %}
 </div>
 
 <script>
-    // ✅ Get the sender's details dynamically from Django settings
     const MY_AUTHOR_ID = "{{ my_author.id|escapejs }}";
     const MY_AUTHOR_NAME = "{{ my_author.displayName|escapejs }}";
     const MY_AUTHOR_HOST = "{{ my_author.host|escapejs }}";
     const MY_AUTHOR_GITHUB = "{{ my_author.github|escapejs }}";
     const MY_AUTHOR_PROFILE_IMAGE = "{{ my_author.profileImage|escapejs }}";
     const MY_AUTHOR_PAGE = "{{ my_author.page|escapejs }}";
-    
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== "") {
@@ -50,11 +58,11 @@
         }
         return cookieValue;
     }
-    
-    document.addEventListener("DOMContentLoaded", function () {
-        document.querySelectorAll(".follow-button").forEach(button => {
+
+    function attachFollowHandlers() {
+        document.querySelectorAll(".follow-remote, .follow-button").forEach(button => {
             button.onclick = async function () {
-                let authorId = this.getAttribute("data-author-id");  // ✅ Receiver (clicked author)
+                let authorId = this.getAttribute("data-author-id");
                 let authorName = this.getAttribute("data-author-name");
                 let authorHost = this.getAttribute("data-author-host");
                 let authorGithub = this.getAttribute("data-author-github");
@@ -62,49 +70,93 @@
                 let authorPage = this.getAttribute("data-author-page");
 
                 let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
-                if (!confirmFollow) return; 
+                if (!confirmFollow) return;
 
-                //  Send the request to the RECEIVER'S inbox
-                let inboxUrl = `${authorId}/inbox`;  
+                let inboxUrl = `${authorId}/inbox`;
 
-                let response = await fetch(inboxUrl, { 
-                    method: "POST",
-                    mode: "cors",
-                    headers: { 
-                        "Content-Type":  "application/json",
-                        "X-CSRFToken": getCookie("csrftoken")
-                    },
-                    body: JSON.stringify({
-                        type: "Follow",
-                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
-                        actor: {
-                            id: MY_AUTHOR_ID,  // Sender (from settings.py)
-                            displayName:"{{ my_author.displayName|escapejs }}",
-                            host: MY_AUTHOR_HOST,
-                            github: MY_AUTHOR_GITHUB || "",
-                            profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
-                            page: MY_AUTHOR_PAGE || ""
+                try {
+                    let response = await fetch(inboxUrl, {
+                        method: "POST",
+                        mode: "cors",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCookie("csrftoken")
                         },
-                        object: { 
-                            id: authorId,  //   Receiver (clicked author)
-                            displayName: authorName,
-                            host: authorHost || "",
-                            github: authorGithub || "",
-                            profileImage: authorProfileImage || "",
-                            page: authorPage || ""
-                        }
-                    })
-                });
+                        body: JSON.stringify({
+                            type: "Follow",
+                            summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
+                            actor: {
+                                id: MY_AUTHOR_ID,
+                                displayName: MY_AUTHOR_NAME,
+                                host: MY_AUTHOR_HOST,
+                                github: MY_AUTHOR_GITHUB || "",
+                                profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
+                                page: MY_AUTHOR_PAGE || ""
+                            },
+                            object: {
+                                id: authorId,
+                                displayName: authorName,
+                                host: authorHost || "",
+                                github: authorGithub || "",
+                                profileImage: authorProfileImage || "",
+                                page: authorPage || ""
+                            }
+                        })
+                    });
 
-                let result = await response.json();
-                if (response.ok) {
-                    alert(result.message || "Follow request sent!");
-                    location.reload();  //  Refresh the page upon success
-                } else {
-                    alert(result.error || "Error sending follow request.");
+                    let result = await response.json();
+                    if (response.ok) {
+                        alert(result.message || "Follow request sent!");
+                        location.reload();
+                    } else {
+                        alert(result.error || "Error sending follow request.");
+                    }
+                } catch (err) {
+                    alert("Network error sending follow request.");
+                    console.error(err);
                 }
             };
         });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        attachFollowHandlers();
+
+        document.getElementById("node-select").addEventListener("change", async function () {
+            const selectedNode = this.value;
+            if (!selectedNode) return;
+
+            try {
+                const response = await fetch(`/social/remote-authors/?node=${encodeURIComponent(selectedNode)}`);
+                const data = await response.json();
+                const authors = data.authors || [];
+
+                const container = document.getElementById("remote-authors");
+                container.innerHTML = "<h5>Remote Authors</h5><ul>";
+
+                authors.forEach(author => {
+                    container.innerHTML += `
+                        <li>
+                            <button class="follow-remote btn btn-secondary btn-sm"
+                                data-author-id="${author.id}"
+                                data-author-name="${author.displayName || 'Unknown'}"
+                                data-author-host="${author.host || selectedNode}"
+                                data-author-github="${author.github || ''}"
+                                data-author-profileImage="${author.profileImage || ''}"
+                                data-author-page="${author.page || ''}">
+                                Follow ${author.displayName || 'Unknown'} (${author.id})
+                            </button>
+                        </li>`;
+                });
+
+                container.innerHTML += "</ul>";
+                attachFollowHandlers();
+            } catch (err) {
+                alert("Failed to load authors from your backend.");
+                console.error(err);
+            }
+        });
+
     });
 </script>
 {% endblock %}

@@ -220,14 +220,21 @@ class InboxView(APIView):
         if item_type == "Follow":
             actor_data = data.get("actor", {})
             follower_id = actor_data.get("id")
+            follower_host = actor_data.get("host")
+
             if not follower_id:
                 return Response({"error": "Missing actor id"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Check if the foreign author (follower) exists; if not, add them.
+
+            # Compare actor (sender) host to receiver's host
+            if follower_host and follower_host.rstrip("/") != author.host.rstrip("/"):
+                node, created = Node.objects.get_or_create(base_url=follower_host)
+                if created:
+                    print(f"Created new Node entry for host: {follower_host}")
+
             follower, created = Author.objects.update_or_create(
                 id=follower_id,
                 defaults={
-                    "host": actor_data.get("host", ""),
+                    "host": follower_host,
                     "displayName": actor_data.get("displayName", ""),
                     "github": actor_data.get("github", ""),
                     "profileImage": actor_data.get("profileImage", ""),
@@ -241,6 +248,20 @@ class InboxView(APIView):
                 defaults={"summary": data.get("summary", ""), "status": "pending"}
             )
             inbox.inbox_follows.add(follow_request)
+
+            # Automatically create Follow if remote follower
+            actor_host = actor_data.get("host", "").rstrip("/")
+            receiver_host = author.host.rstrip("/")
+
+            if actor_host != receiver_host:
+                print(f"[INFO] Auto-approving follow from remote node: {follower_id}")
+                Follow.objects.get_or_create(followee=author, follower_id=follower_id)
+                follow_request.status = "accepted"
+                follow_request.save()
+
+
+            inbox.inbox_follows.add(follow_request)
+
 
         elif item_type == "Like":
             print("Received a like in the inbox")

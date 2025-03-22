@@ -38,7 +38,7 @@ class Node(models.Model):
 # =============================================================================
 
 class Author(models.Model):
-    user = models.OneToOneField(to=User, on_delete=models.CASCADE)
+    user = models.OneToOneField(to=User, on_delete=models.CASCADE, null=True, blank=True)
     type = models.CharField(max_length=50, default='author', editable=False)
     id = models.URLField(primary_key=True, unique=True, editable=False)
 
@@ -63,20 +63,21 @@ class Author(models.Model):
         return mutual_followers
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
+        if self._state.adding and not self.id:
             last_author = Author.objects.order_by('-id').first()
-            
+
             if last_author and last_author.id:
                 try:
                     largest_current_id = int(last_author.id.rstrip('/').split('/')[-1])
                 except ValueError:
-                    largest_current_id = 0  # Default if parsing fails
+                    largest_current_id = 0
             else:
-                largest_current_id = 0  # If there are no existing authors
+                largest_current_id = 0
 
             base_url = get_base_url(self.host) if self.host else "http://localhost:8000"
             self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
             self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
+
 
         # if not self.profileImage:
         #     self.profileImage = BLANK_PIC_URL

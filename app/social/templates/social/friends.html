@@ -11,13 +11,13 @@
                 <strong>{{ friend.displayName }}</strong> ({{ friend.id }})
                 <button class="unfriend-button btn btn-danger btn-sm"
                         data-friend-id="{{ friend.id }}">
-                    Unfriend ❌
+                    Unfriend 
                 </button>
             </li>
         </ul>
         {% endfor %}
     {% else %}
-        <p>No friends yet.</p>  <!-- ✅ Correctly outside <ul> -->
+        <p>No friends yet.</p>  
     {% endif %}
 </div>
 
@@ -55,7 +55,7 @@
                     headers: { "Content-Type": "application/json",
                     "X-CSRFToken": getCookie("csrftoken")
                      },
-                    body: JSON.stringify({ followee_id: friendId })  // ✅ Send `friend_id` in body
+                    body: JSON.stringify({ followee_id: friendId })  
                 });
 
                 let result = await response.json();

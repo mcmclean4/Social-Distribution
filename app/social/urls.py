@@ -6,7 +6,7 @@ from . import comment_like_views
 from . import like_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
-from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view)
+from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, fetch_remote_authors_view)
 from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
@@ -123,6 +123,8 @@ urlpatterns = [
     path("following/", following_view, name="following"),
     path("unfollow/", unfollow_view, name="unfollow"),
     path("friends/", friends_view, name="friends"),
+    path("remote-authors/", fetch_remote_authors_view, name="fetch_remote_authors"),
+
     # path('api')
 
     path('api/posts/<path:post_fqid>', post_views.get_post_with_fqid, name='post_detail_with_fqid'),    # must come after other urls that start with 'api/posts/'

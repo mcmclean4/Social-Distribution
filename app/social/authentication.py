@@ -38,8 +38,8 @@ class NodeBasicAuthentication(BaseAuthentication):
 
         # Grab node object to attempt to check credentials
         try:
-            #node = Node.objects.get(auth_username=username)
-            node = Node.objects.get(base_url=CURRENT_NODE_URL)
+            node = Node.objects.get(auth_username=username)
+            #node = Node.objects.get(base_url=CURRENT_NODE_URL)
         except Node.DoesNotExist:
             raise AuthenticationFailed("Invalid node credentials.")
         if not node.enabled:

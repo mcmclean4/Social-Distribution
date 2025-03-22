@@ -10,7 +10,67 @@ import requests
 from django.db import transaction
 import json
 from django.http import JsonResponse
-from .models import Follow, Author, FollowRequest, Inbox
+from .models import Follow, Author, FollowRequest, Inbox, Node
+from requests.auth import HTTPBasicAuth
+
+
+
+
+from urllib.parse import urljoin
+
+def fetch_remote_authors_view(request):
+    if not hasattr(request.user, 'author'):
+        return JsonResponse({"error": "Unauthorized"}, status=403)
+
+    node_url = request.GET.get("node")
+    if not node_url:
+        return JsonResponse({"error": "Missing node parameter"}, status=400)
+
+    print(f"[DEBUG] Fetching remote authors from: {node_url}")
+
+    try:
+        username = "sandhya1"
+        password = "adhikari"
+        my_author_id = request.user.author.id
+
+        response = requests.get(
+            urljoin(node_url, "authors/"),
+            auth=HTTPBasicAuth(username, password),
+            headers={"Accept": "application/json"},
+            timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if isinstance(data, list):
+            remote_authors = data
+        else:
+            remote_authors = data.get("items") or data.get("authors") or []
+
+        # Get IDs of authors already followed or requested
+        requested_ids = set(
+            FollowRequest.objects.filter(follower_id=my_author_id)
+            .values_list("followee__id", flat=True)
+        )
+        followed_ids = set(
+            Follow.objects.filter(follower_id=my_author_id)
+            .values_list("followee__id", flat=True)
+        )
+        blocked_ids = requested_ids.union(followed_ids)
+
+        # Filter out authors already requested or followed
+        filtered_authors = [
+            author for author in remote_authors
+            if author.get("id") not in blocked_ids
+        ]
+
+        print(f"[DEBUG] Returning {len(filtered_authors)} authors after filtering.")
+        return JsonResponse({"authors": filtered_authors})
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch authors: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 
 class FollowersListView(APIView):
@@ -156,9 +216,12 @@ def follow_view(request):
     # Print final authors list
     print(f" Available Authors to Follow: {[author.displayName for author in authors]}")
 
+    nodes = Node.objects.filter(enabled=True)
+
     return render(request, 'social/follow.html', {
         'authors': authors,
-        'my_author': my_author, 
+        'my_author': my_author,
+        'nodes': nodes  # ✅ Add this to the template context
     })
 
 
