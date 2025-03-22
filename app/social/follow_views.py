@@ -12,6 +12,9 @@ import json
 from django.http import JsonResponse
 from .models import Follow, Author, FollowRequest, Inbox, Node
 from requests.auth import HTTPBasicAuth
+from .utils import get_base_url 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 
 
@@ -72,6 +75,41 @@ def fetch_remote_authors_view(request):
         print(f"[ERROR] Failed to fetch authors: {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
+
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def local_follow_finalize(request):
+    """Creates a Follow object and accepted FollowRequest immediately after sending remote follow"""
+    follower = request.user.author
+    data = request.data
+    followee_id = data.get("followee_id")
+    summary = data.get("summary", "")
+
+    if not followee_id:
+        return Response({"error": "Missing followee_id"}, status=400)
+
+    author, _ = Author.objects.get_or_create(
+        id=followee_id,
+        defaults={
+            "displayName": data.get("displayName", "Unknown"),
+            "host": data.get("host", ""),
+            "github": data.get("github", ""),
+            "profileImage": data.get("profileImage", ""),
+            "page": data.get("page", "")
+        }
+    )
+
+    Follow.objects.get_or_create(follower_id=follower.id, followee=author)
+
+    FollowRequest.objects.update_or_create(
+        follower_id=follower.id,
+        followee=author,
+        defaults={"status": "accepted", "summary": summary}
+    )
+
+    return Response({"message": "Follow stored locally as accepted."})
 
 
 class FollowersListView(APIView):
@@ -199,32 +237,37 @@ class FollowerDetailView(APIView):
 
 
 def follow_view(request):
-    """Shows a list of authors to follow, excluding those with pending requests"""
+    """Shows a list of authors to follow, excluding those already requested and from other nodes"""
 
     if not hasattr(request.user, 'author'):
-        return redirect('social:register')  # Redirect if the user has no author profile
+        return redirect('social:register')
 
-    my_author = request.user.author  # Get the logged-in author's profile
+    my_author = request.user.author
+    self_host = get_base_url(request)  # e.g., http://localhost:8000
 
-    # Get all authors the user has already sent a follow request to
+    # Get IDs of authors already followed or requested
     requested_authors = FollowRequest.objects.filter(
         follower_id=my_author.id
-    ).values_list('followee__id', flat=True)  # Extract followee IDs
+    ).values_list('followee__id', flat=True)
 
-    # Exclude the logged-in user and authors with pending requests
-    authors = Author.objects.exclude(id=my_author.id).exclude(id__in=requested_authors)
+    # Filter only local authors (same host)
+    authors = Author.objects.filter(
+        host__startswith=self_host
+    ).exclude(
+        id=my_author.id
+    ).exclude(
+        id__in=requested_authors
+    )
 
-    # Print final authors list
-    print(f" Available Authors to Follow: {[author.displayName for author in authors]}")
+    print(f"[DEBUG] Authors on host '{self_host}': {[a.displayName for a in authors]}")
 
     nodes = Node.objects.filter(enabled=True)
 
     return render(request, 'social/follow.html', {
         'authors': authors,
         'my_author': my_author,
-        'nodes': nodes  # ✅ Add this to the template context
+        'nodes': nodes
     })
-
 
 
 

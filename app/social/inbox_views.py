@@ -9,7 +9,7 @@ import requests
 import json
 from django.conf import settings
 from django.utils import timezone
-from .models import Author, Post, FollowRequest, Inbox, Like, Comment, Node
+from .models import Author, Post, FollowRequest, Inbox, Like, Comment, Node, Follow
 from .authentication import NodeBasicAuthentication
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
@@ -250,15 +250,6 @@ class InboxView(APIView):
             inbox.inbox_follows.add(follow_request)
 
             # Automatically create Follow if remote follower
-            actor_host = actor_data.get("host", "").rstrip("/")
-            receiver_host = author.host.rstrip("/")
-
-            if actor_host != receiver_host:
-                print(f"[INFO] Auto-approving follow from remote node: {follower_id}")
-                Follow.objects.get_or_create(followee=author, follower_id=follower_id)
-                follow_request.status = "accepted"
-                follow_request.save()
-
 
             inbox.inbox_follows.add(follow_request)
 
@@ -267,51 +258,74 @@ class InboxView(APIView):
             print("Received a like in the inbox")
 
             like_id = data.get("id")
-            like_object = data.get("object")  # The ID of the post being liked
-            like_author_id = data.get("author", {}).get("id", "")
+            like_object = data.get("object")  # The URL of the post or comment being liked
+            like_author_data = data.get("author", {})
+            like_author_id = like_author_data.get("id", "")
             like_published = data.get("published", timezone.now().isoformat())
 
             if not (like_id and like_object and like_author_id):
                 return Response({"error": "Missing required like fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Retrieve the author (since all authors are local)
-            author_instance = get_object_or_404(Author, id=like_author_id)
-
-            # Only handling post likes
-            liked_post = get_object_or_404(Post, id=like_object)
-
-            # Create or update the like entry
-            post_like, _ = PostLike.objects.get_or_create(
+            # Create or update the author (may be remote)
+            author_instance, _ = Author.objects.update_or_create(
+                id=like_author_id,
                 defaults={
-                    "created_at": like_published,
-                    "author": author_instance,
-                    "object": liked_post
+                    "host": like_author_data.get("host", ""),
+                    "displayName": like_author_data.get("displayName", ""),
+                    "github": like_author_data.get("github", ""),
+                    "profileImage": like_author_data.get("profileImage", ""),
+                    "page": like_author_data.get("page", "")
                 }
             )
 
-            #  Add the like to the inbox as a separate entry
-            inbox.inbox_likes.add(post_like)
+            # Create or update the Like object
+            like_obj, _ = Like.objects.update_or_create(
+                id=like_id,
+                defaults={
+                    "author": author_instance,
+                    "object": like_object,
+                    "published": like_published,
+                }
+            )
+
+            inbox.inbox_likes.add(like_obj)
+            print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
 
 
 
-        elif item_type == "comment":
-            comment_id = data["id"]
+
+        elif item_type.lower() == "comment":
+            comment_id = data.get("id")
             comment_content = data.get("comment", "")
-            comment_author_id = data.get("author", {}).get("id", "")
+            comment_author_data = data.get("author", {})
+            comment_author_id = comment_author_data.get("id", "")
             comment_post_id = data.get("post", "")
-            comment_published = data.get("published", "")
+            comment_published = data.get("published", timezone.now().isoformat())
+            comment_content_type = data.get("contentType", "text/markdown")
 
             # Ensure required fields are present
-            if not (comment_author_id and comment_post_id and comment_content):
+            if not (comment_id and comment_author_id and comment_post_id and comment_content):
                 return Response({"error": "Missing required comment fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Retrieve the author (since all authors are local)
-            author_instance = get_object_or_404(Author, id=comment_author_id)
+            # Get or create the comment author (handle remote authors)
+            author_instance, _ = Author.objects.update_or_create(
+                id=comment_author_id,
+                defaults={
+                    "host": comment_author_data.get("host", ""),
+                    "displayName": comment_author_data.get("displayName", ""),
+                    "github": comment_author_data.get("github", ""),
+                    "profileImage": comment_author_data.get("profileImage", ""),
+                    "page": comment_author_data.get("page", "")
+                }
+            )
 
-            # Retrieve the post
-            post_instance = get_object_or_404(Post, id=comment_post_id)
+            # Ensure the post exists 
+            try:
+                post_instance = Post.objects.get(id=comment_post_id)
+            except Post.DoesNotExist:
+                return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # Create the comment object
+            # Create or update the comment
             comment, _ = Comment.objects.update_or_create(
                 id=comment_id,
                 defaults={
@@ -319,13 +333,17 @@ class InboxView(APIView):
                     "comment": comment_content,
                     "published": comment_published,
                     "author": author_instance,
-                    "post": comment_post_id 
+                    "post": comment_post_id,
+                    "contentType": comment_content_type,
                 }
             )
+
             inbox.inbox_comments.add(comment)
+            print(f"[INFO] Stored comment by {author_instance.displayName} on post {comment_post_id}")
 
 
-        elif item_type == "post":
+
+        elif item_type.lower() == "post":
             print("Received a post in the inbox")
             
             post_id = data.get("id")
@@ -336,17 +354,26 @@ class InboxView(APIView):
             post_visibility = data.get("visibility", "PUBLIC")
             post_published = data.get("published", timezone.now().isoformat())
             post_page = data.get("page", "")
-            
-            post_author_id = data.get("author", {}).get("id", "")
-            
+            post_author_data = data.get("author", {})
+            post_author_id = post_author_data.get("id", "")
+
             if not (post_id and post_author_id and post_title):
                 return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Retrieve the author (since all authors are local)
-            author_instance = get_object_or_404(Author, id=post_author_id)
+            # Ensure author exists (remote or local)
+            author_instance, _ = Author.objects.update_or_create(
+                id=post_author_id,
+                defaults={
+                    "host": post_author_data.get("host", ""),
+                    "displayName": post_author_data.get("displayName", ""),
+                    "github": post_author_data.get("github", ""),
+                    "profileImage": post_author_data.get("profileImage", ""),
+                    "page": post_author_data.get("page", "")
+                }
+            )
 
-            # Create or update the post object
-            post, created = Post.objects.update_or_create(
+            # Save the post with the remote ID
+            post, _ = Post.objects.update_or_create(
                 id=post_id,
                 defaults={
                     "title": post_title,
@@ -356,11 +383,13 @@ class InboxView(APIView):
                     "visibility": post_visibility,
                     "published": post_published,
                     "author": author_instance,
-                    "page": post_page
+                    "page": post_page or None
                 }
             )
 
             inbox.inbox_posts.add(post)
+            print(f"[INFO] Stored post '{post_title}' from {post_author_id}")
+
 
 
         else:

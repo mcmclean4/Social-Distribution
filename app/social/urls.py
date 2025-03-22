@@ -6,7 +6,7 @@ from . import comment_like_views
 from . import like_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
-from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, fetch_remote_authors_view)
+from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, fetch_remote_authors_view,local_follow_finalize)
 from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
@@ -124,6 +124,8 @@ urlpatterns = [
     path("unfollow/", unfollow_view, name="unfollow"),
     path("friends/", friends_view, name="friends"),
     path("remote-authors/", fetch_remote_authors_view, name="fetch_remote_authors"),
+    path("api/follow/confirm/", local_follow_finalize, name="local_follow_finalize"),
+
 
     # path('api')
 

@@ -60,15 +60,15 @@ def stream(request):
     friends = get_friends(request.user.author)
 
     # Check for recent github activity of the current user
-    if request.user.author.github:
-        if not request.session.get("github_access_token"):
-            # Redirect the user to the authorization URL
-            return redirect("social:github_authorize")
+    # if request.user.author.github:
+    #     if not request.session.get("github_access_token"):
+    #         # Redirect the user to the authorization URL
+    #         return redirect("social:github_authorize")
         
-        github_response = fetch_user_activity(request)
-        if github_response == "invalid_token":
-            # Token is invalid; redirect the user to reauthorize
-            return redirect("social:github_authorize")
+    #     github_response = fetch_user_activity(request)
+    #     if github_response == "invalid_token":
+    #         # Token is invalid; redirect the user to reauthorize
+    #         return redirect("social:github_authorize")
         
 
     # Filter posts

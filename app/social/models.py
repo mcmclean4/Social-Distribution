@@ -61,6 +61,25 @@ class Author(models.Model):
         # Mutual followers = people who follow this user & are followed back
         mutual_followers = Author.objects.filter(id__in=followees).filter(id__in=followers)
         return mutual_followers
+    
+    @property
+    def remote_followers(self):
+        """
+        Returns a list of follower IDs that start with different hosts
+        """
+        # Get current author's host
+        my_host = get_base_url(self.host) if self.host else "http://localhost:8000"
+        
+        # Get all follower IDs
+        follower_ids = Follow.objects.filter(followee=self).values_list('follower_id', flat=True)
+        
+        # Filter for foreign follower IDs that don't start with current host
+        foreign_followers = [
+            follower_id for follower_id in follower_ids
+            if not follower_id.startswith(my_host)
+        ]
+        
+        return foreign_followers
 
     def save(self, *args, **kwargs):
         if self._state.adding and not self.id:
@@ -140,19 +159,22 @@ class Post(models.Model):
 
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding  #  Check if it's a new post
+        is_new = self._state.adding
 
-        super().save(*args, **kwargs)  # Save first so `internal_id` is assigned
+        # Only auto-generate ID if it's not provided (i.e., local post)
+        if is_new and not self.id:
+            super().save(*args, **kwargs)  # Save first so internal_id is assigned
 
-        if is_new:  # Now use `internal_id`, since it's assigned after saving
             author_id = self.author.id.split('/')[-1]
             base_url = get_base_url(self.author.host) if self.author.host else "http://localhost:8000"
 
-            #  Update `id` and `page` fields after the object is saved
             self.id = f"{base_url}/social/api/authors/{author_id}/posts/{self.internal_id}"
             self.page = f"{base_url}/social/post/{self.internal_id}/"
 
-            super().save(update_fields=["id", "page"])  #  Save again to update `id` and `page`
+            super().save(update_fields=["id", "page"])
+        else:
+            super().save(*args, **kwargs)
+
 
 
 class PostLike(models.Model):
