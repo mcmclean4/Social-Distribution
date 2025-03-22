@@ -120,3 +120,34 @@ def get_post_likes(request, author_id, post_id):
         return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_post_likes_by_fqid(request, post_fqid):
+    """
+    Get all likes for a specific post using the post's fqid
+    """
+    try:
+        # Find the post by its ID
+        post = Post.objects.get(id=post_fqid)
+        
+        # Get all likes for this post
+        likes = Like.objects.filter(object=post_fqid).order_by("published")
+        
+        # Serialize the likes
+        like_serializer = LikeSerializer(likes, many=True)
+        
+        # Return the likes object as specified in the API
+        return Response({
+            "type": "likes",
+            "id": f"{post_fqid}/likes",
+            "page": f"{post.page}/likes" if post.page else None,
+            "page_number": 1,
+            "size": 50,
+            "count": likes.count(),
+            "src": like_serializer.data
+        })
+    except Post.DoesNotExist:
+        return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

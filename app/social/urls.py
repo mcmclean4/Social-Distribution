@@ -89,6 +89,9 @@ urlpatterns = [
     path('api/authors/<str:author_id>/posts/<str:post_id>/likes/', 
         like_views.get_post_likes, name='get_post_likes'),
 
+    path('api/posts/<path:post_fqid>/likes', 
+        like_views.get_post_likes_by_fqid, name='get_post_likes_fqid'),
+
     # Comments API
     path('api/authors/<str:author_id>/posts/<str:post_serial>/comments/', 
         comment_views.get_post_comments, name='post_comments'),  # Handles both GET and POST
