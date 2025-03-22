@@ -249,8 +249,6 @@ class InboxView(APIView):
             )
             inbox.inbox_follows.add(follow_request)
 
-            # Automatically create Follow if remote follower
-
             inbox.inbox_follows.add(follow_request)
 
 

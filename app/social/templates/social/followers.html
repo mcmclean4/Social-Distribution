@@ -11,13 +11,13 @@
                 <strong>{{ follower.displayName }}</strong> ({{ follower.id }})
                 <button class="delete-follower btn btn-danger btn-sm"
                         data-follower-id="{{ follower.id }}">
-                    Remove ❌
+                    Remove 
                 </button>
             </li>
         </ul>
         {% endfor %}
     {% else %}
-        <p>No followers yet.</p>  <!-- ✅ Moved outside <ul> -->
+        <p>No followers yet.</p>  
     {% endif %}
 </div>
 
