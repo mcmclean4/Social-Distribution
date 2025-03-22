@@ -106,7 +106,25 @@
 
                     let result = await response.json();
                     if (response.ok) {
-                        alert(result.message || "Follow request sent!");
+                        //  POST to your own server to record follow locally
+                        await fetch("/social/api/follow/confirm/", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": getCookie("csrftoken")
+                            },
+                            body: JSON.stringify({
+                                followee_id: authorId,
+                                displayName: authorName,
+                                host: authorHost || "",
+                                github: authorGithub || "",
+                                profileImage: authorProfileImage || "",
+                                page: authorPage || "",
+                                summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`
+                            })
+                        });
+
+                        alert("Follow request sent and recorded locally!");
                         location.reload();
                     } else {
                         alert(result.error || "Error sending follow request.");
