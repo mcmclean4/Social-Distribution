@@ -9,7 +9,7 @@ import requests
 import json
 from django.conf import settings
 from django.utils import timezone
-from .models import Author, Post, FollowRequest, Inbox, Like, Comment
+from .models import Author, Post, FollowRequest, Inbox, Like, Comment, Node
 from .authentication import NodeBasicAuthentication
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
@@ -131,7 +131,7 @@ class InboxView(APIView):
             "host": author.host,
             "displayName": author.displayName,
             "github": author.github if author.github else "",
-            "profileImage": author.profileImage.url if author.profileImage else "",
+            "profileImage": author.profileImage if author.profileImage else "",
             "page": author.page if author.page else ""
         }
 
@@ -212,6 +212,10 @@ class InboxView(APIView):
 
         data = request.data
         item_type = data.get("type")
+
+        if self.check_disabled_nodes(data, item_type):
+            # Deny any post request if its sending data from a disabled node
+            return Response({"error": "Disabled Node"}, status=status.HTTP_403_FORBIDDEN)
 
         if item_type == "Follow":
             actor_data = data.get("actor", {})
@@ -344,7 +348,29 @@ class InboxView(APIView):
         inbox.save()
         print(f" Stored {item_type} in inbox.")
         return Response({"message": f"{item_type} received and stored"}, status=status.HTTP_201_CREATED)
+    
 
+    def check_disabled_nodes(self, data, item_type):
+        '''
+        Returns true if data is from a host on a disabled node
+        '''
+        author_data = {}
+        # For Follow Request object, check the actor author's host
+        if item_type == "Follow":
+            author_data = data.get("actor", {})
+        else:
+            # For Post, Comment, and Like objects, check the author's host
+            author_data = data.get("author", {})
+
+        author_host = author_data.get("host")
+        disabled_nodes = Node.objects.filter(enabled=False)
+        # Check if actor_host matches any disabled node's base_url
+        for node in disabled_nodes:
+            if author_host == node.base_url:
+                print('Object is from a disabled node, rejecting')
+                return True
+            
+        return False
 
 
 
