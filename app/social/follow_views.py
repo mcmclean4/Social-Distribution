@@ -29,8 +29,9 @@ def fetch_remote_authors_view(request):
     print(f"[DEBUG] Fetching remote authors from: {node_url}")
 
     try:
-        username = "sandhya1"
-        password = "adhikari"
+        #for now this only works if the username and password belongs to someone in our node because the api can only be viewed if that user is the author in our node.
+        username = "abc"
+        password = "abc"
         my_author_id = request.user.author.id
 
         response = requests.get(
