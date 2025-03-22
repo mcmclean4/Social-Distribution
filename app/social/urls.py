@@ -41,10 +41,9 @@ urlpatterns = [
 
     path('api/posts/', post_views.PostListCreateAPIView.as_view(), name='post_list_create'), # getting all the posts
     path('api/posts/<int:internal_id>/', post_views.PostDetailAPIView.as_view(), name='post_detail'),  # getting all the posts as well as updating, deleting them
-    path('api/posts/<path:post_fqid>', post_views.get_post_with_fqid, name='post_detail_with_fqid'),
     path('api/authors/<int:id>/posts/', post_views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
     path('api/authors/<int:author_id>/posts/<int:internal_id>/', post_views.get_author_and_post, name='get_author_and_post'),
-    re_path(r'^api/authors/(?P<author_fqid>.+)$', views.get_author_with_fqid, name='get_author_with_fqid'), # needs to be after the get_author_and_post line
+    
 
     path('post/', post_views.create_post, name='create_post'),
     path('post/<int:internal_id>/update/', post_views.update_post, name='update_post'),
@@ -122,4 +121,7 @@ urlpatterns = [
     path("unfollow/", unfollow_view, name="unfollow"),
     path("friends/", friends_view, name="friends"),
     # path('api')
+
+    path('api/posts/<path:post_fqid>', post_views.get_post_with_fqid, name='post_detail_with_fqid'),    # must come after other urls that start with 'api/posts/'
+    re_path(r'^api/authors/(?P<author_fqid>.+)$', views.get_author_with_fqid, name='get_author_with_fqid'), # needs to be after the get_author_and_post line
 ]
