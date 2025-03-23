@@ -205,7 +205,7 @@ def register(request):
             return render(request, 'social/register.html', status=400)
 
         # Create user but set is_active=False until a superuser approves
-        user = User.objects.create_user(username=username, password=password, is_active=False)
+        user = User.objects.create_user(username=username, password=password, is_active=True)
 
         # Get the host from the request
         host_url = request.build_absolute_uri('/').rstrip('/')

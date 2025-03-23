@@ -55,12 +55,20 @@
               <div class="fs-5 content" id="markdown-content">{{ post.content }}</div>
             {% elif 'image' in post.contentType or post.contentType == 'application/base64' %}
               <div class="text-center my-4">
-                  <img src="data:{{ post.contentType }},{{ post.content }}" alt="{{ post.title }}" class="img-fluid rounded shadow-sm" style="max-height: 450px; object-fit: contain;">
+                  {% if 'image' in post.contentType %}
+                      <img src="data:{{ post.contentType }},{{ post.content }}" 
+                           alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
+                           style="max-height: 450px; object-fit: contain;">
+                  {% else %}
+                      <img src="data:image/webp;base64,{{ post.content }}" 
+                           alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
+                           style="max-height: 450px; object-fit: contain;">
+                  {% endif %}
               </div>
             {% else %}
               <div class="fs-5 content">{{ post.content|linebreaks }}</div>
             {% endif %}
-        </div>
+        </div>        
 
         <!-- Delete Modal -->
         <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
