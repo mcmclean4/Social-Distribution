@@ -203,16 +203,6 @@ def update_post(request, internal_id):
                 # Handle image upload if present
                 if 'image' in request.FILES:
                     image = request.FILES['image']
-                    
-                    # Determine content type based on image format
-                    img_format = image.name.split('.')[-1].lower()
-                    if img_format == 'png':
-                        updated_post.contentType = 'image/png;base64'
-                    elif img_format in ['jpg', 'jpeg']:
-                        updated_post.contentType = 'image/jpeg;base64'
-                    else:
-                        updated_post.contentType = 'application/base64'
-                    
                     # Convert image to base64
                     image_data = base64.b64encode(image.read()).decode('utf-8')
                     updated_post.content = image_data

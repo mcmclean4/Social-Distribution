@@ -32,17 +32,23 @@ class PostForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         content_type = cleaned_data.get('contentType')
-        content = cleaned_data.get('content')
-        
-        # Validate based on content type
-        if content_type in ['image/png;base64', 'image/jpeg;base64', 'application/base64']:
-            if self.data and not self.files.get('image'):
+        image = self.files.get('image')
+
+        if content_type in ['image/png;base64', 'image/jpeg;base64', 'image/webp;base64', 'application/base64']:
+            if not image:
                 self.add_error('image', 'Please upload an image for this content type.')
-        else:
-            # Only require content for text content types
-            if not content:
-                self.add_error('content', 'This field is required for text content types.')
-        
+            else:
+                valid_formats = {
+                    'image/png;base64': ['png'],
+                    'image/jpeg;base64': ['jpeg', 'jpg'],
+                    'application/base64': None,  # Allow all formats
+                }
+                ext = image.name.split('.')[-1].lower()
+                
+                # Validate specific formats, but allow all for application/base64
+                if content_type in valid_formats and valid_formats[content_type] is not None:
+                    if ext not in valid_formats[content_type]:
+                        self.add_error('image', f'Invalid file type for {content_type}. Allowed: {", ".join(valid_formats[content_type])}')
         return cleaned_data
 class EditProfileForm(forms.ModelForm):
     class Meta:

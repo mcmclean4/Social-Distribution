@@ -5,8 +5,13 @@
             <div class="card shadow-sm border-light rounded overflow-hidden">
                 <a href="{% url 'social:post_detail' post.internal_id %}" class="text-decoration-none text-dark">
                     {% if 'image' in post.contentType or post.contentType == 'application/base64' %}
-                        <img src="data:{{ post.contentType }},{{ post.content }}" class="card-img-top" alt="{{ post.title }}"
-                             style="height: 250px; object-fit: cover;">
+                        {% if 'image' in post.contentType %}
+                            <img src="data:{{ post.contentType }},{{ post.content }}" class="card-img-top" alt="{{ post.title }}"
+                                style="height: 250px; object-fit: cover;">
+                        {% else %}
+                            <img src="data:image/webp;base64,{{ post.content }}" class="card-img-top" alt="{{ post.title }}"
+                                style="height: 250px; object-fit: cover;">
+                        {% endif %}
                     {% endif %}
                     <div class="card-body">
                         <h5 class="card-title fw-semibold">{{ post.title }}</h5>
