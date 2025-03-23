@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.contrib import messages
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
 from .models import Post, Author
 from .forms import PostForm
 from django.shortcuts import render, get_object_or_404
@@ -29,7 +29,7 @@ import json
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
         # Ensure the author is created or retrieved for the current user
@@ -37,7 +37,21 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
             user=self.request.user,
             defaults={"type": "author", "displayName": self.request.user.username}
         )
-        serializer.save(author=author)
+        
+        # Set default values for required fields
+        data = serializer.validated_data
+        data['type'] = 'post'
+        data['contentType'] = data.get('contentType', 'text/plain')
+        data['visibility'] = data.get('visibility', 'PUBLIC')
+        data['description'] = data.get('description', '')
+        data['page'] = data.get('page', '')
+        
+        # Save the post
+        post = serializer.save(author=author)
+        
+        # Send post to remote followers and friends
+        if post.visibility in ['PUBLIC', 'FRIENDS']:
+            send_post_to_remote_followers(post, author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
@@ -48,14 +62,27 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     lookup_field = 'internal_id'  # Using `internal_id` as the lookup field
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_object(self):
         # Fetch the post using its `internal_id`
         return Post.objects.get(internal_id=self.kwargs['internal_id'])
 
     def perform_update(self, serializer):
-        # You can add additional logic here if needed for updates
-        serializer.save()
+        # Set default values for required fields
+        data = serializer.validated_data
+        data['type'] = 'post'
+        data['contentType'] = data.get('contentType', 'text/plain')
+        data['visibility'] = data.get('visibility', 'PUBLIC')
+        data['description'] = data.get('description', '')
+        data['page'] = data.get('page', '')
+        
+        # Save the updated post
+        updated_post = serializer.save()
+        
+        # Re-send the updated post to remote followers and friends
+        if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
+            send_post_to_remote_followers(updated_post, updated_post.author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted

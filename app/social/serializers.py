@@ -52,9 +52,10 @@ class LikeSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     # Make the author field read-only so it doesn't require input
-    author = AuthorSerializer()
+    author = AuthorSerializer(read_only=True)
     comments = serializers.SerializerMethodField()
     likes = serializers.SerializerMethodField()
+    
     class Meta:
         model = Post
         fields = [
@@ -64,6 +65,16 @@ class PostSerializer(serializers.ModelSerializer):
         ]
         
         read_only_fields = ['internal_id', 'id', 'author', 'published', 'likes', 'comments']
+        
+        extra_kwargs = {
+            'type': {'default': 'post'},
+            'contentType': {'default': 'text/plain'},
+            'visibility': {'default': 'PUBLIC'},
+            'description': {'default': ''},
+            'page': {'default': ''},
+            'content': {'required': True},
+            'title': {'required': True}
+        }
 
     # Explicit .update() to avoid updating the nested author field
     def update(self, instance, validated_data):
@@ -93,17 +104,6 @@ class PostSerializer(serializers.ModelSerializer):
         # Get all likes for this post
         likes = Like.objects.filter(object=obj.id)
         
-        # Debug by printing the query and results
-        print(f"Post ID: {obj.id}")
-        print(f"Looking for likes where object={obj.id}")
-        print(f"Found likes: {likes.count()}")
-        
-        # You can also print all likes to see what their object values are
-        all_likes = Like.objects.all()
-        print(f"All likes in the system:")
-        for like in all_likes:
-            print(f"Like ID: {like.id}, Object: {like.object}")
-        
         # Serialize the likes
         like_serializer = LikeSerializer(likes, many=True)
         
@@ -117,6 +117,7 @@ class PostSerializer(serializers.ModelSerializer):
             "count": likes.count(),
             "src": like_serializer.data,
         }
+
 class FollowRequestSerializer(serializers.Serializer):
     type = serializers.CharField()
     summary = serializers.CharField(allow_blank=True, required=False)
