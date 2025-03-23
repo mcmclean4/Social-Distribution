@@ -330,6 +330,7 @@ def profile_edit(request, id):
 
 class AuthorPostListAPIView(generics.ListAPIView):
     serializer_class = PostSerializer
+    permission_classes = [AllowAny]  # Allow anyone to list posts
 
     def get_queryset(self):
         author_id = self.kwargs['author_id']
@@ -337,6 +338,7 @@ class AuthorPostListAPIView(generics.ListAPIView):
     
 class AuthorPostCreateAPIView(generics.CreateAPIView):
     serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]  # Require authentication for creating posts
 
     def perform_create(self, serializer):
         author = Author.objects.get(id=self.kwargs['author_id'])
