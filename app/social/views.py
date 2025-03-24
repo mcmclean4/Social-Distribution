@@ -265,6 +265,9 @@ def profile_page(request, id):
     # Get the author
     currentAuthor = get_object_or_404(Author, id=full_author_id)
     
+    following_number =  len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
+    follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
+    
     # Get all posts by this author (excluding deleted)
     posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
 
@@ -281,7 +284,7 @@ def profile_page(request, id):
         }
         postsToRender.append(postDict)
         
-    return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id})
+    return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id, 'followers': follower_number, 'following': following_number})
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages

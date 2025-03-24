@@ -89,8 +89,8 @@
 <div class="container mt-4">
     <img src="{{ author.profileImage }}" alt="{{author.username}}" class="profilePicture">
     <h1 class="displayName">{{ author.displayName }}</h1>
-    <h4 style="display: inline; margin-right: 1em;">Followers: 0</h4>
-    <h4 style="display: inline; margin-right: 1em;">Following: 0</h4>
+    <h4 style="display: inline; margin-right: 1em;">Followers: {{ followers }}</h4>
+    <h4 style="display: inline; margin-right: 1em;">Following: {{ following }}</h4>
 
     <form action="{% url 'social:profile_edit' id=author_id %}" style="display: inline;">
         {% if author_id == profile_author_id %}
