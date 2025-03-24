@@ -165,7 +165,7 @@ class InboxView(APIView):
         return {
             "type": "likes",
             "id": f"{comment.id}/likes",
-            "page": f"http://{request.get_host()}/social/api/authors/{comment.author.id}/commented/{comment.id}/likes",
+            "page": f"http://{self.request.get_host()}/social/api/authors/{comment.author.id}/commented/{comment.id}/likes",
             "page_number": 1,  # Pagination metadata
             "size": 50,  # Default page size
             "count": Like.objects.filter(object=comment.id).count(),  # Count total likes for this comment
@@ -293,6 +293,7 @@ class InboxView(APIView):
 
 
         elif item_type.lower() == "comment":
+            print("received comment")
             comment_id = data.get("id")
             comment_content = data.get("comment", "")
             comment_author_data = data.get("author", {})

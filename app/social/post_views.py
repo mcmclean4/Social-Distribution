@@ -186,7 +186,8 @@ def send_post_to_remote_followers(post, author):
             
             print(f"HOST IS: {f"{host}/social/api/"}")
             
-            node, created = Node.objects.get_or_create(base_url=f"{host}/")
+            #node, created = Node.objects.get_or_create(base_url=f"{host}/")
+            node = Node.objects.get(base_url=f"{host}/")
             if not node.enabled:
                 continue
                 
@@ -237,7 +238,9 @@ def send_post_to_remote_followers(post, author):
                     except Exception as e:
                         print(f"Failed to send post to {recipient_id}: {str(e)}")
                         continue
-                        
+        except Node.DoesNotExist:
+            print(f"Node does not exist for host: {host}/. May have been removed.")
+            continue                
         except Exception as e:
             print(f"Error processing remote host {host}: {str(e)}")
             continue

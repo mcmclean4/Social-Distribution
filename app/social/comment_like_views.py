@@ -1,8 +1,9 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Author, Comment, Like
+from .models import Author, Comment, Like, Node
 from .serializers import LikeSerializer
+import requests 
 
 @api_view(['GET'])
 def get_comment_likes(request, author_id, post_serial, comment_fqid):
@@ -92,10 +93,13 @@ def like_comment(request, author_id, post_id, comment_fqid):
                 object=comment.id
             )
             action = 'liked'
+            like_to_inbox(comment, new_like)
         
         # Update like count
         like_count = Like.objects.filter(object=comment.id).count()
         print(f"Updated like count: {like_count}")
+
+        
         
         # Return a standardized response
         response_data = {
@@ -119,3 +123,50 @@ def like_comment(request, author_id, post_id, comment_fqid):
         print(traceback.format_exc())
         
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+def like_to_inbox(comment, like):
+    '''
+    Sends a Like object to the post author's inbox
+    '''
+    print(comment.author.host)
+    try:
+        author_serial = comment.author.id.split('/')[-1]
+        post_node = Node.objects.get(base_url=comment.author.host)
+        # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
+        inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
+        print(inbox_url)
+
+        # Create the like object according to the example format
+        like_data = {
+            "type": "like",
+            "author": {
+                "type": "author",
+                "id": comment.author.id,
+                "host": comment.author.host,
+                "displayName": comment.author.displayName,
+                "page": comment.author.page,
+                "github": comment.author.github,
+                "profileImage": comment.author.profileImage
+            },
+            "published": like.published.isoformat(),
+            "id": like.id,
+            "object": comment.id
+        }
+
+        # Send the post to the recipient's inbox
+        response = requests.post(
+            inbox_url,
+            json=like_data,
+            auth=(post_node.auth_username, post_node.auth_password),
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        response.raise_for_status()
+        print(f"Successfully sent like to {comment.author.id}")
+
+    except Node.DoesNotExist:
+        print(f"Node does not exist for host: {comment.author.host}. May have been removed.")
+        pass
+    except Exception as e:
+        print(f"Failed to send like to {comment.author.id}: {str(e)}")
+        pass
