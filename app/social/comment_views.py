@@ -6,6 +6,7 @@ from .serializers import CommentSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from django.http import Http404
+import requests
 
 @api_view(['GET', 'POST'])
 def get_post_comments(request, author_id, post_serial):
@@ -18,9 +19,15 @@ def get_post_comments(request, author_id, post_serial):
         post_id = f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}"
         #post_id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_serial}"
         print("Post id is,", post_id)
-        post = Post.objects.get(id=post_id)
+
+        post_fqid = request.data.get('postFqid', '')
+        print("fqid is")
+        print(post_fqid)
+
+        post = Post.objects.get(id=post_fqid)
         print(post)
-        
+
+        # Might also need to use post_fqid in the future, idk
         if request.method == 'GET':
             # Get all comments for this post
             comments = Comment.objects.filter(post=post_id)
@@ -53,18 +60,22 @@ def get_post_comments(request, author_id, post_serial):
             
             # Try to get the author, or create a new one if it's a remote author
             try: 
-                author = Author.objects.get(id=author_id_val)
+                author = Author.objects.get(user=request.user)
             except Author.DoesNotExist:
                 # For remote authors, might want to create a placeholder
+                print("author does not exist")
                 author = Author.objects.create(**author_data)
             
+            print('author in get_post_comments')
+            print(author)
+            print(author.displayName)
             # Create a new comment
             comment_data = {
                 'type': 'comment',
                 'author': author,
                 'comment': request.data.get('comment', ''),
                 'contentType': request.data.get('contentType', 'text/markdown'),
-                'post': post_id,
+                'post': post_fqid,
                 # The ID will be generated automatically in the model's save method
             }
             
@@ -72,6 +83,10 @@ def get_post_comments(request, author_id, post_serial):
             
             # Return the serialized comment
             serializer = CommentSerializer(comment)
+
+            # Send the comment to the post's author's inbox
+            comment_to_inbox(post, comment, author)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
     except Post.DoesNotExist:
@@ -80,33 +95,33 @@ def get_post_comments(request, author_id, post_serial):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def comment_to_inbox(post, comment):
+def comment_to_inbox(post, comment, author):
     ''' 
     Sends a comment object to the post author's inbox
     '''
-    print(post.author.host)
     try:
         author_serial = post.author.id.split('/')[-1]
         post_node = Node.objects.get(base_url=post.author.host)
         # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
         inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
-        print(inbox_url)
 
         # Create the like object according to the example format
         comment_data = {
             "type": "comment",
             "author": {
                 "type": "author",
-                "id": post.author.id,
-                "host": post.author.host,
-                "displayName": post.author.displayName,
-                "page": post.author.page,
-                "github": post.author.github,
-                "profileImage": post.author.profileImage
+                "id": author.id,
+                "host": author.host,
+                "displayName": author.displayName,
+                "page": author.page,
+                "github": author.github,
+                "profileImage": author.profileImage
             },
             "comment": comment.comment,
+            "contentType":comment.contentType,
+            "published": comment.published.isoformat(),
             "id": comment.id,
-            "object": comment.post
+            "post": comment.post
         }
 
         # Send the post to the recipient's inbox

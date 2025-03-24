@@ -293,6 +293,7 @@ class InboxView(APIView):
 
 
         elif item_type.lower() == "comment":
+            print("received comment")
             comment_id = data.get("id")
             comment_content = data.get("comment", "")
             comment_author_data = data.get("author", {})
