@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.contrib import messages
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAuthenticatedOrReadOnly
 from .models import Post, Author
 from .forms import PostForm
 from django.shortcuts import render, get_object_or_404
@@ -20,11 +20,16 @@ import uuid
 import base64
 from io import BytesIO
 from PIL import Image
+from .models import Node
+from .utils import get_base_url
+import requests
+from django.conf import settings
+import json
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
         # Ensure the author is created or retrieved for the current user
@@ -32,7 +37,21 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
             user=self.request.user,
             defaults={"type": "author", "displayName": self.request.user.username}
         )
-        serializer.save(author=author)
+        
+        # Set default values for required fields
+        data = serializer.validated_data
+        data['type'] = 'post'
+        data['contentType'] = data.get('contentType', 'text/plain')
+        data['visibility'] = data.get('visibility', 'PUBLIC')
+        data['description'] = data.get('description', '')
+        data['page'] = data.get('page', '')
+        
+        # Save the post
+        post = serializer.save(author=author)
+        
+        # Send post to remote followers and friends
+        if post.visibility in ['PUBLIC', 'FRIENDS']:
+            send_post_to_remote_followers(post, author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
@@ -43,14 +62,27 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     lookup_field = 'internal_id'  # Using `internal_id` as the lookup field
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_object(self):
         # Fetch the post using its `internal_id`
         return Post.objects.get(internal_id=self.kwargs['internal_id'])
 
     def perform_update(self, serializer):
-        # You can add additional logic here if needed for updates
-        serializer.save()
+        # Set default values for required fields
+        data = serializer.validated_data
+        data['type'] = 'post'
+        data['contentType'] = data.get('contentType', 'text/plain')
+        data['visibility'] = data.get('visibility', 'PUBLIC')
+        data['description'] = data.get('description', '')
+        data['page'] = data.get('page', '')
+        
+        # Save the updated post
+        updated_post = serializer.save()
+        
+        # Re-send the updated post to remote followers and friends
+        if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
+            send_post_to_remote_followers(updated_post, updated_post.author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
@@ -112,6 +144,87 @@ def my_posts(request):
     posts = paginator.get_page(page_number)
 
     return render(request, 'social/my_posts.html', {'posts': posts})
+
+def send_post_to_remote_followers(post, author):
+    """
+    Sends a post to remote followers and friends of the author.
+    """
+    # Get the author's host
+    author_host = get_base_url(author.host) if author.host else "http://localhost:8000"
+    
+    # Get all remote followers
+    remote_followers = author.remote_followers
+    
+    # Get all friends (mutual followers)
+    friends = author.friends.filter(host__startswith="http://")  # Only remote friends
+    
+    # Combine remote followers and friends
+    recipients = set(remote_followers + [friend.id for friend in friends])
+    
+    # Get all unique remote hosts from recipients
+    remote_hosts = set()
+    for recipient_id in recipients:
+        try:
+            recipient_host = recipient_id.split('/authors/')[0]
+            remote_hosts.add(recipient_host)
+        except:
+            continue
+    
+    # For each remote host, get the node and send the post
+    for host in remote_hosts:
+        try:
+            # Get or create the node
+            node, created = Node.objects.get_or_create(base_url=host)
+            if not node.enabled:
+                continue
+                
+            # Format the post data
+            post_data = {
+                "type": "post",
+                "id": post.id,
+                "title": post.title,
+                "description": post.description,
+                "contentType": post.contentType,
+                "content": post.content,
+                "published": post.published.isoformat(),
+                "visibility": post.visibility,
+                "page": post.page if post.page else "",
+                "author": {
+                    "type": "author",
+                    "id": author.id,
+                    "host": author.host,
+                    "displayName": author.displayName,
+                    "github": author.github if author.github else "",
+                    "profileImage": author.profileImage if author.profileImage else "",
+                    "page": author.page if author.page else ""
+                }
+            }
+            
+            # Send to each recipient's inbox
+            for recipient_id in recipients:
+                if recipient_id.startswith(host):
+                    try:
+                        # Extract the author ID from the full URL
+                        recipient_author_id = recipient_id.split('/authors/')[-1]
+                        inbox_url = f"{host}/api/authors/{recipient_author_id}/inbox"
+                        
+                        # Send the post to the recipient's inbox
+                        response = requests.post(
+                            inbox_url,
+                            json=post_data,
+                            auth=(node.auth_username, node.auth_password),
+                            headers={"Content-Type": "application/json"},
+                            timeout=5
+                        )
+                        response.raise_for_status()
+                        print(f"Successfully sent post to {recipient_id}")
+                    except Exception as e:
+                        print(f"Failed to send post to {recipient_id}: {str(e)}")
+                        continue
+                        
+        except Exception as e:
+            print(f"Error processing remote host {host}: {str(e)}")
+            continue
 
 @login_required
 def create_post(request):
@@ -210,6 +323,11 @@ def create_post(request):
                     print(f"Using text content for content type {content_type}")
                     post.content = form.cleaned_data.get('content', '')                
                 post.save()
+                
+                # Send post to remote followers and friends
+                if post.visibility in ['PUBLIC', 'FRIENDS']:
+                    send_post_to_remote_followers(post, author)
+                
                 return redirect('social:index')
         else:
             form = PostForm()
@@ -268,6 +386,11 @@ def update_post(request, internal_id):
                     updated_post.content = image_data
                 
                 updated_post.save()
+                
+                # Re-send the updated post to remote followers and friends
+                if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
+                    send_post_to_remote_followers(updated_post, updated_post.author)
+                
                 return redirect('social:index')
         else:
             form = PostForm(instance=post)
