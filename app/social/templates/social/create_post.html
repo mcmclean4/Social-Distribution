@@ -48,6 +48,15 @@
             {% endif %}
         </div>
         
+        <div class="mb-3" id="video-field" style="display: none;">
+            <label for="{{ form.video.id_for_label }}" class="form-label">Upload Video</label>
+            {{ form.video }}
+            <small class="form-text text-muted">Upload a video file (MP4 or WebM, max 50MB)</small>
+            {% if form.video.errors %}
+              <div class="text-danger">{{ form.video.errors|striptags }}</div>
+            {% endif %}
+        </div>
+                
         <div class="mb-3">
             <label for="{{ form.visibility.id_for_label }}" class="form-label">Visibility</label>
             {{ form.visibility }}
@@ -68,22 +77,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const contentTypeSelect = document.getElementById('{{ form.contentType.id_for_label }}');
     const contentField = document.getElementById('content-field');
     const imageField = document.getElementById('image-field');
+    const videoField = document.getElementById('video-field');
     const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
     const imageInput = document.getElementById('{{ form.image.id_for_label }}');
 
     function updateFields() {
         const contentType = contentTypeSelect.value;
         const isImage = contentType === 'image/png;base64' || contentType === 'image/jpeg;base64' || contentType === 'application/base64';
-
-        contentField.style.display = isImage ? 'none' : 'block';
+        const isVideo = contentType === 'video/mp4;base64' || contentType === 'video/webm;base64';
+        
+        contentField.style.display = (isImage || isVideo) ? 'none' : 'block';
         imageField.style.display = isImage ? 'block' : 'none';
-
+        videoField.style.display = isVideo ? 'block' : 'none';
         if (isImage) {
             contentTextarea.removeAttribute('required');
             imageInput.setAttribute('required', 'required');
+            videoInput.removeAttribute('required');
+            
+        } else if (isVideo) {
+            contentTextarea.removeAttribute('required');
+            imageInput.removeAttribute('required');
+            videoInput.setAttribute('required', 'required');
+
         } else {
             contentTextarea.setAttribute('required', 'required');
             imageInput.removeAttribute('required');
+            videoInput.removeAttribute('required');
         }
     }
 
@@ -103,10 +122,38 @@ document.addEventListener('DOMContentLoaded', function() {
             imageInput.value = ''; // Clear invalid file
         }
     }
+    function validateVideoUpload() {
+        const contentType = contentTypeSelect.value;
+        const file = videoInput.files[0];
+
+        if (!file) return; // No file selected, no need to validate
+
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        const fileSize = file.size / (1024 * 1024); // Size in MB
+
+        // Check file type matches content type
+        if (contentType === 'video/mp4;base64' && fileExtension !== 'mp4') {
+            alert('Please upload an MP4 file for MP4 content type.');
+            videoInput.value = ''; // Clear invalid file
+            return;
+        } else if (contentType === 'video/webm;base64' && fileExtension !== 'webm') {
+            alert('Please upload a WebM file for WebM content type.');
+            videoInput.value = ''; // Clear invalid file
+            return;
+        }
+
+        // Check file size (maximum 50MB)
+        if (fileSize > 50) {
+            alert('Video file is too large. Maximum size is 50MB.');
+            videoInput.value = ''; // Clear file that's too large
+            return;
+        }
+    }    
 
     updateFields();
     contentTypeSelect.addEventListener('change', updateFields);
     imageInput.addEventListener('change', validateImageUpload);
+    videoInput.addEventListener('change', validateVideoUpload);
 });
 </script>
 {% endblock %}

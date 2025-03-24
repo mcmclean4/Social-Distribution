@@ -27,6 +27,16 @@
                       </button>
                   </li>
                   {% endif %}
+                  <!-- { Video } -->
+                  {% if 'video' in post.contentType %}
+                  <li>
+                      <button class="dropdown-item d-flex align-items-center" type="button" onclick="copyVideoLink('{{ post.id }}', '{{ post.author.host }}')">
+                          <i class="bi bi-link me-2"></i>
+                          <span>Copy Video Link</span>
+                      </button>
+                  </li>
+                  {% endif %}   
+
                   <li><hr class="dropdown-divider"></li>  
                   <li>
                     <button class="dropdown-item d-flex align-items-center text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -47,28 +57,40 @@
         <p class="lead mt-3 text-center text-secondary">{{ post.description }}</p>
 
         <div class="mt-3">
+            <script>
+                console.log("Post Content Type: '{{ post.contentType }}'");
+            </script>
+        
             <!-- Display content based on contentType -->
             {% if post.contentType == 'text/plain' %}
-              <div class="fs-5 content">{{ post.content|linebreaks }}</div>
+                <div class="fs-5 content">{{ post.content|linebreaks }}</div>
             {% elif post.contentType == 'text/markdown' %}
-              <div id="debug-markdown" style="display: none;">{{ post.content }}</div>
-              <div class="fs-5 content" id="markdown-content">{{ post.content }}</div>
+                <div id="debug-markdown" style="display: none;">{{ post.content }}</div>
+                <div class="fs-5 content" id="markdown-content">{{ post.content }}</div>
             {% elif 'image' in post.contentType or post.contentType == 'application/base64' %}
-              <div class="text-center my-4">
-                  {% if 'image' in post.contentType %}
-                      <img src="data:{{ post.contentType }},{{ post.content }}" 
-                           alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
-                           style="max-height: 450px; object-fit: contain;">
-                  {% else %}
-                      <img src="data:image/webp;base64,{{ post.content }}" 
-                           alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
-                           style="max-height: 450px; object-fit: contain;">
-                  {% endif %}
-              </div>
+                <div class="text-center my-4">
+                    {% if 'image' in post.contentType %}
+                        <img src="data:{{ post.contentType }},{{ post.content }}" 
+                             alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
+                             style="max-height: 450px; object-fit: contain;">
+                    {% else %}
+                        <img src="data:image/webp;base64,{{ post.content }}" 
+                             alt="{{ post.title }}" class="img-fluid rounded shadow-sm" 
+                             style="max-height: 450px; object-fit: contain;">
+                    {% endif %}
+                </div>
+            {% elif 'video/' in post.contentType %}
+                <div class="text-center my-4">
+                    <video controls class="img-fluid rounded shadow-sm" style="max-height: 450px; width: auto;">
+                        <source src="/social/test-video/{{ post.internal_id }}/"
+                                   type="{{ post.contentType|cut:';base64' }}">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
             {% else %}
-              <div class="fs-5 content">{{ post.content|linebreaks }}</div>
+                <div class="fs-5 content">{{ post.content|linebreaks }}</div>
             {% endif %}
-        </div>        
+        </div>    
 
         <!-- Delete Modal -->
         <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -97,7 +119,7 @@
             <div id="linkToast" class="toast align-items-center text-white bg-success" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex">
                     <div class="toast-body">
-                        <i class="bi bi-check-circle me-2"></i> Image link copied to clipboard!
+                        <i class="bi bi-check-circle me-2"></i> Link copied to clipboard!
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
@@ -477,6 +499,22 @@
             console.error('Error handling comment like:', error);
         }
     }
-
+    // Function to copy video link to clipboard
+    function copyVideoLink(postId, authorHost) {
+        // Extract just the post ID from the full author/post URL
+        const extractedPostId = postId.split('/').pop();
+        
+        const videoUrl = `${window.location.origin}/social/test-video/${extractedPostId}/`;
+        
+        navigator.clipboard.writeText(videoUrl)
+            .then(() => {
+                const toast = new bootstrap.Toast(document.getElementById('linkToast'));
+                toast.show();
+            })
+            .catch(err => {
+                console.error('Could not copy text: ', err);
+                alert('Failed to copy link to clipboard');
+            });
+    }
 </script>
 {% endblock %}

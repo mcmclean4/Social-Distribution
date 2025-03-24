@@ -122,7 +122,9 @@ class Post(models.Model):
         ('text/markdown', 'Markdown'),
         ('application/base64', 'Base64 Image'),
         ('image/png;base64', 'PNG'),
-        ('image/jpeg;base64', 'JPEG'),
+        ('video/mp4;base64', 'MP4 Video'),
+        ('video/webm;base64', 'WebM Video'),        
+        
     ]
 
     CONTENT_VISIBILITY_CHOICES = [

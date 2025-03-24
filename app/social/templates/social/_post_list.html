@@ -22,6 +22,16 @@
                         </p>
                     </div>
                 </a>
+                <!-- Video section -->
+                {% if 'video' in post.contentType %}
+                    <div class="video-container px-3 pb-3">
+                        <video controls class="img-fluid w-100" style="max-height: 250px; object-fit: contain;">
+                            <source src="/social/test-video/{{ post.internal_id }}/"
+                                   type="{{ post.contentType|cut:';base64' }}">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                {% endif %}                
 
                 <!-- Like and Comment section -->
                 <div class="card-footer mt-4">
