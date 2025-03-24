@@ -152,14 +152,20 @@ def send_post_to_remote_followers(post, author):
     # Get the author's host
     author_host = get_base_url(author.host) if author.host else "http://localhost:8000"
     
+    print(f"author host: {author_host}")
+    
     # Get all remote followers
     remote_followers = author.remote_followers
+    
+    print(f"remote followers: {remote_followers}")
     
     # Get all friends (mutual followers)
     friends = author.friends.filter(host__startswith="http://")  # Only remote friends
     
     # Combine remote followers and friends
     recipients = set(remote_followers + [friend.id for friend in friends])
+    
+    print(f"remote recipients: {recipients}")
     
     # Get all unique remote hosts from recipients
     remote_hosts = set()
@@ -174,7 +180,10 @@ def send_post_to_remote_followers(post, author):
     for host in remote_hosts:
         try:
             # Get or create the node
-            node, created = Node.objects.get_or_create(base_url=host)
+            
+            print(f"HOST IS: {f"{host}/social/api/"}")
+            
+            node, created = Node.objects.get_or_create(base_url=f"{host}/")
             if not node.enabled:
                 continue
                 
@@ -200,13 +209,17 @@ def send_post_to_remote_followers(post, author):
                 }
             }
             
+            print(f"POST DATA: {post_data}")
+            
             # Send to each recipient's inbox
             for recipient_id in recipients:
                 if recipient_id.startswith(host):
                     try:
                         # Extract the author ID from the full URL
                         recipient_author_id = recipient_id.split('/authors/')[-1]
-                        inbox_url = f"{host}/api/authors/{recipient_author_id}/inbox"
+                        inbox_url = f"{host}/authors/{recipient_author_id}/inbox"
+                        
+                        print(f"{node.auth_username}, {node.auth_password}")
                         
                         # Send the post to the recipient's inbox
                         response = requests.post(
