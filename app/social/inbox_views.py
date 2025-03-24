@@ -146,19 +146,28 @@ class InboxView(APIView):
         }
 
 
-    def format_comments(self, comment):
-        """Returns a formatted comment object with likes nested inside."""
-        print("Commrnt_post id is: ", comment.post)
-        return {
-            "type": "comment",
-            "id": comment.id,
-            "post": comment.post,  # Post is now a URL
-            "comment": comment.comment,  # Use `comment.comment`
-            "contentType": comment.contentType,
-            "published": comment.published.isoformat(),
-            "author": self.format_author(comment.author),  # Format author details
-            "likes": self.format_comment_likes(comment)  # Nested likes inside comment
-        }
+    def format_comments(self, comments):
+        """Format comments for a post"""
+        comments_list = []
+        
+        # Handle if we're passed a single post instead of comments
+        if isinstance(comments, Post):
+            # Get comments for this post
+            comments = comments.comments
+        
+        # Now format each comment
+        for comment in comments:
+            # Be careful here - make sure comment has expected attributes
+            comments_list.append({
+                "type": "comment",
+                "id": comment.id,
+                "author": self.format_author(comment.author),
+                "comment": comment.comment,
+                "contentType": comment.contentType,
+                "published": comment.published.isoformat()
+            })
+        
+        return comments_list
 
     def format_comment_likes(self, comment):
         """Returns formatted likes for a comment."""
@@ -197,6 +206,23 @@ class InboxView(APIView):
             "comments": self.format_comments(post.comments),  #  comments
             "likes": self.format_likes(post)  # likes
         }
+        
+    def format_likes(self, post):
+        """Returns formatted likes for a post."""
+        likes_list = []
+        # Get likes for this post
+        post_likes = Like.objects.filter(object=post.id)
+        
+        for like in post_likes:
+            likes_list.append({
+                "type": "like",
+                "id": like.id,
+                "published": like.published.isoformat(),
+                "author": self.format_author(like.author),
+                "object": like.object,
+            })
+    
+        return likes_list
 
 
 
