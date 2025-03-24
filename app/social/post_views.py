@@ -55,6 +55,7 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
+        
         instance.visibility = 'DELETED'
         instance.save()
 
@@ -86,7 +87,9 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
+        
         instance.visibility = 'DELETED'
+        send_post_to_remote_followers(updated_post, updated_post.author)
         instance.save()
 
 @api_view(['GET'])
@@ -373,7 +376,8 @@ def delete_post(request, internal_id):
         if request.method == "POST":
             post.visibility = 'DELETED'
             post.save()
-            # print(f"Post {internal_id} marked as deleted") 
+            send_post_to_remote_followers(post, post.author)
+            # print(f"Post {internal_id} marked as deleted")
             return redirect('social:index')
             
     except Post.DoesNotExist:

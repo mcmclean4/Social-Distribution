@@ -50,7 +50,7 @@
           {% endif %}
 
         <p class="text-muted text-center">
-            <strong>By:</strong> <span class="fw-semibold">{{ post.author.user.username }}</span> &bull;
+            <strong>By:</strong> <a  href="{{ post.author.page }}"><span class="fw-semibold">{{ post.author.displayName }}</span><a> &bull;
             <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
         </p>
 

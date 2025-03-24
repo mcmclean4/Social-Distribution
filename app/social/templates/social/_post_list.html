@@ -17,7 +17,7 @@
                         <h5 class="card-title fw-semibold">{{ post.title }}</h5>
                         <p class="card-text">{{ post.description|truncatewords:20 }}</p>
                         <p class="card-text text-muted small">
-                            <strong>By:</strong> {{ post.author.user.username }} &bull;
+                            <strong>By:</strong> {{ post.author.displayName }} &bull;
                             <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
                         </p>
                     </div>
