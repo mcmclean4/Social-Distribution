@@ -4,6 +4,7 @@ from . import post_views
 from . import comment_views
 from . import comment_like_views
 from . import like_views
+from . import video_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
 from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, fetch_remote_authors_view,local_follow_finalize)
@@ -50,6 +51,17 @@ urlpatterns = [
     path('post/<int:internal_id>/delete/', post_views.delete_post, name='delete_post'),
     path('post/<int:internal_id>/', post_views.post_detail, name='post_detail'),
 
+    # Video post
+    path('post/video/', post_views.create_video_post, name='create_video_post'),
+
+
+    path('api/authors/<int:author_serial>/posts/<int:post_serial>/video', video_views.get_video_with_serial, name='get_video_with_serial'),
+    re_path(r'^social/api/posts/(.+)$', video_views.get_video_with_fqid_fix, name='get_video_with_fqid_fix'),
+
+    path('debug/url/<int:post_id>/', video_views.debug_image_url, name='debug_image_url'),
+    path('debug/current-url/', video_views.debug_video_url, name='debug_video_url'),
+
+    path('test-video/<int:post_id>/', video_views.test_video, name='test_video'),
     # Github authorization
     path('github/authorize/', github_authorize, name='github_authorize'),
     path('github/callback/', github_callback, name='github_callback'),

@@ -9,46 +9,52 @@ from PIL import Image
 
 class PostForm(forms.ModelForm):
     image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
-    
+    video = forms.FileField(required=False, help_text="Upload a video (MP4, WebM, max 50MB)")
     class Meta:
         model = Post
         fields = ['title', 'description', 'contentType', 'content', 'visibility']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.TextInput(attrs={'class': 'form-control'}),
-            'contentType': forms.Select(attrs={'class': 'form-select'}),
-            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'required': False}),  # Remove required attribute
-            'visibility': forms.Select(attrs={'class': 'form-select'}),
+            'contentType': forms.Select(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'visibility': forms.Select(attrs={'class': 'form-control'}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Exclude 'DELETED' from the visibility choices
-        self.fields['visibility'].choices = [choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
-        self.fields['image'].help_text = "Upload an image if content type is an image format."
-        # Make content not required at the form level
-        self.fields['content'].required = False
+        # Make content field not required at the form level
+        # We'll handle validation in clean()
+        self.fields['content'].required = False        
 
     def clean(self):
         cleaned_data = super().clean()
-        content_type = cleaned_data.get('contentType')
-        image = self.files.get('image')
+        content_type = cleaned_data.get('contentType', '')
+        content = cleaned_data.get('content', '')
 
-        if content_type in ['image/png;base64', 'image/jpeg;base64', 'image/webp;base64', 'application/base64']:
-            if not image:
-                self.add_error('image', 'Please upload an image for this content type.')
-            else:
-                valid_formats = {
-                    'image/png;base64': ['png'],
-                    'image/jpeg;base64': ['jpeg', 'jpg'],
-                    'application/base64': None,  # Allow all formats
-                }
-                ext = image.name.split('.')[-1].lower()
-                
-                # Validate specific formats, but allow all for application/base64
-                if content_type in valid_formats and valid_formats[content_type] is not None:
-                    if ext not in valid_formats[content_type]:
-                        self.add_error('image', f'Invalid file type for {content_type}. Allowed: {", ".join(valid_formats[content_type])}')
+        # Get files from self.files to handle file inputs
+        image = self.files.get('image')
+        video = self.files.get('video')
+
+        print(f"Clean method - Content type: {content_type}")
+        print(f"Clean method - Content present: {bool(content)}")
+        print(f"Clean method - Image present: {bool(image)}")
+        print(f"Clean method - Video present: {bool(video)}")
+
+        # For text content types, require content field
+        if content_type.startswith('text/') and not content:
+            print("Content required for text content type")
+            self.add_error('content', 'This field is required for text content types.')
+
+        # For image content types, require image file
+        elif (content_type.startswith('image/') or content_type == 'application/base64') and not image:
+            print("Image required for image content type")
+            self.add_error('image', 'An image file is required for image content types.')
+
+        # For video content types, require video file
+        elif content_type.startswith('video/') and not video:
+            print("Video required for video content type")
+            self.add_error('video', 'A video file is required for video content types.')
         return cleaned_data
 class EditProfileForm(forms.ModelForm):
     class Meta:

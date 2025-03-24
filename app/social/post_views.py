@@ -115,6 +115,18 @@ def my_posts(request):
 
 @login_required
 def create_post(request):
+    print("\n========= CREATE POST DEBUG =========")
+    print(f"Request method: {request.method}")
+
+    if request.method == "POST":
+        print(f"POST data keys: {list(request.POST.keys())}")
+        print(f"FILES data keys: {list(request.FILES.keys())}")
+
+        # Log content type specifically
+        if 'contentType' in request.POST:
+            print(f"Selected content type: {request.POST['contentType']}")
+        else:
+            print("WARNING: No contentType in POST data")    
     try:
         author = Author.objects.get(user=request.user)
     except Author.DoesNotExist:
@@ -132,8 +144,15 @@ def create_post(request):
                 post = form.save(commit=False)
                 post.author = author
                 
+                content_type = form.cleaned_data['contentType']
+
+                video_file = request.FILES.get('video')
+                image_file = request.FILES.get('image')
+                print(f"Image file present: {image_file is not None}")
+                print(f"Video file present: {video_file is not None}")
+
                 # Handle image upload if present
-                if 'image' in request.FILES:
+                if image_file and ('image/' in content_type or content_type == 'application/base64'):
                     image = request.FILES['image']
                     
                     # Determine content type based on image format
@@ -148,7 +167,48 @@ def create_post(request):
                     # Convert image to base64
                     image_data = base64.b64encode(image.read()).decode('utf-8')
                     post.content = image_data
-                
+                # Handle video upload
+                elif video_file and 'video/' in content_type:
+                    print("Processing video upload")
+                    print(f"Video details: name={video_file.name}, size={video_file.size}")
+
+                    # Determine content type based on video format
+                    video_format = video_file.name.split('.')[-1].lower()
+                    print(f"Detected video format: {video_format}")
+
+                    if video_format == 'mp4':
+                        post.contentType = 'video/mp4;base64'
+                    elif video_format == 'webm':
+                        post.contentType = 'video/webm;base64'
+                    else:
+                        # Default to mp4 if format not recognized
+                        post.contentType = 'video/mp4;base64'
+
+                    print(f"Set post content type to: {post.contentType}")
+
+                    # Check file size (50MB limit)
+                    max_size = 50 * 1024 * 1024  # 50MB
+                    if video_file.size > max_size:
+                        print(f"Video too large: {video_file.size} > {max_size}")
+                        messages.error(request, "Video file is too large. Maximum size is 50MB.")
+                        return render(request, 'social/create_post.html', {'form': form})
+
+                    try:
+                        # Convert video to base64
+                        print("Starting video conversion to base64...")
+                        video_data = base64.b64encode(video_file.read()).decode('utf-8')
+                        post.content = video_data
+                        print(f"Video encoded to base64, length: {len(video_data)}")
+                    except Exception as e:
+                        print(f"Error encoding video: {str(e)}")
+                        import traceback
+                        print(traceback.format_exc())
+                        messages.error(request, f"Error processing video: {str(e)}")
+                        return render(request, 'social/create_post.html', {'form': form})
+                else:
+                    # Normal text content
+                    print(f"Using text content for content type {content_type}")
+                    post.content = form.cleaned_data.get('content', '')                
                 post.save()
                 return redirect('social:index')
         else:
@@ -364,3 +424,63 @@ def api_get_post_by_id(request, id):
     print(f"Serialized Post Data: {post_serializer.data}")
 
     return Response(post_serializer.data)
+
+@login_required
+def create_video_post(request):
+    try:
+        author = Author.objects.get(user=request.user)
+    except Author.DoesNotExist:
+        author = Author.objects.create(
+            user=request.user,
+            type='author',
+            displayName=request.user.username,
+        )
+        author.save()
+
+    try:
+        if request.method == "POST":
+            form = PostForm(request.POST, request.FILES)
+            if form.is_valid():
+                post = form.save(commit=False)
+                post.author = author
+
+                # Handle video upload if present
+                if 'video' in request.FILES:
+                    video = request.FILES['video']
+
+                    # Determine content type based on video format
+                    video_format = video.name.split('.')[-1].lower()
+                    if video_format == 'mp4':
+                        post.contentType = 'video/mp4;base64'
+                    elif video_format == 'webm':
+                        post.contentType = 'video/webm;base64'
+                    else:
+                        # Default to mp4 if format not recognized
+                        post.contentType = 'video/mp4;base64'
+
+                    # Limit video size (optional, adjust max_size as needed)
+                    max_size = 50 * 1024 * 1024  # 50MB max size
+                    if video.size > max_size:
+                        messages.error(request, "Video file is too large. Maximum size is 50MB.")
+                        return render(request, 'social/create_video_post.html', {'form': form})
+
+                    # Convert video to base64
+                    video_data = base64.b64encode(video.read()).decode('utf-8')
+                    post.content = video_data
+                else:
+                    messages.error(request, "Please upload a video file.")
+                    return render(request, 'social/create_video_post.html', {'form': form})
+
+                post.save()
+                return redirect('social:index')
+        else:
+            form = PostForm()
+
+        return render(request, 'social/create_video_post.html', {'form': form})
+
+    except Exception as e:
+        print(f"Error creating video post: {str(e)}")
+        messages.error(request, "Error creating video post. Please try again.")
+
+    form = PostForm()
+    return render(request, 'social/create_video_post.html', {'form': form})
