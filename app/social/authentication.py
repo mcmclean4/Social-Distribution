@@ -28,17 +28,20 @@ class NodeBasicAuthentication(BaseAuthentication):
             raise AuthenticationFailed("Invalid authorization header format.")
 
         if auth_type.lower() != 'basic':
+            print('auth_type.lower() is basic')
             return None  # Not basic auth; skip to other authenticators if any
 
         try:
             decoded = base64.b64decode(credentials).decode('utf-8')
             username, password = decoded.split(':', 1)
+            print(f"{username}, {password}")
         except Exception:
             raise AuthenticationFailed("Invalid basic auth credentials.")
 
         # Grab node object to attempt to check credentials
         try:
             node = Node.objects.get(auth_username=username)
+            print(f'print from authentication.py {node}')
             #node = Node.objects.get(base_url=CURRENT_NODE_URL)
         except Node.DoesNotExist:
             raise AuthenticationFailed("Invalid node credentials.")

@@ -1,10 +1,10 @@
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView 
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated 
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Q
 from .serializers import PostSerializer, AuthorSerializer
@@ -245,6 +245,7 @@ def get_author_with_fqid(request, author_fqid):
 
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])
 def get_authors(request):
     """
     Retrieves authors whose `host` starts with the requesting base URL.

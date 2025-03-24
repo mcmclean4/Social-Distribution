@@ -21,7 +21,7 @@ def get_base_url(full_url):
 class Node(models.Model):
     name = models.CharField(max_length=100)
     base_url = models.URLField(unique=True)
-    auth_username = models.CharField(max_length=100) # TODO: Figure this out
+    auth_username = models.CharField(max_length=100, unique=True) # TODO: Figure this out
     auth_password = models.CharField(max_length=100) # TODO: Figure this out
     enabled = models.BooleanField(default=True)  # Controls whether this node can communicate
     created_at = models.DateTimeField(auto_now_add=True)

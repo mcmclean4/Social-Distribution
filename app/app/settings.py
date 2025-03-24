@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import environ
+import socket
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -181,7 +182,8 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 GITHUB_CALLBACK_URL = "http://localhost:8000/social/github/callback/"
 
 # Set up the initial node in apps.py
-CURRENT_NODE_URL = "http://localhost:8000/social/api/nodes/"
+NODE_IP = os.getenv("LOCAL_IP")
+CURRENT_NODE_URL = f"http://{NODE_IP}/social/api/"
 CURRENT_NODE_NAME = "LocalNode"
 CURRENT_NODE_USERNAME = "admin"
 CURRENT_NODE_PASSWORD = "secret"
