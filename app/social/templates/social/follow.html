@@ -8,10 +8,9 @@
     <select id="node-select" class="form-select mb-3">
         <option value="">-- Select a node --</option>
         {% for node in nodes %}
-            <option value="{{ node.base_url }}">{{ node.base_url }}</option>
+            <option value="{{ node.base_url }}">{{ node.name }} - {{ node.base_url }}</option>
         {% endfor %}
     </select>
-
     <div id="remote-authors" class="mb-4"></div>
 
     <h4>Local Authors</h4>

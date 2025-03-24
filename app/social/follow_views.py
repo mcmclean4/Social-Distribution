@@ -267,8 +267,9 @@ def follow_view(request):
     )
 
     print(f"[DEBUG] Authors on host '{self_host}': {[a.displayName for a in authors]}")
+    print(request.get_host())
 
-    nodes = Node.objects.filter(enabled=True)
+    nodes = Node.objects.filter(enabled=True).exclude(base_url__contains=request.get_host())
 
     return render(request, 'social/follow.html', {
         'authors': authors,
