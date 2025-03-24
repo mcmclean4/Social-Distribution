@@ -105,7 +105,7 @@ def comment_to_inbox(post, comment, author):
         # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
         inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
 
-        # Create the like object according to the example format
+        # Create the comment object according to the example format
         comment_data = {
             "type": "comment",
             "author": {
