@@ -5,10 +5,11 @@
 <div class="container mt-5">
     <div class="card shadow-sm border-light rounded p-4">
         <!-- Title with dropdown menu -->
-        <h1 class="fw-bold text-center flex-grow-1">{{ post.title }}</h1>
-        {% if post.author.user == request.user %}
+        
+        
         <div class="d-flex justify-content-between align-items-start mb-3">
-            
+            <h1 class="fw-bold text-center flex-grow-1">{{ post.title }}</h1>
+            {% if post.author.user == request.user %}
             <div class="dropdown">
               <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="options">
                   <i class="bi bi-three-dots fs-5"></i>  
@@ -47,8 +48,9 @@
                   </li>
               </ul>
             </div>
+            {% endif %}
           </div>
-          {% endif %}
+          
 
         <p class="text-muted text-center">
             <strong>By:</strong> <a  href="{{ post.author.page }}"><span class="fw-semibold">{{ post.author.displayName }}</span><a> &bull;
