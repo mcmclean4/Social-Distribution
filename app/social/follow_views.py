@@ -32,9 +32,18 @@ def fetch_remote_authors_view(request):
     print(f"[DEBUG] Fetching remote authors from: {node_url}")
 
     try:
-        #for now this only works if the username and password belongs to someone in our node because the api can only be viewed if that user is the author in our node.
-        username = "abc"
-        password = "abc"
+        # Find the Node object that matches the requested node_url
+        try:
+            node = Node.objects.get(base_url=node_url)
+            username = node.auth_username
+            password = node.auth_password
+        except Node.DoesNotExist:
+            return JsonResponse({"error": f"Node with URL {node_url} not found"}, status=404)
+        
+        # Check if the node is enabled
+        if not node.enabled:
+            return JsonResponse({"error": "This node is currently disabled"}, status=403)
+
         my_author_id = request.user.author.id
 
         response = requests.get(
@@ -74,8 +83,6 @@ def fetch_remote_authors_view(request):
     except Exception as e:
         print(f"[ERROR] Failed to fetch authors: {e}")
         return JsonResponse({"error": str(e)}, status=500)
-
-
 
 
 @api_view(["POST"])

@@ -43,7 +43,7 @@ class Author(models.Model):
     id = models.URLField(primary_key=True, unique=True, editable=False)
 
     host = models.URLField(null=True, blank=True)
-    displayName = models.CharField(max_length=255, unique=True)
+    displayName = models.CharField(max_length=255)
     github = models.CharField(blank=True, null=True,max_length=100)
     github_timestamp = models.DateTimeField(auto_now_add=True)
     profileImage = models.URLField(blank=True, default=BLANK_PIC_URL)
