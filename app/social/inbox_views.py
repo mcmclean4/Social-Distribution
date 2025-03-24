@@ -194,7 +194,7 @@ class InboxView(APIView):
             "visibility": post.visibility,
             "page": post.page if post.page else "",
             "author": self.format_author(post.author),  # Post author
-            "comments": self.format_comments(post),  #  comments
+            "comments": self.format_comments(post.comments),  #  comments
             "likes": self.format_likes(post)  # likes
         }
 
