@@ -5,20 +5,22 @@
 <div class="container mt-5">
     <div class="card shadow-sm border-light rounded p-4">
         <!-- Title with dropdown menu -->
-        {% if post.author.user == request.user %}
+        {% if post.author.user == request.user or 'image' in post.contentType or post.contentType == 'application/base64' or 'video' in post.contentType %}
         <div class="d-flex justify-content-between align-items-start mb-3">
             <h1 class="fw-bold text-center flex-grow-1">{{ post.title }}</h1>
             <div class="dropdown">
               <button class="btn btn-link text-dark p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="options">
                   <i class="bi bi-three-dots fs-5"></i>  
               </button>
-              <ul class="dropdown-menu dropdown-menu-end shadow">  
+              <ul class="dropdown-menu dropdown-menu-end shadow"> 
+                  {% if post.author.user == request.user %} 
                   <li>
                       <a class="dropdown-item d-flex align-items-center" href="{% url 'social:update_post' post.internal_id %}">
                           <i class="bi bi-pencil me-2"></i>
                           <span>Edit</span>
                       </a>
                   </li>
+                  {% endif %}  
                   {% if 'image' in post.contentType or post.contentType == 'application/base64' %}
                   <li>
                       <button class="dropdown-item d-flex align-items-center" type="button" onclick="copyImageLink('{{ post.id }}', '{{ post.author.host }}')">
@@ -36,7 +38,7 @@
                       </button>
                   </li>
                   {% endif %}   
-
+                  {% if post.author.user == request.user %} 
                   <li><hr class="dropdown-divider"></li>  
                   <li>
                     <button class="dropdown-item d-flex align-items-center text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -44,6 +46,7 @@
                       <span>Delete</span>
                     </button>
                   </li>
+                  {% endif %}  
               </ul>
             </div>
           </div>
