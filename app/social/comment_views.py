@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Post, Author, Comment
+from .models import Post, Author, Comment, Node
 from .serializers import CommentSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -19,6 +19,7 @@ def get_post_comments(request, author_id, post_serial):
         #post_id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_serial}"
         print("Post id is,", post_id)
         post = Post.objects.get(id=post_id)
+        print(post)
         
         if request.method == 'GET':
             # Get all comments for this post
@@ -77,6 +78,56 @@ def get_post_comments(request, author_id, post_serial):
         return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def comment_to_inbox(post, comment):
+    ''' 
+    Sends a comment object to the post author's inbox
+    '''
+    print(post.author.host)
+    try:
+        author_serial = post.author.id.split('/')[-1]
+        post_node = Node.objects.get(base_url=post.author.host)
+        # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
+        inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
+        print(inbox_url)
+
+        # Create the like object according to the example format
+        comment_data = {
+            "type": "comment",
+            "author": {
+                "type": "author",
+                "id": post.author.id,
+                "host": post.author.host,
+                "displayName": post.author.displayName,
+                "page": post.author.page,
+                "github": post.author.github,
+                "profileImage": post.author.profileImage
+            },
+            "comment": comment.comment,
+            "id": comment.id,
+            "object": comment.post
+        }
+
+        # Send the post to the recipient's inbox
+        response = requests.post(
+            inbox_url,
+            json=comment_data,
+            auth=(post_node.auth_username, post_node.auth_password),
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        response.raise_for_status()
+        print(f"Successfully sent comment to {post.author.id}")
+
+    except Node.DoesNotExist:
+        print(f"Node does not exist for host: {post.author.host}. May have been removed.")
+        pass
+    except Exception as e:
+        print(f"Failed to send comment to {post.author.id}: {str(e)}")
+        pass
+
+
 @api_view(['GET'])
 def get_comments_by_post_fqid(request, post_fqid):
     """

@@ -480,7 +480,7 @@ class PostLikeView(APIView):
                 object = post.id
             )
             # Send like to the inbox of the post's author
-            self.like_to_inbox(request_user_author, post, like)
+            self.like_to_inbox(post, like)
 
             if not created:
                 # Unlike if already liked
@@ -504,7 +504,10 @@ class PostLikeView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
-    def like_to_inbox(self, request_user_author, post, like):
+    def like_to_inbox(self, post, like):
+        '''
+        Sends a Like object to the post author's inbox
+        '''
         print(post.author.host)
         try:
             author_serial = post.author.id.split('/')[-1]
@@ -539,7 +542,7 @@ class PostLikeView(APIView):
                 timeout=5
             )
             response.raise_for_status()
-            print(f"Successfully sent post to {post.author.id}")
+            print(f"Successfully sent like to {post.author.id}")
 
         except Node.DoesNotExist:
             print(f"Node does not exist for host: {post.author.host}. May have been removed.")
