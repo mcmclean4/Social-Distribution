@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render
 from django.contrib.auth.models import User
-from .models import Author, Post, Comment, Follow, Node
+from .models import Author, Post, Comment, Follow, Node, Like
 from django.contrib.admin.views.decorators import staff_member_required
 from .views import custom_admin_view
 # Register your models here.
@@ -50,3 +50,4 @@ admin_site.register(Post)
 admin_site.register(Comment)
 admin_site.register(Follow)
 admin_site.register(Node)
+admin_site.register(Like)

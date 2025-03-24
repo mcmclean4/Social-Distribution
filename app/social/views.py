@@ -474,6 +474,14 @@ class PostLikeView(APIView):
                 author=request_user_author
             )
             
+            # Create Like object (different from PostLike)
+            like = Like.objects.create(
+                author = request_user_author,
+                object = post.id
+            )
+            # Send like to the inbox of the post's author
+            self.like_to_inbox(request_user_author, post, like)
+
             if not created:
                 # Unlike if already liked
                 post_like.delete()
@@ -494,6 +502,51 @@ class PostLikeView(APIView):
                 'error': 'An unexpected error occurred',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+    def like_to_inbox(self, request_user_author, post, like):
+        print(post.author.host)
+        try:
+            author_serial = post.author.id.split('/')[-1]
+            post_node = Node.objects.get(base_url=post.author.host)
+            # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
+            inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
+            print(inbox_url)
+
+            # Create the like object according to the example format
+            like_data = {
+                "type": "like",
+                "author": {
+                    "type": "author",
+                    "id": post.author.id,
+                    "host": post.author.host,
+                    "displayName": post.author.displayName,
+                    "page": post.author.page,
+                    "github": post.author.github,
+                    "profileImage": post.author.profileImage
+                },
+                "published": like.published.isoformat(),
+                "id": like.id,
+                "object": post.id
+            }
+
+            # Send the post to the recipient's inbox
+            response = requests.post(
+                inbox_url,
+                json=like_data,
+                auth=(post_node.auth_username, post_node.auth_password),
+                headers={"Content-Type": "application/json"},
+                timeout=5
+            )
+            response.raise_for_status()
+            print(f"Successfully sent post to {post.author.id}")
+
+        except Node.DoesNotExist:
+            print(f"Node does not exist for host: {post.author.host}. May have been removed.")
+            pass
+        except Exception as e:
+            print(f"Failed to send like to {post.author.id}: {str(e)}")
+            pass
 
 # comments
 @api_view(['POST'])

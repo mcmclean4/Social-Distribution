@@ -53,7 +53,7 @@ class InboxView(APIView):
     """Handles fetching and storing items in an author's inbox."""
     
     permission_classes = [AllowAny]
-    #authentication_classes = [NodeBasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication]
 
     def get(self, request, author_id):
         """
@@ -252,7 +252,7 @@ class InboxView(APIView):
             inbox.inbox_follows.add(follow_request)
 
 
-        elif item_type == "Like":
+        elif item_type == "like":
             print("Received a like in the inbox")
 
             like_id = data.get("id")
@@ -285,7 +285,7 @@ class InboxView(APIView):
                     "published": like_published,
                 }
             )
-
+            print(like_obj)
             inbox.inbox_likes.add(like_obj)
             print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
 
