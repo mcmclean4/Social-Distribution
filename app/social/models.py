@@ -4,8 +4,6 @@ from social.managers import PostManager
 from django.utils import timezone
 from urllib.parse import urlparse
 import uuid
-import base64
-from django.core.files.base import ContentFile
 import os
 
 BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
@@ -99,10 +97,6 @@ class Author(models.Model):
             self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
             self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
 
-
-        # if not self.profileImage:
-        #     self.profileImage = BLANK_PIC_URL
-
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -124,9 +118,9 @@ class Post(models.Model):
         ('text/markdown', 'Markdown'),
         ('application/base64', 'Base64 Image'),
         ('image/png;base64', 'PNG'),
+        ('image/jpeg;base64', 'JPEG'),
         ('video/mp4;base64', 'MP4 Video'),
-        ('video/webm;base64', 'WebM Video'),        
-        
+        ('video/webm;base64', 'WebM Video'),
     ]
 
     CONTENT_VISIBILITY_CHOICES = [
@@ -148,7 +142,6 @@ class Post(models.Model):
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
     likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
-
     internal_id = models.AutoField(primary_key=True, editable=False)
 
     @property
@@ -274,7 +267,6 @@ class Follow(models.Model):
 class Comments(models.Model):
     type = models.CharField(max_length=50)
 
-# In models.py (if not already defined)
 class Like(models.Model):
     type = models.CharField(max_length=10, default="like")
     id = models.URLField(primary_key=True)
