@@ -311,12 +311,8 @@ class InboxView(APIView):
                     "published": like_published,
                 }
             )
-            print(like_obj)
             inbox.inbox_likes.add(like_obj)
             print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
-
-
-
 
         elif item_type.lower() == "comment":
             print("received comment")

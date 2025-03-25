@@ -141,13 +141,29 @@ class Post(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE)
     published = models.DateTimeField(auto_now_add=True)
     visibility = models.CharField(max_length=50, choices=CONTENT_VISIBILITY_CHOICES)
-    likes = models.ManyToManyField('Author', related_name='liked_posts', blank=True, through='PostLike')
+    
     internal_id = models.AutoField(primary_key=True, editable=False)
 
     @property
     def comments(self):
         from .models import Comment
         return Comment.objects.filter(post=self.id)
+    
+    @property
+    def likes(self):
+        """
+        Returns all Like objects associated with this post.
+        """
+        return Like.objects.filter(object=self.id)
+    
+    @property
+    def likes_count(self):
+        """
+        Returns the number of likes for this post.
+        """
+        return self.likes.count()
+    
+
     class Meta:
         ordering = ['-published']
 
@@ -173,11 +189,6 @@ class Post(models.Model):
             super().save(*args, **kwargs)
 
 
-
-class PostLike(models.Model):
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
-    author = models.ForeignKey(Author, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(default=timezone.now) 
 
 
 # =============================================================================

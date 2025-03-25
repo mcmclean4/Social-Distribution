@@ -98,8 +98,6 @@ def like_comment(request, author_id, post_id, comment_fqid):
         # Update like count
         like_count = Like.objects.filter(object=comment.id).count()
         print(f"Updated like count: {like_count}")
-
-        
         
         # Return a standardized response
         response_data = {
@@ -128,7 +126,6 @@ def like_to_inbox(comment, like):
     '''
     Sends a Like object to the post author's inbox
     '''
-    print(comment.author.host)
     try:
         author_serial = comment.author.id.split('/')[-1]
         post_node = Node.objects.get(base_url=comment.author.host)

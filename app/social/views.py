@@ -31,7 +31,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 
 # Like
-from .models import Post, PostLike, Comment
+from .models import Post, Comment
 from .serializers import LikeSerializer
 from .models import Like
 from .authentication import NodeBasicAuthentication
@@ -81,7 +81,7 @@ def stream(request):
         if request.user.is_authenticated:
             try:
                 author = request.user.author
-                post.is_liked = PostLike.objects.filter(post=post, author=author).exists()
+                post.is_liked = Like.objects.filter(object=post.id, author=author).exists()
             except:
                 post.is_liked = False
         else:
@@ -386,8 +386,8 @@ class PostLikeView(APIView):
             post = get_object_or_404(Post, id=full_post_id)
             print(f"Found post: {post.title}")
             
-            has_liked = PostLike.objects.filter(
-                post=post,
+            has_liked = Like.objects.filter(
+                object=post.id,
                 author=request.user.author
             ).exists()
             
@@ -406,8 +406,8 @@ class PostLikeView(APIView):
     def delete(self, request, author_id, post_id):
         """Remove a like from the post"""
         post = get_object_or_404(Post, id=f"http://localhost:8000/posts/{post_id}")
-        like = PostLike.objects.filter(
-            post=post,
+        like = Like.objects.filter(
+            object=post.id,
             author=request.user.author
         )
         
@@ -421,18 +421,12 @@ class PostLikeView(APIView):
         )
     def post(self, request, author_id, post_id):
         try:
-            # Debug prints
-            # print("\n--- Post Like Debugging ---")
-            # print(f"Request User: {request.user.username}")
-            # print(f"Raw Author ID: {author_id}")
-            # print(f"Raw Post ID: {post_id}")
-            
             # Normalize author_id (remove URL if present)
             if isinstance(author_id, str) and '/authors/' in author_id:
                 author_id = author_id.split('/authors/')[-1].split('/')[0]
             
             # Construct the full post URL
-            full_post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_id}"
+            full_post_url = f"{request.get_host()}/social/api/authors/{author_id}/posts/{post_id}"
             print(f"Constructed Post URL: {full_post_url}")
             
             # Find the post
@@ -474,18 +468,10 @@ class PostLikeView(APIView):
                 )
             
             # Check if like already exists
-            post_like, created = PostLike.objects.get_or_create(
-                post=post,
+            post_like, created = Like.objects.get_or_create(
+                object=post.id,
                 author=request_user_author
             )
-            
-            # Create Like object (different from PostLike)
-            like = Like.objects.create(
-                author = request_user_author,
-                object = post.id
-            )
-            # Send like to the inbox of the post's author
-            self.like_to_inbox(post, like)
 
             if not created:
                 # Unlike if already liked
@@ -493,6 +479,8 @@ class PostLikeView(APIView):
                 action = 'unliked'
             else:
                 action = 'liked'
+                # Send like to the inbox of the post's author
+                self.like_to_inbox(post, post_like)
             
             return Response({
                 'action': action,
@@ -513,7 +501,6 @@ class PostLikeView(APIView):
         '''
         Sends a Like object to the post author's inbox
         '''
-        print(post.author.host)
         try:
             author_serial = post.author.id.split('/')[-1]
             post_node = Node.objects.get(base_url=post.author.host)
@@ -526,12 +513,12 @@ class PostLikeView(APIView):
                 "type": "like",
                 "author": {
                     "type": "author",
-                    "id": post.author.id,
-                    "host": post.author.host,
-                    "displayName": post.author.displayName,
-                    "page": post.author.page,
-                    "github": post.author.github,
-                    "profileImage": post.author.profileImage
+                    "id":like.author.id,
+                    "host": like.author.host,
+                    "displayName": like.author.displayName,
+                    "page": like.author.page,
+                    "github": like.author.github,
+                    "profileImage": like.author.profileImage
                 },
                 "published": like.published.isoformat(),
                 "id": like.id,
