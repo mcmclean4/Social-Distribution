@@ -3,9 +3,6 @@ from .models import Post, Author
 from .models import Comment
 from django.core.exceptions import ValidationError
 import re
-import base64
-from io import BytesIO
-from PIL import Image
 
 class PostForm(forms.ModelForm):
     image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
@@ -23,6 +20,9 @@ class PostForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Exclude 'DELETED' from the visibility choices
+        self.fields['visibility'].choices = [
+            choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
         # Make content field not required at the form level
         # We'll handle validation in clean()
         self.fields['content'].required = False        
@@ -46,10 +46,14 @@ class PostForm(forms.ModelForm):
             print("Content required for text content type")
             self.add_error('content', 'This field is required for text content types.')
 
-        # For image content types, require image file
-        elif (content_type.startswith('image/') or content_type == 'application/base64') and not image:
-            print("Image required for image content type")
-            self.add_error('image', 'An image file is required for image content types.')
+         # For image content types, require image file only if it's a new post or no existing image
+        elif (content_type.startswith('image/') or content_type == 'application/base64'):
+            if not image and (not self.instance or not self.instance.content):
+                print("Image required for image content type")
+                self.add_error('image', 'An image file is required for image content types.')
+            elif not image:
+                # Retain existing image if no new one is uploaded
+                cleaned_data['content'] = self.instance.content     
 
         # For video content types, require video file
         elif content_type.startswith('video/') and not video:
