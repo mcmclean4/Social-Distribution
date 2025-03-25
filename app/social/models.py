@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import uuid
 import base64
 from django.core.files.base import ContentFile
+import os
 
 BLANK_PIC_URL = "https://i.imgur.com/7MUSXf9.png"
 
@@ -83,7 +84,8 @@ class Author(models.Model):
 
     def save(self, *args, **kwargs):
         if self._state.adding and not self.id:
-            last_author = Author.objects.order_by('-id').first()
+            local_ip = os.environ.get('LOCAL_IP', 'localhost')
+            last_author = Author.objects.filter(id__contains=local_ip).order_by('-id').first()
 
             if last_author and last_author.id:
                 try:
