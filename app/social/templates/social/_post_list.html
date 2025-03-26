@@ -60,7 +60,7 @@
                     <!-- Comment section -->
                     <div id="comment-section-{{ post.internal_id }}" class="comment-section mt-3" style="display: none;">
                         <!-- Comment form -->
-                        <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.internal_id }}')" class="comment-form mb-3">
+                        <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.internal_id }}', '{{post.id}}')" class="comment-form mb-3">
                             {% csrf_token %}
                             <div class="input-group">
                                 <textarea class="form-control" id="comment-input-{{ post.internal_id }}" 
@@ -185,9 +185,14 @@
         commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
     }
 
-    async function handleComment(event, authorId, postId) {
+    function toggleCommentSection(postId) {
+        const commentSection = document.getElementById(`comment-section-${postId}`);
+        commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function handleComment(event, authorId, postId, postHost) {
         event.preventDefault();
-    
+        // THIS FUNCTION DOES NOT GET CALLED WHEN YOU CLICK POST FOR A NEW COMMENT
         try {
             const commentInput = document.getElementById(`comment-input-${postId}`);
             const commentText = commentInput.value.trim();
@@ -199,12 +204,74 @@
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
-            // Construct the full post ID for the backend
-            const postFqid = `${window.location.origin}/social/api/authors/${authorNumber}/posts/${postId}`;
+            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ 
+                    comment: commentText,  
+                    contentType: "text/markdown" 
+                })
+            });
+
+            console.log('Response status:', response.status);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Comment Response:', data);
+                
+                const commentsList = document.querySelector('.comments-list');
+                const newComment = createCommentElement(data);
+                commentsList.insertAdjacentHTML('beforeend', newComment);
+                
+                commentInput.value = '';
+                
+                const commentCount = document.getElementById(`comment-count-${postId}`);
+                commentCount.textContent = parseInt(commentCount.textContent) + 1;
+            } else {
+                // Handle error response
+                const errorData = await response.json();
+                console.error('Error adding comment:', errorData);
+            }
+        } catch (error) {
+            console.error('Error posting comment:', error);
+        }
+    }
+
+    async function handleComment(event, authorId, postId, postFqid) {
+        
+        event.preventDefault();
+        
+        try {
+            const commentInput = document.getElementById(`comment-input-${postId}`);
+            const commentText = commentInput.value.trim();
+            
+            if (!commentText) return;
+
+            // Extract numeric author ID
+            const authorNumber = authorId.includes('/authors/') 
+                ? authorId.split('/authors/')[1].split('/')[0] 
+                : authorId;
             
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
             
-            // Match the request format from post_detail.html
+            // debug
+            console.log("Sending comment with data:", {
+                postFqid: postFqid,
+                comment: commentText,
+                contentType: "text/markdown",
+                author: {
+                    id: `${window.location.origin}/social/api/authors/${authorNumber}`
+                }
+            });
+
+            // This is what's missing - you need to include author information
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -218,25 +285,28 @@
                     comment: commentText,  
                     contentType: "text/markdown",
                     author: {
+                        // Include the current user's author ID
                         id: `${window.location.origin}/social/api/authors/${authorNumber}`
                     }
                 })
             });
+
+            console.log('Response status:', response.status);
             
             if (response.ok) {
                 const data = await response.json();
+                console.log('Comment Response:', data);
                 
-                const commentsList = document.querySelector(`#comment-section-${postId} .comments-list`);
+                const commentsList = document.querySelector('.comments-list');
                 const newComment = createCommentElement(data);
                 commentsList.insertAdjacentHTML('beforeend', newComment);
                 
                 commentInput.value = '';
                 
                 const commentCount = document.getElementById(`comment-count-${postId}`);
-                if (commentCount) {
-                    commentCount.textContent = parseInt(commentCount.textContent) + 1;
-                }
+                commentCount.textContent = parseInt(commentCount.textContent) + 1;
             } else {
+                // Handle error response
                 const errorData = await response.json();
                 console.error('Error adding comment:', errorData);
             }

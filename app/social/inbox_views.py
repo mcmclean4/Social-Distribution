@@ -153,11 +153,21 @@ class InboxView(APIView):
         # Handle if we're passed a single post instead of comments
         if isinstance(comments, Post):
             # Get comments for this post
-            comments = comments.comments
+            comments = comments.comments.all()
+        # Handle if we're passed a single comment
+        elif isinstance(comments, Comment):
+            # Create a single-item list with this comment
+            return {
+                "type": "comment",
+                "id": comments.id,
+                "author": self.format_author(comments.author),
+                "comment": comments.comment,
+                "contentType": comments.contentType,
+                "published": comments.published.isoformat()
+            }
         
-        # Now format each comment
+        # Now format each comment (for collections)
         for comment in comments:
-            # Be careful here - make sure comment has expected attributes
             comments_list.append({
                 "type": "comment",
                 "id": comment.id,
@@ -168,7 +178,7 @@ class InboxView(APIView):
             })
         
         return comments_list
-
+        
     def format_comment_likes(self, comment):
         """Returns formatted likes for a comment."""
         return {
