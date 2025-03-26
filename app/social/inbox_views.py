@@ -302,17 +302,23 @@ class InboxView(APIView):
                 }
             )
 
-            # Create or update the Like object
-            like_obj, _ = Like.objects.update_or_create(
-                id=like_id,
-                defaults={
-                    "author": author_instance,
-                    "object": like_object,
-                    "published": like_published,
-                }
-            )
-            inbox.inbox_likes.add(like_obj)
-            print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
+            like_obj = Like.objects.filter(
+                author=author_instance,
+                object=like_object
+            ).first()
+
+            if not like_obj:
+                like_obj = Like.objects.create(
+                    author=author_instance,
+                    object=like_object,
+                    published=like_published
+                )
+                inbox.inbox_likes.add(like_obj)
+                print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
+            else:
+                print("Like arlready exists")
+                return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
+
 
         elif item_type.lower() == "comment":
             print("received comment")
