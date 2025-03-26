@@ -199,6 +199,67 @@
 {% block extra_js %}
 <script src="{% static 'markdown-renderer.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Function to call initializeLikeButton with the correct parameters
+    function setupLikeButtonCheck(currentUser, postId, postSerial) {
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeLikeButton(currentUser, postId, postSerial);
+        });
+    }
+
+    async function initializeLikeButton(currentUser, postId, postSerial) {
+        console.log(currentUser.author)
+        try {
+            console.log('Initializing like button for:', {
+                currentUser,
+                postId,
+            });
+
+            const apiUrl = `/social/api/posts/${postId}/liked/`;
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+            });
+
+            console.log('Response status:', response.status);
+
+            // Find the like button for this specific post
+            console.log('POST SERIAL:', postSerial);
+            const likeButton = document.querySelector(`[data-post-id="${postSerial}"]`);
+            const likeIcon = likeButton.querySelector('i');
+
+            if (response.status === 200) {
+                // Server returned an object (liked)
+                const data = await response.json();
+                console.log('Full Response Data:', data);
+                
+                // Add the "fill" class to make the button filled
+                likeIcon.classList.remove('bi-hand-thumbs-up');
+                likeIcon.classList.add('bi-hand-thumbs-up-fill');
+            } else if (response.status === 404) {
+                // No like found, ensure the button is unfilled
+                likeIcon.classList.remove('bi-hand-thumbs-up-fill');
+                likeIcon.classList.add('bi-hand-thumbs-up');
+            } else {
+                // Handle other unexpected response statuses
+                console.error('Unexpected response status:', response.status);
+            }
+
+        } catch (error) {
+            console.error('Initialization error:', error);
+        }
+    }
+
+    // Call the setup function with the specific post details
+    setupLikeButtonCheck('{{ request.user }}', '{{ post.id }}', '{{post.internal_id}}');
+</script>
+
 {% endblock %}
 
 <script>

@@ -93,6 +93,9 @@ urlpatterns = [
     path('api/authors/<path:author_fqid>/liked/', 
         like_views.get_liked_by_author_fqid, name='get_liked_by_author_fqid'),
 
+    path('api/posts/<path:post_fqid>/liked/', 
+        like_views.get_liked_by_post_fqid, name='get_liked_by_post_fqid'),
+
     # Get a single like by FQID
     path('api/liked/<path:like_fqid>/', 
         like_views.get_like_by_fqid, name='get_like_by_fqid'),

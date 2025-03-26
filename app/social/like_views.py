@@ -1,8 +1,10 @@
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
-from .models import Author, Like, Post
+from .models import Author, Like, Post, Node
 from .serializers import LikeSerializer
+from .authentication import NodeBasicAuthentication
+import requests
 
 @api_view(['GET'])
 def get_liked_by_author(request, author_id):
@@ -49,6 +51,7 @@ def get_single_like(request, author_id, like_serial):
         return Response({"error": "Like not found"}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])
 def get_liked_by_author_fqid(request, author_fqid):
     """
     Get all things liked by an author using FQID
@@ -65,8 +68,12 @@ def get_liked_by_author_fqid(request, author_fqid):
         
         # Return the likes object
         return Response({
-            "type": "liked",
-            "items": serializer.data
+            "type": "likes",
+            "page": author.page,
+            "id": author.id,
+            "page_number": 1,
+            "count": len(likes),
+            "src": serializer.data
         })
     except Author.DoesNotExist:
         return Response({"error": "Author not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -151,3 +158,42 @@ def get_post_likes_by_fqid(request, post_fqid):
         return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+def get_liked_by_post_fqid(request, post_fqid):
+    """
+    Checks if the request's user has liked the post
+    """
+    try:
+        request_user_author = request.user.author
+        #author_serial = request_user_author.id.split('/')[-1]
+        node = Node.objects.get(base_url=request_user_author.host)
+        # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
+        liked_url = f"{node.base_url}authors/{request_user_author.id}/liked/"
+        print("LIKED URL:")
+        print(liked_url )
+
+        # Send the post to the recipient's inbox
+        response = requests.get(
+            liked_url,
+            auth=(node.auth_username, node.auth_password),
+            headers={"Accept": "application/json"},
+            timeout=5
+        )
+        response.raise_for_status()
+        likes = response.json()
+        for like in likes['src']:
+            print(like['object'])
+            if like['object'] == post_fqid:
+                return Response(like)
+            
+        return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+    except Node.DoesNotExist:
+        print(f"Node does not exist for host: {request_user_author.host}. May have been removed.")
+        pass
+    except Exception as e:
+        print(f"Failed to get liked for {request_user_author.id}: {str(e)}")
+        pass
