@@ -59,82 +59,52 @@
     }
 
     function attachFollowHandlers() {
-        document.querySelectorAll(".follow-remote, .follow-button").forEach(button => {
-            button.onclick = async function () {
-                let authorId = this.getAttribute("data-author-id");
-                let authorName = this.getAttribute("data-author-name");
-                let authorHost = this.getAttribute("data-author-host");
-                let authorGithub = this.getAttribute("data-author-github");
-                let authorProfileImage = this.getAttribute("data-author-profileImage");
-                let authorPage = this.getAttribute("data-author-page");
+    document.querySelectorAll(".follow-remote, .follow-button").forEach(button => {
+        button.onclick = async function () {
+            let authorId = this.getAttribute("data-author-id");
+            let authorName = this.getAttribute("data-author-name");
+            let authorHost = this.getAttribute("data-author-host");
+            let authorGithub = this.getAttribute("data-author-github");
+            let authorProfileImage = this.getAttribute("data-author-profileImage");
+            let authorPage = this.getAttribute("data-author-page");
 
-                let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
-                if (!confirmFollow) return;
+            let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
+            if (!confirmFollow) return;
 
-                let inboxUrl = `${authorId}/inbox`;
+            try {
+                let response = await fetch("/social/api/follow/confirm/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie("csrftoken")
+                    },
+                    body: JSON.stringify({
+                        followee_id: authorId,
+                        displayName: authorName,
+                        host: authorHost || "",
+                        github: authorGithub || "",
+                        profileImage: authorProfileImage || "",
+                        page: authorPage || "",
+                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`
+                    })
+                });
 
-                try {
-                    let response = await fetch(inboxUrl, {
-                        method: "POST",
-                        mode: "cors",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": getCookie("csrftoken")
-                        },
-                        body: JSON.stringify({
-                            type: "Follow",
-                            summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
-                            actor: {
-                                id: MY_AUTHOR_ID,
-                                displayName: MY_AUTHOR_NAME,
-                                host: MY_AUTHOR_HOST,
-                                github: MY_AUTHOR_GITHUB || "",
-                                profileImage: MY_AUTHOR_PROFILE_IMAGE || "",
-                                page: MY_AUTHOR_PAGE || ""
-                            },
-                            object: {
-                                id: authorId,
-                                displayName: authorName,
-                                host: authorHost || "",
-                                github: authorGithub || "",
-                                profileImage: authorProfileImage || "",
-                                page: authorPage || ""
-                            }
-                        })
-                    });
-
-                    let result = await response.json();
-                    if (response.ok) {
-                        //  POST to your own server to record follow locally
-                        await fetch("/social/api/follow/confirm/", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "X-CSRFToken": getCookie("csrftoken")
-                            },
-                            body: JSON.stringify({
-                                followee_id: authorId,
-                                displayName: authorName,
-                                host: authorHost || "",
-                                github: authorGithub || "",
-                                profileImage: authorProfileImage || "",
-                                page: authorPage || "",
-                                summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`
-                            })
-                        });
-
-                        alert("Follow request sent and recorded locally!");
-                        location.reload();
-                    } else {
-                        alert(result.error || "Error sending follow request.");
-                    }
-                } catch (err) {
-                    alert("Network error sending follow request.");
-                    console.error(err);
+                let result = await response.json();
+                if (response.ok) {
+                    alert("Follow request processed!");
+                    location.reload();
+                } else {
+                    alert(result.error || "Error processing follow request.");
+                    console.log(result);
                 }
-            };
-        });
-    }
+            } catch (err) {
+                alert("Network error processing follow request.");
+                console.error(err);
+            }
+        };
+    });
+}
+
 
     document.addEventListener("DOMContentLoaded", function () {
         attachFollowHandlers();

@@ -55,6 +55,8 @@ def fetch_remote_authors_view(request):
         response.raise_for_status()
         data = response.json()
 
+        print(data)
+
         if isinstance(data, list):
             remote_authors = data
         else:
@@ -116,7 +118,52 @@ def local_follow_finalize(request):
         defaults={"status": "accepted", "summary": summary}
     )
 
-    return Response({"message": "Follow stored locally as accepted."})
+    # Send follow request to remote inbox
+    if author.host:
+        inbox_url = f"{followee_id}/inbox"
+        follow_data = {
+            "type": "Follow",
+            "summary": summary,
+            "actor": {
+                "id": follower.id,
+                "displayName": follower.displayName,
+                "host": follower.host,
+                "github": follower.github or "",
+                "profileImage": follower.profileImage or "",
+                "page": follower.page or "",
+            },
+            "object": {
+                "id": author.id,
+                "displayName": author.displayName,
+                "host": author.host or "",
+                "github": author.github or "",
+                "profileImage": author.profileImage or "",
+                "page": author.page or "",
+            }
+        }
+
+        try:
+            remote_node = Node.objects.get(base_url=author.host)
+            print(inbox_url)
+            response = requests.post(
+                inbox_url,
+                json=follow_data,
+                auth=(remote_node.auth_username, remote_node.auth_password),
+                headers={"Content-Type": "application/json"},
+                timeout=10  # Set timeout to avoid hanging requests
+            )
+
+            if response.status_code not in [200, 201]:
+                return Response({"error": "Failed to send remote follow request", "details": response.text}, status=response.status_code)
+            
+        except Node.DoesNotExist:
+            print(f"Node does not exist for host: {author.host}. May have been removed.")
+            pass
+
+        except requests.RequestException as e:
+            return Response({"error": "Network error sending remote follow request", "details": str(e)}, status=500)
+
+    return Response({"message": "Follow request processed and stored locally."})
 
 
 class FollowersListView(APIView):

@@ -167,17 +167,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
-CORS_ALLOWED_ORIGINS = [
 
-    "http://localhost:8000",  # Django
-
-]
 
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://10.2.7.95",
 ]
+
+CORS_ALLOW_CREDENTIALS = True
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")

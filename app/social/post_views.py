@@ -25,11 +25,13 @@ from .utils import get_base_url
 import requests
 from django.conf import settings
 import json
+from .authentication import NodeBasicAuthentication
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [NodeBasicAuthentication]
 
     def perform_create(self, serializer):
         # Ensure the author is created or retrieved for the current user
