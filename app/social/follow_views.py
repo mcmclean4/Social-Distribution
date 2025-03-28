@@ -119,10 +119,10 @@ def local_follow_finalize(request):
     )
 
     # Send follow request to remote inbox
-    if author.host:
+    if author.host and author.host != follower.host:
         inbox_url = f"{followee_id}/inbox"
         follow_data = {
-            "type": "Follow",
+            "type": "follow",
             "summary": summary,
             "actor": {
                 "id": follower.id,

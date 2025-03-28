@@ -253,7 +253,7 @@ class InboxView(APIView):
             # Deny any post request if its sending data from a disabled node
             return Response({"error": "Disabled Node"}, status=status.HTTP_403_FORBIDDEN)
 
-        if item_type == "Follow":
+        if item_type == "follow":
             actor_data = data.get("actor", {})
             follower_id = actor_data.get("id")
             follower_host = actor_data.get("host")
