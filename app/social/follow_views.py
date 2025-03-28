@@ -115,11 +115,11 @@ def local_follow_finalize(request):
     FollowRequest.objects.update_or_create(
         follower_id=follower.id,
         followee=author,
-        defaults={"status": "accepted", "summary": summary}
+        defaults={"status": "pending", "summary": summary}
     )
 
     # Send follow request to remote inbox
-    if author.host and author.host != follower.host:
+    if author.host:
         inbox_url = f"{followee_id}/inbox"
         follow_data = {
             "type": "follow",
@@ -213,7 +213,7 @@ class FollowersListView(APIView):
         with transaction.atomic():
             # Check if the follow request exists
             follow_request = FollowRequest.objects.filter(
-                followee=author, follower_id=follower_id, status="pending"
+                followee=author, follower_id=follower_id
             ).first()
 
             if not follow_request:
