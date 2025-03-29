@@ -253,8 +253,8 @@ def get_authors(request):
     """
     Retrieves authors whose `host` starts with the requesting base URL.
     """
-    base_url = get_base_url(request)  # Extract base domain
-    authors = Author.objects.filter(host__startswith=base_url)  # Allow flexibility
+    #base_url = get_base_url(request)  # Extract base domain
+    authors = Author.objects.all()  # Allow flexibility
 
     serializer = AuthorSerializer(authors, many=True)
     return Response(serializer.data)

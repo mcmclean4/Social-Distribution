@@ -56,10 +56,12 @@ def fetch_remote_authors_view(request):
             timeout=5
         )
         
-        print("data")
-        
         response.raise_for_status()
-        data = response.json()
+        authors_data = response.json()
+        if isinstance(authors_data, list):
+            data = authors_data
+        else:
+            data = authors_data.get("authors")
 
         
 
@@ -156,7 +158,11 @@ def local_follow_finalize(request):
         }
         
         # Send follow request to remote inbox
-        inbox_url = f"{followee_id}/inbox"
+        inbox_url = f"{followee_id}/inbox/"
+        
+        print(f"INBOX: {inbox_url}")
+        print(f"NODE USER: {remote_node.auth_username}")
+        print(f"NODE PASS: {remote_node.auth_password}")
         
         response = requests.post(
             inbox_url,
@@ -165,6 +171,8 @@ def local_follow_finalize(request):
             headers={"Content-Type": "application/json"},
             timeout=10  # Set timeout to avoid hanging requests
         )
+        
+        
         
         # Check if request was successful
         if response.status_code not in [200, 201, 202, 204]:

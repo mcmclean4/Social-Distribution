@@ -168,12 +168,15 @@ def send_post_to_remote_followers(post, author):
     friends = author.friends.filter(host__startswith="http://")  # Only remote friends
     
     # Combine remote followers and friends
-    recipients = set(remote_followers + [friend.id for friend in friends])
+    recipients = set(remote_followers + [friend.host for friend in friends])
     
     print(f"remote recipients: {recipients}")
     
     # Get all unique remote hosts from recipients
     remote_hosts = set()
+    
+    print(f"REMOTE_HOSTS: {recipients}")
+    
     for recipient_id in recipients:
         try:
             recipient_host = recipient_id.split('/authors/')[0]
