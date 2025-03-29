@@ -15,6 +15,9 @@ from requests.auth import HTTPBasicAuth
 from .utils import get_base_url 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
+from urllib.parse import urljoin
+
 
 
 
@@ -87,18 +90,23 @@ def fetch_remote_authors_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def local_follow_finalize(request):
-    """Creates a Follow object and accepted FollowRequest immediately after sending remote follow"""
+    """
+    Sends a follow request to a remote author and only creates the local Follow
+    and FollowRequest objects if the remote author accepts the request.
+    """
     follower = request.user.author
     data = request.data
     followee_id = data.get("followee_id")
-    summary = data.get("summary", "")
+    summary = data.get("summary", f"{follower.displayName} wants to follow you")
 
     if not followee_id:
         return Response({"error": "Missing followee_id"}, status=400)
 
+    # Get or create the Author object for the remote author
     author, _ = Author.objects.get_or_create(
         id=followee_id,
         defaults={
@@ -110,24 +118,26 @@ def local_follow_finalize(request):
         }
     )
 
-    Follow.objects.get_or_create(follower_id=follower.id, followee=author)
-
-    FollowRequest.objects.update_or_create(
-        follower_id=follower.id,
-        followee=author,
-        defaults={"status": "pending", "summary": summary}
-    )
-
-    # Send follow request to remote inbox
-    if author.host:
-        inbox_url = f"{followee_id}/inbox"
+    # Only proceed if the author has a host
+    if not author.host:
+        return Response({"error": "Cannot follow a local author with this endpoint"}, status=400)
+    
+    try:
+        # Get the Node object for authentication
+        remote_node = Node.objects.get(base_url=author.host)
+        
+        # Check if the node is enabled
+        if not remote_node.enabled:
+            return Response({"error": "This node is currently disabled"}, status=403)
+        
+        # Prepare follow request data
         follow_data = {
             "type": "follow",
             "summary": summary,
             "actor": {
                 "id": follower.id,
                 "displayName": follower.displayName,
-                "host": follower.host,
+                "host": follower.host or get_base_url(request),
                 "github": follower.github or "",
                 "profileImage": follower.profileImage or "",
                 "page": follower.page or "",
@@ -141,29 +151,55 @@ def local_follow_finalize(request):
                 "page": author.page or "",
             }
         }
-
-        try:
-            remote_node = Node.objects.get(base_url=author.host)
-            print(inbox_url)
-            response = requests.post(
-                inbox_url,
-                json=follow_data,
-                auth=(remote_node.auth_username, remote_node.auth_password),
-                headers={"Content-Type": "application/json"},
-                timeout=10  # Set timeout to avoid hanging requests
-            )
-
-            if response.status_code not in [200, 201]:
-                return Response({"error": "Failed to send remote follow request", "details": response.text}, status=response.status_code)
+        
+        # Send follow request to remote inbox
+        inbox_url = f"{followee_id}/inbox"
+        
+        response = requests.post(
+            inbox_url,
+            json=follow_data,
+            auth=(remote_node.auth_username, remote_node.auth_password),
+            headers={"Content-Type": "application/json"},
+            timeout=10  # Set timeout to avoid hanging requests
+        )
+        
+        # Check if request was successful
+        if response.status_code not in [200, 201, 202, 204]:
+            return Response({
+                "error": "Failed to send remote follow request", 
+                "details": response.text,
+                "status_code": response.status_code
+            }, status=response.status_code)
             
-        except Node.DoesNotExist:
-            print(f"Node does not exist for host: {author.host}. May have been removed.")
-            pass
-
-        except requests.RequestException as e:
-            return Response({"error": "Network error sending remote follow request", "details": str(e)}, status=500)
-
-    return Response({"message": "Follow request processed and stored locally."})
+        # If we got a successful response, create the local objects
+        with transaction.atomic():
+            # Create the FollowRequest with pending status
+            follow_request, _ = FollowRequest.objects.update_or_create(
+                follower_id=follower.id,
+                followee=author,
+                defaults={"status": "pending", "summary": summary}
+            )
+            
+            # Create the Follow relationship
+            follow, _ = Follow.objects.get_or_create(
+                follower_id=follower.id,
+                followee=author
+            )
+            
+        return Response({
+            "message": "Follow request sent and accepted by remote server",
+            "follow_request_id": follow_request.id if hasattr(follow_request, 'id') else None,
+            "remote_response": response.text
+        }, status=200)
+            
+    except Node.DoesNotExist:
+        return Response({"error": f"No authentication credentials found for host: {author.host}"}, status=404)
+        
+    except requests.RequestException as e:
+        return Response({
+            "error": "Network error sending remote follow request", 
+            "details": str(e)
+        }, status=500)
 
 
 class FollowersListView(APIView):
