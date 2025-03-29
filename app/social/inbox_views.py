@@ -12,6 +12,8 @@ from django.utils import timezone
 from .models import Author, Post, FollowRequest, Inbox, Like, Comment, Node, Follow
 from .authentication import NodeBasicAuthentication
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 
 def follow_inbox_view(request):
@@ -53,7 +55,7 @@ class InboxView(APIView):
     """Handles fetching and storing items in an author's inbox."""
     
     permission_classes = [AllowAny]
-    authentication_classes = [NodeBasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication, BasicAuthentication]
 
     def get(self, request, author_id):
         """
@@ -235,7 +237,7 @@ class InboxView(APIView):
         return likes_list
 
 
-
+    @method_decorator(csrf_exempt, name='dispatch')
     def post(self, request, author_id):
         """Stores any incoming request (posts, likes, comments, follows) in the inbox."""
 

@@ -52,10 +52,13 @@ def fetch_remote_authors_view(request):
             headers={"Accept": "application/json"},
             timeout=5
         )
+        
+        print("data")
+        
         response.raise_for_status()
         data = response.json()
 
-        print(data)
+        
 
         if isinstance(data, list):
             remote_authors = data
