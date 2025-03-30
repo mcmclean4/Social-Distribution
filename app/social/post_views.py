@@ -48,16 +48,19 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         data['description'] = data.get('description', '')
         data['page'] = data.get('page', '')
         
+        print("WE ARE CREATING!!")
+        
         # Save the post
         post = serializer.save(author=author)
         
         # Send post to remote followers and friends
         if post.visibility in ['PUBLIC', 'FRIENDS']:
+            
             send_post_to_remote_followers(post, author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
-        
+        print("WE ARE DELETING!!2")
         instance.visibility = 'DELETED'
         instance.save()
 
@@ -85,11 +88,12 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         
         # Re-send the updated post to remote followers and friends
         if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
+            
             send_post_to_remote_followers(updated_post, updated_post.author, True)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
-        
+        print("WE ARE DELETING!!1")
         instance.visibility = 'DELETED'
         send_post_to_remote_followers(updated_post, updated_post.author)
         instance.save()
@@ -150,7 +154,7 @@ def my_posts(request):
 
     return render(request, 'social/my_posts.html', {'posts': posts})
 
-def send_post_to_remote_followers(post, author, updated=False):
+def send_post_to_remote_followers(post, author, post_type='post'):
     """
     Sends a post to remote followers and friends of the author.
     """
@@ -199,10 +203,7 @@ def send_post_to_remote_followers(post, author, updated=False):
             if not node.enabled:
                 continue
             
-            if updated:
-                post_type = "update"
-            else:
-                post_type = "post"
+            
             # Format the post data
             post_data = {
                 "type": post_type,
@@ -393,7 +394,7 @@ def delete_post(request, internal_id):
         if request.method == "POST":
             post.visibility = 'DELETED'
             post.save()
-            send_post_to_remote_followers(post, post.author)
+            send_post_to_remote_followers(post, post.author, 'delete')
             # print(f"Post {internal_id} marked as deleted")
             return redirect('social:index')
             
@@ -423,7 +424,7 @@ def update_post(request, internal_id):
                 
                 # Re-send the updated post to remote followers and friends
                 if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
-                    send_post_to_remote_followers(updated_post, updated_post.author)
+                    send_post_to_remote_followers(updated_post, updated_post.author, 'update')
                 
                 return redirect('social:index')
         else:
