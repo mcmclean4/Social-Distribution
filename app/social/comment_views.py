@@ -7,7 +7,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from django.http import Http404
 import requests
-
+import uuid
+from datetime import datetime
 @api_view(['GET', 'POST'])
 def get_post_comments(request, author_id, post_serial):
     """
@@ -100,7 +101,7 @@ def send_comment_to_inbox_view(request):
     """
     Receive comment data from frontend and send it to the appropriate inbox
     """
-    print("sending comment")
+    print("sending comment to inbox")
     try:
         # Get data from request
         data = request.data
@@ -237,6 +238,7 @@ def comment_to_inbox(post, comment, author):
     except Exception as e:
         print(f"Failed to send comment to {post.author.id}: {str(e)}")
         pass
+
 
 @api_view(['GET'])
 def get_comments_by_post_fqid(request, post_fqid):

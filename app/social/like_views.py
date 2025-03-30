@@ -5,6 +5,9 @@ from .models import Author, Like, Post, Node
 from .serializers import LikeSerializer
 from .authentication import NodeBasicAuthentication
 import requests
+import uuid
+from datetime import datetime
+import json
 
 @api_view(['GET'])
 def get_liked_by_author(request, author_id):
@@ -49,6 +52,162 @@ def get_single_like(request, author_id, like_serial):
         return Response(serializer.data)
     except Like.DoesNotExist:
         return Response({"error": "Like not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+@api_view(['POST'])
+def send_like_to_inbox(request):
+    """
+    Receives a like request from frontend for a remote post
+    and sends it to the appropriate inbox
+    """
+    try:
+        print("Sending Like to inbox")
+        # Extract data from request
+        data = request.data
+        post_fqid = data.get('postFqid', '')
+        author_fqid = data.get('authorFqid', '')
+        
+        if not post_fqid or not author_fqid:
+            return Response(
+                {"error": "Missing post or author information"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the current user's author profile
+        liker = Author.objects.get(user=request.user)
+        
+        # Try to find the post in our database (might have been cached)
+        try:
+            print("likee")
+            post = Post.objects.get(id=post_fqid)
+        except Post.DoesNotExist:
+            # Create a placeholder post entry for the remote post
+            # Extract author info from the post ID or from the provided author_fqid
+            if '/authors/' in post_fqid and '/posts/' in post_fqid:
+                parts = post_fqid.split('/authors/')
+                host = parts[0]
+                remainder = parts[1]
+                author_id_part = remainder.split('/posts/')[0]
+                post_id_part = remainder.split('/posts/')[1]
+                
+                # Get or create a placeholder for the remote author
+                remote_author, _ = Author.objects.get_or_create(
+                    id=f"{host}/authors/{author_id_part}",
+                    defaults={
+                        'host': host,
+                        'displayName': 'Remote Author',
+                        'page': f"{host}/authors/{author_id_part}"
+                    }
+                )
+                
+                # Create a placeholder for the remote post
+                post = Post(
+                    id=post_fqid,
+                    author=remote_author,
+                    published=datetime.now(),
+                    title="Remote Post"
+                )
+                post.save()
+            else:
+                return Response(
+                    {"error": "Invalid post ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Check if the like already exists
+        existing_like = Like.objects.filter(
+            author=liker,
+            object=post.id
+        ).first()
+        
+        if existing_like:
+            # Unlike if already liked
+            existing_like.delete()
+            action = 'unliked'
+            # Unlike is typically not sent to inbox
+            
+        else:
+            # Create a new like
+            new_like = Like.objects.create(
+                type="like",
+                author=liker,
+                object=post.id
+            )
+            action = 'liked'
+            
+            # Send to inbox
+            try:
+                # Extract host and author ID from the post ID
+                post_parts = post.id.split('/authors/')
+                host = post_parts[0] 
+                remaining = post_parts[1]
+                remote_author_id = remaining.split('/posts/')[0]
+                
+                # Get the foreign node information
+                node = Node.objects.get(base_url__contains=host.split('//')[1])
+                
+                # Construct inbox URL
+                inbox_url = f"{node.base_url}authors/{remote_author_id}/inbox"
+                
+                # Create like data
+                like_data = {
+                    "type": "like",
+                    "author": {
+                        "type": "author",
+                        "id": liker.id,
+                        "host": liker.host,
+                        "displayName": liker.displayName,
+                        "page": liker.page,
+                        "github": liker.github,
+                        "profileImage": liker.profileImage
+                    },
+                    "published": new_like.published.isoformat(),
+                    "id": new_like.id,
+                    "object": post.id,
+                    "summary": f"{liker.displayName} liked your post"
+                }
+                
+                # Send to inbox
+                response = requests.post(
+                    inbox_url,
+                    json=like_data,
+                    auth=(node.auth_username, node.auth_password),
+                    headers={"Content-Type": "application/json"},
+                    timeout=5
+                )
+                
+                if response.status_code >= 400:
+                    print(f"Error sending like to inbox: {response.status_code} - {response.text}")
+                
+            except Node.DoesNotExist:
+                print(f"Node does not exist for host: {host}")
+            except Exception as e:
+                print(f"Failed to send like to inbox: {str(e)}")
+        
+        # Update like count
+        like_count = Like.objects.filter(object=post.id).count()
+        
+        # Return a standardized response
+        return Response({
+            "status": "success",
+            "action": action,
+            "like_count": like_count
+        })
+        
+    except Author.DoesNotExist:
+        return Response(
+            {"error": "Author not found for current user"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        import traceback
+        print(f"Exception in send_like_to_inbox: {str(e)}")
+        print(traceback.format_exc())
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @api_view(['GET'])
 @authentication_classes([NodeBasicAuthentication])
