@@ -58,7 +58,12 @@
                     </div>
 
                     <!-- Comment section -->
-                    <div id="comment-section-{{ post.internal_id }}" class="comment-section mt-3" style="display: none;">
+                    <div id="comment-section-{{ post.internal_id }}" 
+                         class="comment-section mt-3" 
+                         data-post-id="{{ post.internal_id }}" 
+                         data-author-id="{{ post.author.id }}" 
+                         data-fqid="{{ post.id }}"
+                         style="display: none;">
                         <!-- Comment form -->
                         <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.internal_id }}', '{{post.id}}')" class="comment-form mb-3">
                             {% csrf_token %}
@@ -71,14 +76,14 @@
 
                         <div class="comments-list">
                             {% for comment in post.comments.all %}
-                                <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}">
+                                <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}" data-post-fqid="{{ post.id }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
                                             <strong class="me-2">{{ comment.author.displayName }}</strong>
                                             <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
                                         </div>
                                         <button class="btn btn-link text-decoration-none p-0" 
-                                            onclick="handleCommentLike(this, '{{ post.author.id }}', '{{ post.internal_id }}', '{{ comment.id }}')">
+                                            onclick="handleCommentLike(this, '{{ post.author.id }}', '{{ post.id }}', '{{ comment.id }}')">
                                             <i class="bi bi-hand-thumbs-up{% if comment.is_liked %}-fill{% endif %}"></i>
                                             <span class="like-count">
                                                 {% with like_count=comment.get_likes_count %}
@@ -162,7 +167,7 @@
                 apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/like/`;
             } else {
                 // Foreign post - use the endpoint that will forward to foreign inbox
-                console.log("Sending comment to inbox")
+                console.log("Sending like to inbox");
                 apiUrl = `/social/api/send-like-to-inbox/`;
             }
             
@@ -291,12 +296,12 @@
                     body: JSON.stringify({ 
                         comment: commentText,  
                         contentType: "text/markdown",
+                        postFqid: postFqid
                     })
                 });
             } else {
                 // For foreign posts - use our special endpoint to handle foreign inbox sending
                 const apiUrl = `/social/api/send-comment-to-inbox/`;
-                console.log("Sending comment to inbox")
                 
                 console.log("Sending foreign comment to:", apiUrl);
                 
@@ -383,15 +388,19 @@
         const postId = comment.post?.split('/').pop() || '';
         const commentId = comment.id?.split('/').pop() || comment.id || '';
         
+        // Get the post's FQID from the main post element
+        const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+        const postFqid = postElement ? postElement.getAttribute('data-fqid') || '' : '';
+        
         return `
-            <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}">
+            <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}" data-comment-id="${commentId}" data-post-fqid="${postFqid}">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <strong class="me-2">${displayName}</strong>
                         <small class="text-muted">${formattedDate}</small>
                     </div>
                     <button class="btn btn-link text-decoration-none p-0" 
-                            onclick="handleCommentLike(this, '${authorId}', '${postId}', '${commentId}')">
+                            onclick="handleCommentLike(this, '${authorId}', '${postFqid}', '${commentId}')">
                         <i class="bi bi-hand-thumbs-up"></i>
                         <span class="like-count">0</span>
                     </button>
@@ -403,6 +412,8 @@
 
     async function handleCommentLike(buttonElement, authorId, postId, commentId) {
         try {
+            console.log("Raw input values:", { authorId, postId, commentId });
+            
             // Extract numeric author ID from the URL
             let authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
@@ -415,11 +426,103 @@
             // Use the UUID part only to simplify the URL
             const commentUUID = commentId.split('/').pop();
             
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/${commentUUID}/like/`;
+            // Get current domain for comparison
+            const currentHost = window.location.origin;
+            const currentDomain = currentHost.replace(/^https?:\/\//, '').split(':')[0];
+            
+            // DIRECT DOMAIN CHECK - Explicitly extract and compare domains
+            let isLocalPost = true; // Default to local
+            
+            // Extract domain from author ID if it exists
+            if (authorId.includes('//')) {
+                const authorDomain = authorId.match(/\/\/([^\/]+)/);
+                if (authorDomain && authorDomain[1]) {
+                    const domain = authorDomain[1].split(':')[0]; // Remove port if present
+                    
+                    // If domains don't match, it's remote
+                    if (domain !== currentDomain) {
+                        console.log(`⚠️ Remote author detected! Domain: ${domain} (current: ${currentDomain})`);
+                        isLocalPost = false;
+                    }
+                }
+            }
+            
+            // Second check: Look for IP addresses or domain names that differ from ours
+            if (isLocalPost && authorId) {
+                // Match IP addresses or domain-like strings
+                const domainOrIpPattern = /\b(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-z0-9][-a-z0-9]*\.[a-z0-9][-a-z0-9.]*[a-z0-9])\b/gi;
+                const matches = authorId.match(domainOrIpPattern);
+                
+                if (matches) {
+                    // Check if any of these domains/IPs are NOT our current domain
+                    const isRemote = matches.some(domain => {
+                        const notCurrent = domain !== currentDomain && domain !== window.location.hostname;
+                        if (notCurrent) {
+                            console.log(`⚠️ Remote domain/IP detected: ${domain}`);
+                        }
+                        return notCurrent;
+                    });
+                    
+                    if (isRemote) {
+                        isLocalPost = false;
+                    }
+                }
+            }
+            
+            // Only if both checks above failed, fall back to the original logic
+            if (isLocalPost) {
+                // First look for post FQID in the comment element itself
+                const commentElement = buttonElement.closest('.comment');
+                let postFqid = commentElement ? commentElement.getAttribute('data-post-fqid') || '' : '';
+                
+                // If not found in the comment, try to get from the post element as fallback
+                if (!postFqid) {
+                    const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+                    postFqid = postElement ? postElement.getAttribute('data-fqid') || '' : '';
+                }
+                
+                // Determine if the comment belongs to a local or foreign post using original logic
+                isLocalPost = postFqid.includes(currentHost) || 
+                            !postFqid.includes('http') || 
+                            authorId.includes(currentHost);
+                            
+                console.log("Fallback logic used:", {
+                    postFqid,
+                    isLocalPost
+                });
+            }
+            
+            // Log final decision
+            console.log("%cFinal comment like determination: " + 
+                        (isLocalPost ? "LOCAL" : "REMOTE"), 
+                        `background: ${isLocalPost ? '#d1e7dd' : '#f8d7da'}; 
+                        color: ${isLocalPost ? '#0f5132' : '#842029'}; 
+                        padding: 3px 5px; 
+                        border-radius: 3px;`);
+            
+            let apiUrl;
+            
+            if (isLocalPost) {
+                // Local comment like - use regular endpoint
+                apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/${commentUUID}/like/`;
+            } else {
+                console.log("Sending comment-like to inbox");
+                // Foreign comment like - use endpoint that will forward to foreign inbox
+                apiUrl = `/social/api/send-comment-like-to-inbox/`;
+            }
+            
             console.log('Making request to:', apiUrl);
 
             const likeIcon = buttonElement.querySelector('i');
             const likeCount = buttonElement.querySelector('.like-count');
+            
+            // Always include all IDs for endpoint processing
+            // This way the backend has everything it needs regardless of endpoint
+            const requestBody = {
+                postFqid: postId,
+                authorFqid: authorId,
+                commentFqid: commentId
+            };
             
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -428,7 +531,8 @@
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                body: JSON.stringify(requestBody)
             });
 
             console.log('Response status:', response.status);
