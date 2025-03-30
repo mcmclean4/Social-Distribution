@@ -51,7 +51,9 @@ def get_base_url(request):
     """Extracts the base URL (protocol + domain) from the request"""
     return f"{request.scheme}://{request.get_host()}"
 
-
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size_query_param = 'size'
+    max_page_size = 100  # Optional: Prevent very large queries
 
 ######################################
 #           STREAM/INDEX AREA        
@@ -252,17 +254,32 @@ def get_author_with_fqid(request, author_fqid):
 def get_authors(request):
     """
     Retrieves authors whose `host` starts with the requesting base URL.
+    Supports optional pagination with `page` and `size` query parameters.
+    If pagination is not requested, returns all authors.
     """
-    base_url = get_base_url(request)  # Extract base domain
-    authors = Author.objects.filter(host__startswith=base_url)  # Allow flexibility
+    base_url = get_base_url(request)
+    authors = Author.objects.filter(host__startswith=base_url)
+
+    # Get pagination parameters
+    page = request.query_params.get('page')
+    size = request.query_params.get('size')
+
+    if page and size:  # Apply manual pagination only if both parameters are provided
+        try:
+            page = int(page)
+            size = int(size)
+            start = (page - 1) * size
+            end = start + size
+            authors = authors[start:end]
+        except ValueError:
+            return Response({"error": "Invalid pagination parameters"}, status=400)
 
     serializer = AuthorSerializer(authors, many=True)
 
-    authors_formatted = {
+    return Response({
         "type": "authors",
         "authors": serializer.data
-    }
-    return Response(authors_formatted)
+    })
 
 @login_required
 def profile_page(request, id):
