@@ -300,6 +300,10 @@
             
             console.log('Extracted Author Number:', authorNumber);
             
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
+
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/like/`;
             console.log('Making request to:', apiUrl);
 
@@ -382,6 +386,10 @@
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
+
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
             
             const response = await fetch(apiUrl, {
@@ -433,10 +441,15 @@
             if (!commentText) return;
 
             // Extract numeric author ID
-            const authorNumber = authorId.includes('/authors/') 
+            let authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
+            
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
+
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
             
             // debug
@@ -517,6 +530,10 @@
             const authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
+
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
             
             // Use the UUID part only to simplify the URL
             const commentUUID = commentId.split('/').pop();

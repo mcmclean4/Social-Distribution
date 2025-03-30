@@ -36,6 +36,9 @@
 </div>
 
 <script>
+
+    var THIS_USER_ID = ""
+
     const MY_AUTHOR_ID = "{{ my_author.id|escapejs }}";
     const MY_AUTHOR_NAME = "{{ my_author.displayName|escapejs }}";
     const MY_AUTHOR_HOST = "{{ my_author.host|escapejs }}";
@@ -85,7 +88,8 @@
                         github: authorGithub || "",
                         profileImage: authorProfileImage || "",
                         page: authorPage || "",
-                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`
+                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
+                        userId: THIS_USER_ID
                     })
                 });
 
@@ -116,6 +120,9 @@
             try {
                 const response = await fetch(`/social/remote-authors/?node=${encodeURIComponent(selectedNode)}`);
                 const data = await response.json();
+                THIS_USER_ID = data.user;
+
+                console.log(THIS_USER_ID);
                 const authors = data.authors || [];
 
                 const container = document.getElementById("remote-authors");

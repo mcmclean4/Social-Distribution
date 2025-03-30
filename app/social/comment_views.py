@@ -101,6 +101,7 @@ def comment_to_inbox(post, comment, author):
     '''
     try:
         author_serial = post.author.id.split('/')[-1]
+        print(f"CURRENT AUTHOR HOST: {post.author.id}")
         post_node = Node.objects.get(base_url=post.author.host)
         # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
         inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
@@ -125,6 +126,7 @@ def comment_to_inbox(post, comment, author):
         }
 
         # Send the post to the recipient's inbox
+        print(f"INDOX URL: {inbox_url}")
         response = requests.post(
             inbox_url,
             json=comment_data,

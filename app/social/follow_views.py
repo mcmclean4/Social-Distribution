@@ -49,6 +49,8 @@ def fetch_remote_authors_view(request):
 
         my_author_id = request.user.author.id
 
+        #print(f"AUTHOR WE ARE: {request.user.author.id}")
+        
         response = requests.get(
             urljoin(node_url, "authors/"),
             auth=HTTPBasicAuth(username, password),
@@ -88,7 +90,7 @@ def fetch_remote_authors_view(request):
         ]
 
         print(f"[DEBUG] Returning {len(filtered_authors)} authors after filtering.")
-        return JsonResponse({"authors": filtered_authors})
+        return JsonResponse({"authors": filtered_authors, "user": request.user.author.id})
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch authors: {e}")
@@ -103,7 +105,17 @@ def local_follow_finalize(request):
     Sends a follow request to a remote author and only creates the local Follow
     and FollowRequest objects if the remote author accepts the request.
     """
-    follower = request.user.author
+    
+    print(request.data)
+    
+    if(request.data["userId"] == ""):
+        follower = request.user.author
+    else:
+        follower_id = request.data["userId"]
+        follower = Author.objects.get(id=follower_id)
+    
+    print(f"WE ARE: {follower.displayName}")
+    
     data = request.data
     followee_id = data.get("followee_id")
     summary = data.get("summary", f"{follower.displayName} wants to follow you")
