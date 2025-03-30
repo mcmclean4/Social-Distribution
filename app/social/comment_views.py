@@ -50,14 +50,14 @@ def get_post_comments(request, author_id, post_serial):
             # Handle adding a new comment
             author_data = request.data.get('author', {})
 
-            print("author is",author_data)
+            # print("author is",author_data)
             
             author_id_val = author_data.get('id')
 
-            print("author is",author_id_val)
+            # print("author is",author_id_val)
             
-            if not author_id_val:
-                return Response({"error": "Author ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+            # if not author_id_val:
+            #     return Response({"error": "Author ID is required"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Try to get the author, or create a new one if it's a remote author
             try: 

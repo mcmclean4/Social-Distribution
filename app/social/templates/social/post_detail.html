@@ -443,7 +443,8 @@
             console.log("Post analysis:", {
                 postFqid,
                 currentHost,
-                isLocalPost
+                isLocalPost,
+                postId
             });
             
             let response;
@@ -465,6 +466,7 @@
                     body: JSON.stringify({ 
                         comment: commentText,  
                         contentType: "text/markdown",
+                        postFqid: postFqid
                     })
                 });
             } else {
