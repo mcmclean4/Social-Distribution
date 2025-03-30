@@ -4,6 +4,169 @@ from rest_framework.response import Response
 from .models import Author, Comment, Like, Node
 from .serializers import LikeSerializer
 import requests 
+import uuid
+from datetime import datetime
+
+
+@api_view(['POST'])
+def send_comment_like_to_inbox(request):
+    """
+    Receives a like request from frontend for a remote comment
+    and sends it to the appropriate inbox
+    """
+    try:
+        print("Sending Comment Like to inbox")
+        # Extract data from request
+        data = request.data
+        post_fqid = data.get('postFqid', '')
+        author_fqid = data.get('authorFqid', '')
+        comment_fqid = data.get('commentFqid', '')
+        
+        if not all([post_fqid, author_fqid, comment_fqid]):
+            return Response(
+                {"error": "Missing required information"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the current user's author profile
+        liker = Author.objects.get(user=request.user)
+        
+        # Try to get the comment from our database (it might be cached)
+        uuid_part = comment_fqid.split('/')[-1]
+        existing_comment = Comment.objects.filter(id__endswith=uuid_part).first()
+        
+        if not existing_comment:
+            # Create a placeholder for the comment
+            # Extract post and author info from the IDs
+            if '/authors/' in post_fqid and '/posts/' in post_fqid:
+                parts = post_fqid.split('/authors/')
+                host = parts[0]
+                remainder = parts[1]
+                post_author_id = remainder.split('/posts/')[0]
+                
+                try:
+                    # Try to find the remote author in our database
+                    remote_author = Author.objects.get(id__endswith=post_author_id)
+                except Author.DoesNotExist:
+                    # Create a placeholder remote author
+                    remote_author = Author.objects.create(
+                        id=f"{host}/authors/{post_author_id}",
+                        host=host,
+                        displayName="Remote Author",
+                        page=f"{host}/authors/{post_author_id}"
+                    )
+                
+                # Create a placeholder comment
+                existing_comment = Comment(
+                    id=comment_fqid,
+                    author=remote_author,
+                    post=post_fqid,
+                    comment="Remote Comment",
+                    contentType="text/markdown",
+                    published=datetime.now()
+                )
+                existing_comment.save()
+            else:
+                return Response(
+                    {"error": "Invalid post or comment ID format"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Check if the like already exists
+        existing_like = Like.objects.filter(
+            author=liker,
+            object=existing_comment.id
+        ).first()
+        
+        if existing_like:
+            # Unlike if already liked
+            existing_like.delete()
+            action = 'unliked'
+            # Unlike is typically not sent to inbox
+            
+        else:
+            # Create a new like
+            new_like = Like.objects.create(
+                type="like",
+                author=liker,
+                object=existing_comment.id
+            )
+            action = 'liked'
+            
+            # Send to inbox
+            try:
+                # Extract host and author ID from the post ID
+                post_parts = post_fqid.split('/authors/')
+                host = post_parts[0] 
+                remaining = post_parts[1]
+                remote_author_id = remaining.split('/posts/')[0]
+                
+                # Get the foreign node information
+                node = Node.objects.get(base_url__contains=host.split('//')[1])
+                
+                # Construct inbox URL
+                inbox_url = f"{node.base_url}authors/{remote_author_id}/inbox"
+                
+                # Create like data
+                like_data = {
+                    "type": "like",
+                    "author": {
+                        "type": "author",
+                        "id": liker.id,
+                        "host": liker.host,
+                        "displayName": liker.displayName,
+                        "page": liker.page,
+                        "github": liker.github,
+                        "profileImage": liker.profileImage
+                    },
+                    "published": new_like.published.isoformat(),
+                    "id": new_like.id,
+                    "object": existing_comment.id,
+                    "summary": f"{liker.displayName} liked your comment"
+                }
+                
+                # Send to inbox
+                response = requests.post(
+                    inbox_url,
+                    json=like_data,
+                    auth=(node.auth_username, node.auth_password),
+                    headers={"Content-Type": "application/json"},
+                    timeout=5
+                )
+                
+                if response.status_code >= 400:
+                    print(f"Error sending comment like to inbox: {response.status_code} - {response.text}")
+                
+            except Node.DoesNotExist:
+                print(f"Node does not exist for host: {host}")
+            except Exception as e:
+                print(f"Failed to send comment like to inbox: {str(e)}")
+        
+        # Update like count
+        like_count = Like.objects.filter(object=existing_comment.id).count()
+        
+        # Return a standardized response
+        return Response({
+            "status": "success",
+            "action": action,
+            "like_count": like_count
+        })
+        
+    except Author.DoesNotExist:
+        return Response(
+            {"error": "Author not found for current user"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        import traceback
+        print(f"Exception in send_comment_like_to_inbox: {str(e)}")
+        print(traceback.format_exc())
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 
 @api_view(['GET'])
 def get_comment_likes(request, author_id, post_serial, comment_fqid):

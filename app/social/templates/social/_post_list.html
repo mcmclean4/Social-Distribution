@@ -39,7 +39,7 @@
                         <div class="like-section" 
                              data-post-id="{{ post.internal_id }}" 
                              data-author-id="{{ post.author.id }}" 
-                             data-is-liked="{{ post.is_liked|yesno:'true,false' }}">
+                             data-fqid="{{ post.id }}">
                             <button class="btn btn-link text-decoration-none" 
                                     onclick="handleLike('{{ post.author.id }}', '{{ post.internal_id }}')">
                                 <i id="like-icon-{{ post.internal_id }}" 
@@ -121,13 +121,53 @@
 
     async function handleLike(authorId, postId) {
         try {
-            // Extract numeric author ID from the URL
-            const authorNumber = authorId.includes('/authors/') 
+            console.log('Full Author ID:', authorId);
+            console.log('Raw Post ID:', postId);
+            
+            // Extract numeric author ID from the URL or use as-is
+            let authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/like/`;
+            console.log('Extracted Author Number:', authorNumber);
             
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
+
+            // Get current domain for comparison
+            const currentHost = window.location.origin;
+            
+            // Check if the post is from our local node or a remote node
+            // Get the fully qualified post ID either from a data attribute or other source
+            const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+            const postFqid = postElement ? postElement.getAttribute('data-fqid') || '' : '';
+            
+            // Determine if post is from our node or foreign
+            const isLocalPost = postFqid.includes(currentHost) || 
+                            !postFqid.includes('http') || 
+                            authorId.includes(currentHost);
+                            
+            console.log("Post analysis for like:", {
+                postFqid,
+                authorId,
+                currentHost,
+                isLocalPost
+            });
+
+            let apiUrl;
+            
+            if (isLocalPost) {
+                // Local post - use the regular like endpoint
+                apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/like/`;
+            } else {
+                // Foreign post - use the endpoint that will forward to foreign inbox
+                console.log("Sending comment to inbox")
+                apiUrl = `/social/api/send-like-to-inbox/`;
+            }
+            
+            console.log('Making request to:', apiUrl);
+
             const likeButton = document.querySelector(`[data-post-id="${postId}"]`);
             const likeCount = document.getElementById(`like-count-${postId}`);
             const likeIcon = likeButton.querySelector('i');
@@ -140,12 +180,19 @@
                     'Accept': 'application/json'
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({}) // Empty body
+                body: JSON.stringify({
+                    // For remote likes, include the full post info
+                    postFqid: postFqid || '',
+                    authorFqid: authorId
+                })
             });
-            
-            const data = await response.json();
-            
+
+            console.log('Response status:', response.status);
+
             if (response.ok) {
+                const data = await response.json();
+                console.log('Full Response Data:', data);
+                
                 if (data.action === 'liked') {
                     likeIcon.classList.remove('bi-hand-thumbs-up');
                     likeIcon.classList.add('bi-hand-thumbs-up-fill');
@@ -158,10 +205,19 @@
                     likeCount.textContent = data.like_count;
                 }
             } else {
-                console.error('Error response:', data);
+                try {
+                    const errorData = await response.json();
+                    console.error('Error response:', errorData);
+                    console.error('Error Details:', {
+                        status: response.status,
+                        responseData: errorData
+                    });
+                } catch (jsonError) {
+                    console.error('Error parsing error response:', jsonError);
+                }
             }
         } catch (error) {
-            console.error('Catch Block Error:', error);
+            console.error('Like operation error:', error);
         }
     }
 
@@ -185,14 +241,9 @@
         commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
     }
 
-    function toggleCommentSection(postId) {
-        const commentSection = document.getElementById(`comment-section-${postId}`);
-        commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
-    }
-
-    async function handleComment(event, authorId, postId, postHost) {
+    async function handleComment(event, authorId, postId, postFqid) {
         event.preventDefault();
-        // THIS FUNCTION DOES NOT GET CALLED WHEN YOU CLICK POST FOR A NEW COMMENT
+        
         try {
             const commentInput = document.getElementById(`comment-input-${postId}`);
             const commentText = commentInput.value.trim();
@@ -200,131 +251,147 @@
             if (!commentText) return;
 
             // Extract numeric author ID
-            const authorNumber = authorId.includes('/authors/') 
+            let authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
-            
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ 
-                    comment: commentText,  
-                    contentType: "text/markdown" 
-                })
-            });
-
-            console.log('Response status:', response.status);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Comment Response:', data);
-                
-                const commentsList = document.querySelector('.comments-list');
-                const newComment = createCommentElement(data);
-                commentsList.insertAdjacentHTML('beforeend', newComment);
-                
-                commentInput.value = '';
-                
-                const commentCount = document.getElementById(`comment-count-${postId}`);
-                commentCount.textContent = parseInt(commentCount.textContent) + 1;
-            } else {
-                // Handle error response
-                const errorData = await response.json();
-                console.error('Error adding comment:', errorData);
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
             }
+
+            // Get current domain for comparison
+            const currentHost = window.location.origin;
+            
+            // Determine if post is from our node or foreign
+            const isLocalPost = postFqid.includes(currentHost) || 
+                            !postFqid.includes('http'); // Simple check for local IDs that don't have full URLs
+            
+            console.log("Post analysis:", {
+                postFqid,
+                currentHost,
+                isLocalPost
+            });
+            
+            let response;
+            
+            if (isLocalPost) {
+                // Regular flow for local posts - send to our API directly
+                const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+                
+                console.log("Sending local comment to:", apiUrl);
+                
+                response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ 
+                        comment: commentText,  
+                        contentType: "text/markdown",
+                    })
+                });
+            } else {
+                // For foreign posts - use our special endpoint to handle foreign inbox sending
+                const apiUrl = `/social/api/send-comment-to-inbox/`;
+                console.log("Sending comment to inbox")
+                
+                console.log("Sending foreign comment to:", apiUrl);
+                
+                response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        postFqid: postFqid,
+                        comment: commentText,
+                        contentType: "text/markdown",
+                        author: {
+                            id: `${window.location.origin}/social/api/authors/${authorNumber}`
+                        }
+                    })
+                });
+            }
+            
+            // Process response
+            await handleCommentResponse(response, commentInput, postId);
+            
         } catch (error) {
             console.error('Error posting comment:', error);
+            alert('Failed to post comment. See console for details.');
         }
     }
 
-    async function handleComment(event, authorId, postId, postFqid) {
+    async function handleCommentResponse(response, commentInput, postId) {
+        console.log('Response status:', response.status);
         
-        event.preventDefault();
-        
-        try {
-            const commentInput = document.getElementById(`comment-input-${postId}`);
-            const commentText = commentInput.value.trim();
-            
-            if (!commentText) return;
-
-            // Extract numeric author ID
-            const authorNumber = authorId.includes('/authors/') 
-                ? authorId.split('/authors/')[1].split('/')[0] 
-                : authorId;
-            
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
-            
-            // debug
-            console.log("Sending comment with data:", {
-                postFqid: postFqid,
-                comment: commentText,
-                contentType: "text/markdown",
-                author: {
-                    id: `${window.location.origin}/social/api/authors/${authorNumber}`
-                }
-            });
-
-            // This is what's missing - you need to include author information
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ 
-                    postFqid: postFqid,
-                    comment: commentText,  
-                    contentType: "text/markdown",
-                    author: {
-                        // Include the current user's author ID
-                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
-                    }
-                })
-            });
-
-            console.log('Response status:', response.status);
-            
-            if (response.ok) {
+        if (response.ok) {
+            try {
                 const data = await response.json();
                 console.log('Comment Response:', data);
                 
-                const commentsList = document.querySelector('.comments-list');
+                const commentsList = document.querySelector(`#comment-section-${postId} .comments-list`);
                 const newComment = createCommentElement(data);
                 commentsList.insertAdjacentHTML('beforeend', newComment);
                 
                 commentInput.value = '';
                 
                 const commentCount = document.getElementById(`comment-count-${postId}`);
-                commentCount.textContent = parseInt(commentCount.textContent) + 1;
-            } else {
-                // Handle error response
+                if (commentCount) {
+                    commentCount.textContent = parseInt(commentCount.textContent || '0') + 1;
+                }
+            } catch (error) {
+                console.error('Error parsing comment response:', error);
+            }
+        } else {
+            // Handle error response
+            try {
                 const errorData = await response.json();
                 console.error('Error adding comment:', errorData);
+                alert(`Failed to add comment: ${errorData.error || 'Unknown error'}`);
+            } catch (e) {
+                console.error('Error parsing error response:', e);
+                alert('Failed to add comment. See console for details.');
             }
-        } catch (error) {
-            console.error('Error posting comment:', error);
         }
     }
 
     function createCommentElement(comment) {
+        // Format the date - handle both string dates and Date objects
+        const publishDate = comment.published ? 
+            (typeof comment.published === 'string' ? 
+                new Date(comment.published) : comment.published) : 
+            new Date();
+        
+        const formattedDate = publishDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+        
+        // Extract the displayName safely
+        const displayName = comment.author?.displayName || 'Unknown User';
+        
+        // Extract IDs safely for the like button
+        const authorId = comment.author?.id || '';
+        const postId = comment.post?.split('/').pop() || '';
+        const commentId = comment.id?.split('/').pop() || comment.id || '';
+        
         return `
-            <div class="comment mb-2 border-bottom pb-2" id="comment-${comment.id}">
+            <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <strong class="me-2">${comment.author.displayName}</strong>
-                        <small class="text-muted">${new Date(comment.published).toLocaleDateString()}</small>
+                        <strong class="me-2">${displayName}</strong>
+                        <small class="text-muted">${formattedDate}</small>
                     </div>
                     <button class="btn btn-link text-decoration-none p-0" 
-                            onclick="handleCommentLike(this, '${comment.author.id}', '${comment.post.split('/').pop() || comment.post}', '${comment.id}')">
+                            onclick="handleCommentLike(this, '${authorId}', '${postId}', '${commentId}')">
                         <i class="bi bi-hand-thumbs-up"></i>
                         <span class="like-count">0</span>
                     </button>
@@ -337,15 +404,20 @@
     async function handleCommentLike(buttonElement, authorId, postId, commentId) {
         try {
             // Extract numeric author ID from the URL
-            const authorNumber = authorId.includes('/authors/') 
+            let authorNumber = authorId.includes('/authors/') 
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
+
+            if(authorNumber[0] === '/'){
+                authorNumber = authorNumber.slice(1);
+            }
             
             // Use the UUID part only to simplify the URL
             const commentUUID = commentId.split('/').pop();
             
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/${commentUUID}/like/`;
-            
+            console.log('Making request to:', apiUrl);
+
             const likeIcon = buttonElement.querySelector('i');
             const likeCount = buttonElement.querySelector('.like-count');
             
@@ -358,6 +430,8 @@
                 },
                 credentials: 'same-origin'
             });
+
+            console.log('Response status:', response.status);
             
             // Clone the response to read it multiple ways if needed
             const responseClone = response.clone();
@@ -365,6 +439,7 @@
             if (response.ok) {
                 try {
                     const data = await response.json();
+                    console.log('Full response data:', data);
                     
                     if (data.action === 'liked') {
                         likeIcon.classList.remove('bi-hand-thumbs-up');
@@ -375,10 +450,12 @@
                     }
                     
                     if (likeCount) {
+                        console.log('Updating like count to:', data.like_count);
                         likeCount.textContent = data.like_count || '0';
                     }
                 } catch (jsonError) {
                     console.error('Error parsing JSON:', jsonError);
+                    // Try to get the text response for debugging
                     const textResponse = await responseClone.text();
                     console.error('Raw response:', textResponse);
                 }
@@ -396,5 +473,4 @@
             console.error('Error handling comment like:', error);
         }
     }
-    
 </script>
