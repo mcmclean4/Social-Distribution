@@ -17,6 +17,7 @@ def get_post_comments(request, author_id, post_serial):
         # Construct the full post ID URL
 
         post_id = f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}"
+        
         #post_id = f"http://localhost:8000/social/api/authors/{author_id}/posts/{post_serial}"
         print("Post id is,", post_id)
 

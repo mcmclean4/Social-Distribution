@@ -373,6 +373,7 @@
     }
 
     async function handleComment(event, authorId, postId, postHost) {
+        console.log("here1")
         event.preventDefault();
         // THIS FUNCTION DOES NOT GET CALLED WHEN YOU CLICK POST FOR A NEW COMMENT
         try {
@@ -389,6 +390,8 @@
             if(authorNumber[0] === '/'){
                 authorNumber = authorNumber.slice(1);
             }
+
+            console.log(authorNumber);
 
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
             
@@ -431,9 +434,39 @@
     }
 
     async function handleComment(event, authorId, postId, postFqid) {
-        
+        console.log("here2")
         event.preventDefault();
         
+        const ip1 = new URL(authorId).hostname;
+        const ip2 = new URL(postFqid).hostname;
+
+        if (ip1 === ip2) {
+            let apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+        } else {
+            console.log("The IP addresses are different.");
+        }
+
+        
+
+        const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ 
+                    postFqid: postFqid,
+                    comment: commentText,  
+                    contentType: "text/markdown",
+                    author: {
+                        // Include the current user's author ID
+                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
+                    }
+                })
+            });
+
         try {
             const commentInput = document.getElementById(`comment-input-${postId}`);
             const commentText = commentInput.value.trim();
@@ -452,6 +485,8 @@
 
             const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
             
+            console.log(apiUrl)
+
             // debug
             console.log("Sending comment with data:", {
                 postFqid: postFqid,
