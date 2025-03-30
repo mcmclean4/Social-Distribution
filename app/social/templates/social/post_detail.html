@@ -372,69 +372,7 @@
         commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
     }
 
-    async function handleComment(event, authorId, postId, postHost) {
-        console.log("here1")
-        event.preventDefault();
-        // THIS FUNCTION DOES NOT GET CALLED WHEN YOU CLICK POST FOR A NEW COMMENT
-        try {
-            const commentInput = document.getElementById(`comment-input-${postId}`);
-            const commentText = commentInput.value.trim();
-            
-            if (!commentText) return;
-
-            // Extract numeric author ID
-            const authorNumber = authorId.includes('/authors/') 
-                ? authorId.split('/authors/')[1].split('/')[0] 
-                : authorId;
-            
-            if(authorNumber[0] === '/'){
-                authorNumber = authorNumber.slice(1);
-            }
-
-            console.log(authorNumber);
-
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
-            
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ 
-                    comment: commentText,  
-                    contentType: "text/markdown" 
-                })
-            });
-
-            console.log('Response status:', response.status);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Comment Response:', data);
-                
-                const commentsList = document.querySelector('.comments-list');
-                const newComment = createCommentElement(data);
-                commentsList.insertAdjacentHTML('beforeend', newComment);
-                
-                commentInput.value = '';
-                
-                const commentCount = document.getElementById(`comment-count-${postId}`);
-                commentCount.textContent = parseInt(commentCount.textContent) + 1;
-            } else {
-                // Handle error response
-                const errorData = await response.json();
-                console.error('Error adding comment:', errorData);
-            }
-        } catch (error) {
-            console.error('Error posting comment:', error);
-        }
-    }
-
     async function handleComment(event, authorId, postId, postFqid) {
-        console.log("here2")
         event.preventDefault();
         
         const ip1 = new URL(authorId).hostname;
@@ -478,48 +416,83 @@
                 ? authorId.split('/authors/')[1].split('/')[0] 
                 : authorId;
             
-            
             if(authorNumber[0] === '/'){
                 authorNumber = authorNumber.slice(1);
             }
 
-            const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+            // Get current domain for comparison
+            const currentHost = window.location.origin;
             
-            console.log(apiUrl)
-
-            // debug
-            console.log("Sending comment with data:", {
-                postFqid: postFqid,
-                comment: commentText,
-                contentType: "text/markdown",
-                author: {
-                    id: `${window.location.origin}/social/api/authors/${authorNumber}`
-                }
-            });
-
-            // This is what's missing - you need to include author information
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ 
-                    postFqid: postFqid,
-                    comment: commentText,  
-                    contentType: "text/markdown",
-                    author: {
-                        // Include the current user's author ID
-                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
-                    }
-                })
-            });
-
-            console.log('Response status:', response.status);
+            // Determine if post is from our node or foreign
+            const isLocalPost = postFqid.includes(currentHost) || 
+                            !postFqid.includes('http'); // Simple check for local IDs that don't have full URLs
             
-            if (response.ok) {
+            console.log("Post analysis:", {
+                postFqid,
+                currentHost,
+                isLocalPost
+            });
+            
+            let response;
+            
+            if (isLocalPost) {
+                // Regular flow for local posts - send to our API directly
+                const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+                
+                console.log("Sending local comment to:", apiUrl);
+                
+                response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ 
+                        comment: commentText,  
+                        contentType: "text/markdown",
+                    })
+                });
+            } else {
+                // For foreign posts - use our special endpoint to handle foreign inbox sending
+                const apiUrl = `/social/api/send-comment-to-inbox/`;
+                
+                console.log("Sending foreign comment to:", apiUrl);
+                
+                response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        postFqid: postFqid,
+                        comment: commentText,
+                        contentType: "text/markdown",
+                        author: {
+                            id: `${window.location.origin}/social/api/authors/${authorNumber}`
+                        }
+                    })
+                });
+            }
+            
+            // Process response
+            await handleCommentResponse(response, commentInput, postId);
+            
+        } catch (error) {
+            console.error('Error posting comment:', error);
+            alert('Failed to post comment. See console for details.');
+        }
+    }
+
+    async function handleCommentResponse(response, commentInput, postId) {
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            try {
                 const data = await response.json();
                 console.log('Comment Response:', data);
                 
@@ -530,34 +503,77 @@
                 commentInput.value = '';
                 
                 const commentCount = document.getElementById(`comment-count-${postId}`);
-                commentCount.textContent = parseInt(commentCount.textContent) + 1;
-            } else {
-                // Handle error response
+                if (commentCount) {
+                    commentCount.textContent = parseInt(commentCount.textContent || '0') + 1;
+                }
+            } catch (error) {
+                console.error('Error parsing comment response:', error);
+            }
+        } else {
+            // Handle error response
+            try {
                 const errorData = await response.json();
                 console.error('Error adding comment:', errorData);
+                alert(`Failed to add comment: ${errorData.error || 'Unknown error'}`);
+            } catch (e) {
+                console.error('Error parsing error response:', e);
+                alert('Failed to add comment. See console for details.');
             }
-        } catch (error) {
-            console.error('Error posting comment:', error);
         }
     }
 
     function createCommentElement(comment) {
+        // Format the date - handle both string dates and Date objects
+        const publishDate = comment.published ? 
+            (typeof comment.published === 'string' ? 
+                new Date(comment.published) : comment.published) : 
+            new Date();
+        
+        const formattedDate = publishDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+        
+        // Extract the displayName safely
+        const displayName = comment.author?.displayName || 'Unknown User';
+        
+        // Extract IDs safely for the like button
+        const authorId = comment.author?.id || '';
+        const postId = comment.post?.split('/').pop() || '';
+        const commentId = comment.id?.split('/').pop() || comment.id || '';
+        
         return `
-            <div class="comment mb-2 border-bottom pb-2">
+            <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <strong class="me-2">${comment.author.displayName}</strong>
-                        <small class="text-muted">${new Date(comment.published).toLocaleDateString()}</small>
+                        <strong class="me-2">${displayName}</strong>
+                        <small class="text-muted">${formattedDate}</small>
                     </div>
                     <button class="btn btn-link text-decoration-none p-0" 
-                            onclick="handleCommentLike(this, '${comment.author.id}', '${comment.post.split('/').pop() || comment.post}', '${comment.id}')">
+                            onclick="handleCommentLike(this, '${authorId}', '${postId}', '${commentId}')">
                         <i class="bi bi-hand-thumbs-up"></i>
-                        <span class="like-count">{{ comment.like_count }}</span>
+                        <span class="like-count">0</span>
                     </button>
                 </div>
                 <p class="mb-1">${comment.comment}</p>
             </div>
         `;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
     async function handleCommentLike(buttonElement, authorId, postId, commentId) {
         try {

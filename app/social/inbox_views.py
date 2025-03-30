@@ -250,6 +250,9 @@ class InboxView(APIView):
 
         data = request.data
         item_type = data.get("type")
+        
+        if item_type == 'update':
+            item_type = 'post'
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node
@@ -398,9 +401,15 @@ class InboxView(APIView):
             post_author_data = data.get("author", {})
             post_author_id = post_author_data.get("id", "")
 
-            if not (post_id and post_author_id and post_title):
-                return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
+            print("HERE0")
+            print(post_id)
+            
+            
+            #if not (post_id and post_author_id and post_title):
+                #return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
 
+            print("HERE1")
+            
             # Ensure author exists (remote or local)
             author_instance, _ = Author.objects.update_or_create(
                 id=post_author_id,
@@ -413,6 +422,8 @@ class InboxView(APIView):
                 }
             )
 
+            print("HERE2")
+            
             # Save the post with the remote ID
             post, _ = Post.objects.update_or_create(
                 id=post_id,
@@ -427,6 +438,8 @@ class InboxView(APIView):
                     "page": post_page or None
                 }
             )
+            
+            print("HERE3")
 
             inbox.inbox_posts.add(post)
             print(f"[INFO] Stored post '{post_title}' from {post_author_id}")

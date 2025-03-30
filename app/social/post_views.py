@@ -48,16 +48,19 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         data['description'] = data.get('description', '')
         data['page'] = data.get('page', '')
         
+        print("WE ARE CREATING!!")
+        
         # Save the post
         post = serializer.save(author=author)
         
         # Send post to remote followers and friends
         if post.visibility in ['PUBLIC', 'FRIENDS']:
+            
             send_post_to_remote_followers(post, author)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
-        
+        print("WE ARE DELETING!!2")
         instance.visibility = 'DELETED'
         instance.save()
 
@@ -85,11 +88,12 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         
         # Re-send the updated post to remote followers and friends
         if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
-            send_post_to_remote_followers(updated_post, updated_post.author)
+            
+            send_post_to_remote_followers(updated_post, updated_post.author, True)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
-        
+        print("WE ARE DELETING!!1")
         instance.visibility = 'DELETED'
         send_post_to_remote_followers(updated_post, updated_post.author)
         instance.save()
@@ -150,7 +154,7 @@ def my_posts(request):
 
     return render(request, 'social/my_posts.html', {'posts': posts})
 
-def send_post_to_remote_followers(post, author):
+def send_post_to_remote_followers(post, author, post_type='post'):
     """
     Sends a post to remote followers and friends of the author.
     """
@@ -186,19 +190,23 @@ def send_post_to_remote_followers(post, author):
     
     # For each remote host, get the node and send the post
     for host in remote_hosts:
+        
+        
+        
         try:
             # Get or create the node
             
-            print(f"HOST IS: {f"{host}/social/api/"}")
+            print(f"HOST IS: {f"{host}"}")
             
             #node, created = Node.objects.get_or_create(base_url=f"{host}/")
             node = Node.objects.get(base_url=f"{host}/")
             if not node.enabled:
                 continue
-                
+            
+            
             # Format the post data
             post_data = {
-                "type": "post",
+                "type": post_type,
                 "id": post.id,
                 "title": post.title,
                 "description": post.description,
@@ -217,6 +225,8 @@ def send_post_to_remote_followers(post, author):
                     "page": author.page if author.page else ""
                 }
             }
+            
+                
             
             print(f"POST DATA: {post_data}")
             
@@ -384,7 +394,7 @@ def delete_post(request, internal_id):
         if request.method == "POST":
             post.visibility = 'DELETED'
             post.save()
-            send_post_to_remote_followers(post, post.author)
+            send_post_to_remote_followers(post, post.author, 'delete')
             # print(f"Post {internal_id} marked as deleted")
             return redirect('social:index')
             
@@ -414,7 +424,7 @@ def update_post(request, internal_id):
                 
                 # Re-send the updated post to remote followers and friends
                 if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
-                    send_post_to_remote_followers(updated_post, updated_post.author)
+                    send_post_to_remote_followers(updated_post, updated_post.author, 'update')
                 
                 return redirect('social:index')
         else:
