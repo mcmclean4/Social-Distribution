@@ -85,7 +85,7 @@ class PostDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         
         # Re-send the updated post to remote followers and friends
         if updated_post.visibility in ['PUBLIC', 'FRIENDS']:
-            send_post_to_remote_followers(updated_post, updated_post.author)
+            send_post_to_remote_followers(updated_post, updated_post.author, True)
 
     def perform_destroy(self, instance):
         # Instead of deleting, mark the post as deleted
@@ -150,7 +150,7 @@ def my_posts(request):
 
     return render(request, 'social/my_posts.html', {'posts': posts})
 
-def send_post_to_remote_followers(post, author):
+def send_post_to_remote_followers(post, author, updated=False):
     """
     Sends a post to remote followers and friends of the author.
     """
@@ -186,19 +186,26 @@ def send_post_to_remote_followers(post, author):
     
     # For each remote host, get the node and send the post
     for host in remote_hosts:
+        
+        
+        
         try:
             # Get or create the node
             
-            print(f"HOST IS: {f"{host}/social/api/"}")
+            print(f"HOST IS: {f"{host}"}")
             
             #node, created = Node.objects.get_or_create(base_url=f"{host}/")
             node = Node.objects.get(base_url=f"{host}/")
             if not node.enabled:
                 continue
-                
+            
+            if updated:
+                post_type = "update"
+            else:
+                post_type = "post"
             # Format the post data
             post_data = {
-                "type": "post",
+                "type": post_type,
                 "id": post.id,
                 "title": post.title,
                 "description": post.description,
@@ -217,6 +224,8 @@ def send_post_to_remote_followers(post, author):
                     "page": author.page if author.page else ""
                 }
             }
+            
+                
             
             print(f"POST DATA: {post_data}")
             

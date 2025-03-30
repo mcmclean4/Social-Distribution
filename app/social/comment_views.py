@@ -192,11 +192,14 @@ def comment_to_inbox(post, comment, author):
     print("Sending to inbox")
     try:
         author_serial = post.author.id.split('/')[-1]
-        print(f"CURRENT AUTHOR HOST: {post.author.id}")
+        print(f"POST AUTHOR: {post.author.id}, OTHER AUTHOR: {author.id}")
+        print(f"CURRENT AUTHOR HOST: {post.author.id}, AUTHOR SERIAL: {author_serial}")
         post_node = Node.objects.get(base_url=post.author.host)
+        
+        print(f"POST NODE HOST: {post_node}")
         # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
-        inbox_url = f"{post_node.base_url}authors/{author_serial}/inbox"
-
+        inbox_url = f"{post.author.id}/inbox"
+        print(f"INBOX URL: {inbox_url}")
         # Create the comment object according to the example format
         comment_data = {
             "type": "comment",

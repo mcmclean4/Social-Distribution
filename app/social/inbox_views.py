@@ -250,6 +250,9 @@ class InboxView(APIView):
 
         data = request.data
         item_type = data.get("type")
+        
+        if item_type == 'update':
+            item_type = 'post'
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node
