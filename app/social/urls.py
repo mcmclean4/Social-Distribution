@@ -11,7 +11,7 @@ from .follow_views import (FollowerDetailView, FollowersListView, follow_view, f
 from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
-from .comment_views import(get_post_comments,get_comments_by_post_fqid, get_specific_comment)
+from .comment_views import(get_post_comments,get_comments_by_post_fqid, get_specific_comment,send_comment_to_inbox_view)
 from .comment_like_views import(get_comment_likes,like_comment)
 
 app_name = 'social'
@@ -147,4 +147,6 @@ urlpatterns = [
 
     path('api/posts/<path:post_fqid>', post_views.get_post_with_fqid, name='post_detail_with_fqid'),    # must come after other urls that start with 'api/posts/'
     re_path(r'^api/authors/(?P<author_fqid>.+)$', views.get_author_with_fqid, name='get_author_with_fqid'), # needs to be after the get_author_and_post line
+    path('api/send-comment-to-inbox/', send_comment_to_inbox_view, name='send_comment_to_inbox'),
+
 ]

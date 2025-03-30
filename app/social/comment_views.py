@@ -95,10 +95,101 @@ def get_post_comments(request, author_id, post_serial):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+def send_comment_to_inbox_view(request):
+    """
+    Receive comment data from frontend and send it to the appropriate inbox
+    """
+    print("sending comment")
+    try:
+        # Get data from request
+        data = request.data
+        post_fqid = data.get('postFqid')
+        comment_text = data.get('comment')
+        content_type = data.get('contentType', 'text/markdown')
+        author_id = data.get('author', {}).get('id')
+        
+        if not all([post_fqid, comment_text, author_id]):
+            return Response(
+                {"error": "Missing required fields"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Get current user's author object
+        current_author = Author.objects.get(user=request.user)
+        
+        # Get or fetch the remote post
+        try:
+            # Try to get post from local DB first (if it's cached)
+            post = Post.objects.get(id=post_fqid)
+        except Post.DoesNotExist:
+            # If post doesn't exist locally, create a placeholder
+            # You might need to adjust this based on your model
+            post_parts = post_fqid.split('/')
+            post_id = post_parts[-1]
+            author_id = post_parts[-3]
+            author_host = '/'.join(post_parts[:-3])
+            
+            # Get or create remote author
+            author, _ = Author.objects.get_or_create(
+                id=f"{author_host}/authors/{author_id}",
+                defaults={
+                    'host': author_host,
+                    'displayName': 'Remote Author',
+                    'page': f"{author_host}/authors/{author_id}"
+                }
+            )
+            
+            # Create placeholder post
+            post = Post(
+                id=post_fqid,
+                author=author,
+                title="Remote Post",
+                contentType="text/markdown"
+            )
+            post.save()
+        
+        # Create comment object
+        comment = Comment.objects.create(
+            post=post_fqid,
+            author=current_author,
+            comment=comment_text,
+            contentType=content_type
+        )
+        
+        # Send to inbox
+        comment_to_inbox(post, comment, current_author)
+        
+        # Return comment data for frontend display
+        comment_data = {
+            "id": str(comment.id),
+            "post": post_fqid,
+            "author": {
+                "id": current_author.id,
+                "displayName": current_author.displayName,
+                "host": current_author.host,
+                "url": current_author.page,
+            },
+            "comment": comment_text,
+            "contentType": content_type,
+            "published": comment.published.isoformat()
+        }
+        
+        return Response(comment_data, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 def comment_to_inbox(post, comment, author):
     ''' 
     Sends a comment object to the post author's inbox
     '''
+    print("Sending to inbox")
     try:
         author_serial = post.author.id.split('/')[-1]
         print(f"CURRENT AUTHOR HOST: {post.author.id}")
@@ -143,7 +234,6 @@ def comment_to_inbox(post, comment, author):
     except Exception as e:
         print(f"Failed to send comment to {post.author.id}: {str(e)}")
         pass
-
 
 @api_view(['GET'])
 def get_comments_by_post_fqid(request, post_fqid):
