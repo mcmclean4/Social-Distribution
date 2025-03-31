@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from .models import Post, Author, Comment, Node
 from .serializers import CommentSerializer
@@ -9,7 +9,11 @@ from django.http import Http404
 import requests
 import uuid
 from datetime import datetime
+from .authentication import NodeBasicAuthentication
+
+
 @api_view(['GET', 'POST'])
+@authentication_classes([NodeBasicAuthentication])
 def get_post_comments(request, author_id, post_serial):
     """
     Get all comments for a specific post or add a new comment

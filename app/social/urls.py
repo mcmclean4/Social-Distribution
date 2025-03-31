@@ -43,7 +43,7 @@ urlpatterns = [
 
     path('api/posts/', post_views.PostListCreateAPIView.as_view(), name='post_list_create'), # getting all the posts
     path('api/posts/<int:internal_id>/', post_views.PostDetailAPIView.as_view(), name='post_detail'),  # getting all the posts as well as updating, deleting them
-    path('api/authors/<int:id>/posts/', post_views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
+    path('api/authors/<int:id>/posts', post_views.api_get_author_and_all_post, name='api_get_author_and_all_post'),
     path('api/authors/<int:author_id>/posts/<int:internal_id>/', post_views.get_author_and_post, name='get_author_and_post'),
     
 
@@ -84,7 +84,7 @@ urlpatterns = [
         comment_like_views.like_comment, name='like_comment'),
 
     # Things liked by author
-    path('api/authors/<str:author_id>/liked/', 
+    path('api/authors/<str:author_id>/liked', 
         like_views.get_liked_by_author, name='get_liked_by_author'),
 
     # Get a single like
@@ -122,7 +122,7 @@ urlpatterns = [
         comment_like_views.like_comment, name='like_comment'),
 
     # Commented API
-    path('api/authors/<str:author_id>/commented/',  # works
+    path('api/authors/<str:author_id>/commented',  # works
         comment_views.get_author_comments, name='get_author_comments'),
     path('api/authors/<path:author_fqid>/commented/', # works 
         comment_views.get_author_comments_by_fqid, name='get_author_comments_by_fqid'),

@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])
 def get_liked_by_author(request, author_id):
     """
     Get all things liked by an author

@@ -1,5 +1,5 @@
 from rest_framework import generics, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author
@@ -497,6 +497,7 @@ def api_delete_post(request, internal_id):
     return Response({"detail": "Post deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])
 def api_get_author_and_all_post(request, id):
     try:
         author = Author.objects.get(id=f"http://{request.get_host()}/social/api/authors/{id}")
