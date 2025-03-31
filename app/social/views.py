@@ -227,6 +227,7 @@ def register(request):
 
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])      # for Sid's group
 def get_author(request, id):
     """
     Retrieves an author using the correct full ID format.
@@ -239,6 +240,7 @@ def get_author(request, id):
     return Response(serializer.data)
 
 @api_view(['GET'])
+@authentication_classes([NodeBasicAuthentication])      # for Sid's group
 def get_author_with_fqid(request, author_fqid):
     '''
     Returns an author using the author's fqid

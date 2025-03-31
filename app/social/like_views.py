@@ -138,11 +138,19 @@ def send_like_to_inbox(request):
             
             # Send to inbox
             try:
-                # Extract host and author ID from the post ID
-                post_parts = post.id.split('/authors/')
-                host = post_parts[0] 
-                remaining = post_parts[1]
-                remote_author_id = remaining.split('/posts/')[0]
+                if not '/authors/' in post.id:
+                    # For Sid's group
+                    post_parts = post.id.split('/posts/')
+                    host = post_parts[0]
+                    remote_author_fqid = post.author.id
+                    remote_author_id = remote_author_fqid.split('/')[-1]
+
+                else:
+                    # Extract host and author ID from the post ID
+                    post_parts = post.id.split('/authors/')
+                    host = post_parts[0] 
+                    remaining = post_parts[1]
+                    remote_author_id = remaining.split('/posts/')[0]
                 
                 # Get the foreign node information
                 node = Node.objects.get(base_url__contains=host.split('//')[1])
