@@ -18,6 +18,8 @@ def send_comment_like_to_inbox(request):
         print("Sending Comment Like to inbox")
         # Extract data from request
         data = request.data
+        print("data is:")
+        print(data)
         post_fqid = data.get('postFqid', '')
         author_fqid = data.get('authorFqid', '')
         comment_fqid = data.get('commentFqid', '')
@@ -36,6 +38,7 @@ def send_comment_like_to_inbox(request):
         existing_comment = Comment.objects.filter(id__endswith=uuid_part).first()
         
         if not existing_comment:
+            print('failed to get existing comment')
             # Create a placeholder for the comment
             # Extract post and author info from the IDs
             if '/authors/' in post_fqid and '/posts/' in post_fqid:
@@ -72,6 +75,7 @@ def send_comment_like_to_inbox(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
+        # Comment already exists (should always happen)
         # Check if the like already exists
         existing_like = Like.objects.filter(
             author=liker,
@@ -92,20 +96,24 @@ def send_comment_like_to_inbox(request):
                 object=existing_comment.id
             )
             action = 'liked'
+            # Update like count
+            like_count = Like.objects.filter(object=existing_comment.id).count()
+            print(f"Updated like count: {like_count}")
             
             # Send to inbox
             try:
                 # Extract host and author ID from the post ID
-                post_parts = post_fqid.split('/authors/')
-                host = post_parts[0] 
-                remaining = post_parts[1]
-                remote_author_id = remaining.split('/posts/')[0]
+                print(f"comment made by {existing_comment.author.id}")
+                comment_author = Author.objects.get(id=existing_comment.author.id)
+                print(f"fetched comment_author {comment_author.id}")
+                print(f"comment_author's host is {comment_author.host}")
+                host = comment_author.host
                 
                 # Get the foreign node information
                 node = Node.objects.get(base_url__contains=host.split('//')[1])
                 
                 # Construct inbox URL
-                inbox_url = f"{node.base_url}authors/{remote_author_id}/inbox"
+                inbox_url = f"{comment_author.id}/inbox"
                 
                 # Create like data
                 like_data = {

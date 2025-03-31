@@ -687,7 +687,8 @@
             
             if (isLocalPost) {
                 // Local comment like - use regular endpoint
-                apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/${commentUUID}/like/`;
+                //apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/${commentUUID}/like/`;
+                apiUrl = `/social/api/send-comment-like-to-inbox/`;
             } else {
                 console.log("Sending comment-like to inbox");
                 // Foreign comment like - use endpoint that will forward to foreign inbox
