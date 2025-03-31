@@ -168,6 +168,8 @@ def send_like_to_inbox(request):
                     "summary": f"{liker.displayName} liked your post"
                 }
                 
+                print(f"LIKE DATA: {like_data}")
+                
                 # Send to inbox
                 response = requests.post(
                     inbox_url,

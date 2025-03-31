@@ -295,7 +295,7 @@ class InboxView(APIView):
 
         elif item_type == "like":
             print("Received a like in the inbox")
-
+            print(f"THIS IS THE LIKE DATA: {data}")
             like_id = data.get("id")
             like_object = data.get("object")  # The URL of the post or comment being liked
             like_author_data = data.get("author", {})
