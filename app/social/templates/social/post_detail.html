@@ -270,28 +270,55 @@
 {% endblock %}
 
 <script>
+    function showCopyBox(text) {
+        const input = document.createElement("input");
+        input.value = text;
+        input.style.position = "fixed";
+        input.style.top = "10px";
+        input.style.left = "50%";
+        input.style.transform = "translateX(-50%)";
+        input.style.padding = "5px";
+        input.style.border = "1px solid #ccc";
+        input.style.borderRadius = "5px";
+        input.style.zIndex = "1000";
+        input.readOnly = true;
+
+        document.body.appendChild(input);
+        input.select();
+
+        // Show a tooltip-like message
+        alert("Clipboard not supported. Manually copy the link from the input box.");
+
+        // Automatically remove the input box after 5 seconds
+        setTimeout(() => {
+            document.body.removeChild(input);
+        }, 5000);
+    }
+
     // Function to copy image link to clipboard
     function copyImageLink(postId, authorHost) {
-        // Ensure we have the base URL from the author's host
         const baseUrl = authorHost.endsWith('/') ? authorHost.slice(0, -1) : authorHost;
-        
-        // Build the URL for the image endpoint
-        // Use the part before "/authors/" as the base URL for the /posts/ endpoint
         const apiBaseUrl = baseUrl.split('/api/')[0];
         const encodedPostId = encodeURIComponent(postId);
         const imageUrl = `${apiBaseUrl}/posts/${encodedPostId}/image`;
-        
-        // Copy to clipboard
-        navigator.clipboard.writeText(imageUrl)
-            .then(() => {
-                // Show success toast
-                const toast = new bootstrap.Toast(document.getElementById('linkToast'));
-                toast.show();
-            })
-            .catch(err => {
-                console.error('Could not copy text: ', err);
-                alert('Failed to copy link to clipboard');
-            });
+
+        // Try copying to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(imageUrl)
+                .then(() => {
+                    // Show success toast
+                    const toast = new bootstrap.Toast(document.getElementById('linkToast'));
+                    toast.show();
+                })
+                .catch((err) => {
+                    console.error("Clipboard copy failed, falling back to input box: ", err);
+                    showCopyBox(imageUrl);
+                });
+        } else {
+            // Clipboard API not supported, use fallback
+            console.warn("Clipboard API not available, using input box fallback.");
+            showCopyBox(imageUrl);
+        }
     }
 
 
