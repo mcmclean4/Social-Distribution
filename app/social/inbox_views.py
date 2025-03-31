@@ -249,7 +249,7 @@ class InboxView(APIView):
         inbox, created = Inbox.objects.get_or_create(author=author)
 
         data = request.data
-        item_type = data.get("type")
+        item_type = data.get("type").lower()
         
         if item_type == 'update':
             item_type = 'post'
@@ -268,6 +268,9 @@ class InboxView(APIView):
 
             # Compare actor (sender) host to receiver's host
             if follower_host and follower_host.rstrip("/") != author.host.rstrip("/"):
+                if follower_host[-1] != "/":
+                    follower_host += "/"
+            
                 node, created = Node.objects.get_or_create(base_url=follower_host)
                 if created:
                     print(f"Created new Node entry for host: {follower_host}")
