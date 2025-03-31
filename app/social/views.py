@@ -273,7 +273,17 @@ def get_authors(request):
             authors = authors[start:end]
         except ValueError:
             return Response({"error": "Invalid pagination parameters"}, status=400)
-
+    
+    elif page:  # page provided but no size
+        try:
+            page = int(page)
+            size = 1
+            start = (page - 1) * size
+            end = start + size
+            authors = authors[start:end]
+        except ValueError:
+            return Response({"error": "Invalid pagination parameters"}, status=400)
+    
     serializer = AuthorSerializer(authors, many=True)
 
     return Response({
