@@ -8,10 +8,10 @@
         <ul>
             <li>
                 <strong>{{ request.actor.displayName }} ({{ request.actor.id }})</strong>   wants to follow you.
-                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}">
+                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}", data-display-name="{{ request.actor.displayName }}">
                     Approve
                 </button>
-                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}">
+                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}", data-display-name="{{ request.actor.displayName }}">
                     Deny
                 </button>
             </li>
@@ -43,13 +43,19 @@
             button.onclick = async function () {
                 let followerId = this.getAttribute("data-follower-id");
                 let authorId = "{{ my_author_id }}";  // Local author ID
+                            // Get current domain for comparison
+                const currentHost = window.location.origin;
+            
+                // Determine if post is from our node or foreign
+                const isLocalFollow = followerId.includes(currentHost)
+                           
 
                 // Construct follower JSON data (Modify as needed)
                 let followerData = {
                     "type": "author",
                     "id": followerId,
                     "host": followerId.split("/authors/")[0] + "/",
-                    "displayName": "Unknown",  // Modify to get actual name
+                    "displayName": displayName,
                     "page": followerId.replace("/api/", "/"),
                     "github": "",
                     "profileImage": ""
@@ -72,10 +78,29 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Follow request approved!");
-                    this.parentElement.innerHTML = `<span class="text-success">Approved ✅</span>`;
+                    this.parentElement.innerHTML = `<span class="text-success">Approved </span>`;
                 } else {
                     alert(result.error || "Error approving follow request.");
                 }
+                if (!isLocalFollow){
+                    console.log("Not a local follow, sending a follow decision")
+                    const apiUrl = `/social/api/send-follow-decision-to-inbox/`;
+                    console.log("Sending follow decision to :", apiUrl);
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            followerId: followerId,
+                        })
+                    });
+
+                }
+
             };
         });
 

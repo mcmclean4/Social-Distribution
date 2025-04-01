@@ -253,6 +253,9 @@ class InboxView(APIView):
         
         if item_type == 'update':
             item_type = 'post'
+        if item_type =='follow-decision':
+            print("Follow-decision received in inbox")
+            return jsonify({'status': 'ok'}), 200
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node
@@ -291,8 +294,6 @@ class InboxView(APIView):
                 follower_id=follower_id,
                 defaults={"summary": data.get("summary", ""), "status": "pending"}
             )
-            inbox.inbox_follows.add(follow_request)
-
             inbox.inbox_follows.add(follow_request)
 
 

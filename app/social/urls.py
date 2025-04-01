@@ -7,7 +7,7 @@ from . import like_views
 from . import video_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
-from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, fetch_remote_authors_view,local_follow_finalize)
+from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, send_follow_decision_to_inbox, fetch_remote_authors_view,local_follow_finalize)
 from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
@@ -150,7 +150,8 @@ urlpatterns = [
     re_path(r'^api/authors/(?P<author_fqid>.+)$', views.get_author_with_fqid, name='get_author_with_fqid'), # needs to be after the get_author_and_post line
     path('api/send-comment-to-inbox/', send_comment_to_inbox_view, name='send_comment_to_inbox'),
     path('api/send-like-to-inbox/', send_like_to_inbox, name='send_like_to_inbox'),
-    # Add this to your urls.py file
+
     path('api/send-comment-like-to-inbox/', send_comment_like_to_inbox, name='send_comment_like_to_inbox'),
+    path('api/send-follow-decision-to-inbox/', send_follow_decision_to_inbox, name='send_follow_decision_to_inbox'),
 
 ]

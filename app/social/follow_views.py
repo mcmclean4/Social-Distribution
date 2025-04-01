@@ -225,6 +225,51 @@ def local_follow_finalize(request):
         }, status=500)
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_follow_decision_to_inbox(request):
+    print("sending follow decision to inbox")
+    print(request.data)
+    data = request.data
+    follower_id = data.get('follower_id')
+    author = Author.objects.get(user=request.user)
+    follower =  Author.objects.get(id = follower_id)
+    inbox_url = f"{follower_id}/inbox"
+    decision_data = {
+        "type": "follow-decision",
+        "decision": "true",
+        "actor":{
+            "type": "author",
+            "id":follower_id,
+            "host": follower.host,
+            "displayName": follower.displayName,
+            "page": follower.page,
+            "github": follower.github,
+            "profileImage": follower.profileImage
+        },
+        "object":{
+            "type": "author",
+            "id": author.id,
+            "host": author.host,
+            "displayName": author.displayName,
+            "page": author.page,
+            "github": author.github,
+            "profileImage": author.profileImage
+        }
+    }
+    print("decision_data:", decision_data)
+    print(f"INBOX URL: {inbox_url}")
+    response = requests.post(
+        inbox_url,
+        json = decision_data
+        auth=(post_node.auth_username, post_node.auth_password),
+            headers={"Content-Type": "application/json"},
+            timeout=5
+    )
+    response.raise_for_status()
+    print(f"Successfully sent comment to {post.author.id}")
+
+
 class FollowersListView(APIView):
     """Manages the list of authors that are following an author."""
     
