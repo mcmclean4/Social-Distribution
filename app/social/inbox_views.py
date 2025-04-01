@@ -14,6 +14,7 @@ from .authentication import NodeBasicAuthentication
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.http import JsonResponse
 
 
 def follow_inbox_view(request):
@@ -255,7 +256,7 @@ class InboxView(APIView):
             item_type = 'post'
         if item_type =='follow-decision':
             print("Follow-decision received in inbox")
-            return jsonify({'status': 'ok'}), 200
+            return JsonResponse({'status': 'ok'}, status=200)
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node

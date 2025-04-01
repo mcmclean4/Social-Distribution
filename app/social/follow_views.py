@@ -236,6 +236,8 @@ def send_follow_decision_to_inbox(request):
     follower =  Author.objects.get(id = follower_id)
     decision = data.get('decision')
     inbox_url = f"{follower_id}/inbox"
+
+    node = Node.objects.get(base_url=author.host)
     decision_data = {
         "type": "follow-decision",
         "decision": decision,
@@ -262,13 +264,14 @@ def send_follow_decision_to_inbox(request):
     print(f"INBOX URL: {inbox_url}")
     response = requests.post(
         inbox_url,
-        json = decision_data
-        auth=(post_node.auth_username, post_node.auth_password),
+        json = decision_data,
+        auth=(node.auth_username, node.auth_password),
             headers={"Content-Type": "application/json"},
             timeout=5
     )
     response.raise_for_status()
-    print(f"Successfully sent comment to {post.author.id}")
+    print(f"Successfully sent follow_decision to {follower_id}'s inbox")
+    return Response({"message": "Follow decision sent to inbox"}, status=200)
 
 
 class FollowersListView(APIView):

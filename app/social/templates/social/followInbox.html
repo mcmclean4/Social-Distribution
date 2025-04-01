@@ -42,13 +42,33 @@
         document.querySelectorAll(".approve-follow").forEach(button => {
             button.onclick = async function () {
                 let followerId = this.getAttribute("data-follower-id");
+                let displayName = this.getAttribute("data-display-name");
                 let authorId = "{{ my_author_id }}";  // Local author ID
                             // Get current domain for comparison
                 const currentHost = window.location.origin;
             
                 // Determine if post is from our node or foreign
                 const isLocalFollow = followerId.includes(currentHost)
-                           
+                            
+                if (!isLocalFollow){
+                    console.log("Not a local follow, sending a follow decision")
+                    const apiUrl = `/social/api/send-follow-decision-to-inbox/`;
+                    console.log("Sending follow decision to :", apiUrl);
+                    let decisionResponse = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            follower_id: followerId,
+                            decision: "true"
+                        })
+                    });
+
+                }
 
                 // Construct follower JSON data (Modify as needed)
                 let followerData = {
@@ -82,25 +102,7 @@
                 } else {
                     alert(result.error || "Error approving follow request.");
                 }
-                if (!isLocalFollow){
-                    console.log("Not a local follow, sending a follow decision")
-                    const apiUrl = `/social/api/send-follow-decision-to-inbox/`;
-                    console.log("Sending follow decision to :", apiUrl);
-                    response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({
-                            followerId: followerId,
-                            deecision: "true"
-                        })
-                    });
 
-                }
 
             };
         });
@@ -119,26 +121,12 @@
 
                 console.log("Denying follow request, sending DELETE to:", inboxUrl); // Debugging
 
-                let response = await fetch(inboxUrl, { 
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json",
-                            "X-CSRFToken": getCookie("csrftoken")
-                     },
-                    body: JSON.stringify({ follower_id: followerId })  // ✅ Sending in body instead of URL
-                });
 
-                let result = await response.json();
-                if (response.ok) {
-                    alert(result.message || "Follow request denied.");
-                    this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
-                } else {
-                    alert(result.error || "Error denying follow request.");
-                }
                 if (!isLocalFollow){
                     console.log("Not a local follow, sending a follow decision")
                     const apiUrl = `/social/api/send-follow-decision-to-inbox/`;
                     console.log("Sending follow decision to :", apiUrl);
-                    response = await fetch(apiUrl, {
+                    let decisionResponse = await fetch(apiUrl, {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': getCookie('csrftoken'),
@@ -147,11 +135,27 @@
                         },
                         credentials: 'same-origin',
                         body: JSON.stringify({
-                            followerId: followerId,
+                            follower_id: followerId,
                             decision: "false"
                         })
                     });
 
+                }
+
+                let response = await fetch(inboxUrl, { 
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json",
+                            "X-CSRFToken": getCookie("csrftoken")
+                     },
+                    body: JSON.stringify({ follower_id: followerId }) 
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    alert(result.message || "Follow request denied.");
+                    this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
+                } else {
+                    alert(result.error || "Error denying follow request.");
                 }
             };
         });
