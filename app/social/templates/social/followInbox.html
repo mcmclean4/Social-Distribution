@@ -96,6 +96,7 @@
                         credentials: 'same-origin',
                         body: JSON.stringify({
                             followerId: followerId,
+                            deecision: "true"
                         })
                     });
 
@@ -108,6 +109,10 @@
             button.onclick = async function () {
                 let followerId = this.getAttribute("data-follower-id");
                 let authorId = "{{ my_author_id }}";  // Ensure the local author ID is used
+                const currentHost = window.location.origin;
+            
+                // Determine if post is from our node or foreign
+                const isLocalFollow = followerId.includes(currentHost)
 
                 // Correct URL for denying follow requests
                 let inboxUrl = `${authorId}/inbox`;
@@ -128,6 +133,25 @@
                     this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
                 } else {
                     alert(result.error || "Error denying follow request.");
+                }
+                if (!isLocalFollow){
+                    console.log("Not a local follow, sending a follow decision")
+                    const apiUrl = `/social/api/send-follow-decision-to-inbox/`;
+                    console.log("Sending follow decision to :", apiUrl);
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            followerId: followerId,
+                            decision: "false"
+                        })
+                    });
+
                 }
             };
         });

@@ -234,10 +234,11 @@ def send_follow_decision_to_inbox(request):
     follower_id = data.get('follower_id')
     author = Author.objects.get(user=request.user)
     follower =  Author.objects.get(id = follower_id)
+    decision = data.get('decision')
     inbox_url = f"{follower_id}/inbox"
     decision_data = {
         "type": "follow-decision",
-        "decision": "true",
+        "decision": decision,
         "actor":{
             "type": "author",
             "id":follower_id,
