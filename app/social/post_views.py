@@ -248,7 +248,18 @@ def send_post_to_remote_followers(post, author, post_type='post'):
                             headers={"Content-Type": "application/json"},
                             timeout=5
                         )
+                        if not response.ok:
+                            post_data['type'] = 'post'
+                            response = requests.post(
+                            inbox_url,
+                            json=post_data,
+                            auth=(node.auth_username, node.auth_password),
+                            headers={"Content-Type": "application/json"},
+                            timeout=5
+                        )
                         response.raise_for_status()
+                        print(response)
+                        
                         print(f"Successfully sent post to {recipient_id}")
                     except Exception as e:
                         print(f"Failed to send post to {recipient_id}: {str(e)}")
