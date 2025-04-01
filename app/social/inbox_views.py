@@ -15,9 +15,22 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse
-from .distribution_utils import distribute_likes
 import traceback
+from .distribution_utils import distribute_comments, distribute_comment_likes, distribute_likes
 
+
+NODE_IP = getattr(settings, "NODE_IP", None)
+
+def is_author_in_our_node(author_id):
+    """
+    Check if an author belongs to our node by simply checking if the author ID contains our local IP.
+    """
+    try:
+        # Simply check if the NODE_IP is present in the author_id
+        return NODE_IP in author_id
+    except Exception as e:
+        print(f"From inbox_views: Error checking if author is in our node: {str(e)}")
+        return False
 
 def follow_inbox_view(request):
     """Fetches the inbox and filters only follow requests."""
@@ -27,7 +40,7 @@ def follow_inbox_view(request):
 
     my_author = request.user.author  # Get the logged-in author's profile
     my_author_id = my_author.id
-    print(f" Logged-in Author ID: {my_author_id}")  # Debugging: See Author ID in logs
+    print(f"From inbox_views:  Logged-in Author ID: {my_author_id}")  # Debugging: See Author ID in logs
 
     # Construct the API URL for retrieving inbox data
     inbox_url = f"{my_author_id}/inbox"
@@ -44,7 +57,7 @@ def follow_inbox_view(request):
         ]
 
     except requests.exceptions.RequestException as e:  # Correct exception handling
-        print(f"Error fetching inbox data: {e}")
+        print(f"From inbox_views: Error fetching inbox data: {e}")
         follow_requests = []
 
     return render(request, "social/followInbox.html", {
@@ -67,7 +80,7 @@ class InboxView(APIView):
         author_id = unquote(author_id)
         expected_author_id = f"http://{request.get_host()}/social/api/authors/{author_id}"
 
-        print(f"Fetching inbox for: {expected_author_id}")
+        print(f"From inbox_views: Fetching inbox for: {expected_author_id}")
 
         # Get the author's inbox
         author = get_object_or_404(Author, id=expected_author_id)
@@ -105,7 +118,6 @@ class InboxView(APIView):
         for comment in inbox.inbox_comments.all():
             inbox_items.append(self.format_comments(comment))
 
-        print(f"Returning {len(inbox_items)} items in the inbox.")
         return Response({"type": "inbox", "items": inbox_items}, status=status.HTTP_200_OK)
 
     def get_author_details(self, author_url):
@@ -125,7 +137,7 @@ class InboxView(APIView):
                 "page": author_data.get("page", author_url.replace("/api/", "/")),
             }
         except requests.exceptions.RequestException as e:
-            print(f" Error fetching author details for {author_url}: {e}")
+            print(f"From inbox_views:  Error fetching author details for {author_url}: {e}")
             return None
 
     def format_author(self,author):
@@ -257,12 +269,12 @@ class InboxView(APIView):
         if item_type == 'update':
             item_type = 'post'
         if item_type =='follow-decision':
-            print("Follow-decision received in inbox")
+            print("From inbox_views: Follow-decision received in inbox")
             return JsonResponse({'status': 'ok'}, status=200)
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node
-            return Response({"error": "Disabled Node"}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "From inbox_views: Disabled Node"}, status=status.HTTP_403_FORBIDDEN)
 
         if item_type == "follow":
             actor_data = data.get("actor", {})
@@ -272,7 +284,7 @@ class InboxView(APIView):
                 follower_id = follower_id[:-1]  # Remove the last character
 
             if not follower_id:
-                return Response({"error": "Missing actor id"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "From inbox_views: Missing actor id"}, status=status.HTTP_400_BAD_REQUEST)
 
             # Compare actor (sender) host to receiver's host
             if follower_host and follower_host.rstrip("/") != author.host.rstrip("/"):
@@ -281,7 +293,7 @@ class InboxView(APIView):
             
                 node, created = Node.objects.get_or_create(base_url=follower_host)
                 if created:
-                    print(f"Created new Node entry for host: {follower_host}")
+                    print(f"From inbox_views: Created new Node entry for host: {follower_host}")
 
             follower, created = Author.objects.update_or_create(
                 id=follower_id,
@@ -304,7 +316,7 @@ class InboxView(APIView):
 
         elif item_type == "like":
             print("Received a like in the inbox")
-            print(f"THIS IS THE LIKE DATA: {data}")
+            print(f"From inbox_views: THIS IS THE LIKE DATA: {data}")
             like_id = data.get("id")
             like_object = data.get("object")  # The URL of the post or comment being liked
             like_author_data = data.get("author", {})
@@ -318,6 +330,10 @@ class InboxView(APIView):
             if like_author_id.endswith('/'):
                 like_author_id = like_author_id[:-1]  # Remove the last character
 
+        # Add debug logs
+            print(f"DEBUG:From inbox_views:  Processing like from author ID: {like_author_id}")
+            print(f"DEBUG: From inbox_views: Like object URL: {like_object}")
+
             # Create or update the author (may be remote)
             author_instance, _ = Author.objects.update_or_create(
                 id=like_author_id,
@@ -330,22 +346,38 @@ class InboxView(APIView):
                 }
             )
 
-            like_obj = Like.objects.filter(
-                author=author_instance,
-                object=like_object
-            ).first()
+            # Debug existing likes
+            existing_likes = Like.objects.filter(author=author_instance, object=like_object)
+            print(f"DEBUG: Found {existing_likes.count()} existing likes with the same author and object")
+            for idx, existing_like in enumerate(existing_likes):
+                print(f"DEBUG: Existing like #{idx+1} - ID: {existing_like.id}, Object: {existing_like.object}, Published: {existing_like.published}")
 
+            # Try getting the first existing like
+            like_obj = existing_likes.first()
+            
             if not like_obj:
+                print("DEBUG: No existing like found, creating a new one")
                 like_obj = Like.objects.create(
                     author=author_instance,
                     object=like_object,
                     published=like_published
                 )
+                print(f"DEBUG: From inbox_views: Created new like with ID: {like_obj.id}")
                 inbox.inbox_likes.add(like_obj)
                 print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
+                
+                # After creating, verify if it's now findable
+                verify_like = Like.objects.filter(author=author_instance, object=like_object).first()
+                if verify_like:
+                    print(f"DEBUG: Verification - Like found after creation with ID: {verify_like.id}")
+                else:
+                    print("DEBUG: Verification - Like still not found after creation!")
             else:
-                print("Like already exists")
-                return Response({"error": "Like already exists"}, status=status.HTTP_409_CONFLICT)
+                print(f"DEBUG: Existing like found with ID: {like_obj.id}")
+                print("From inbox_views: Like already exists")
+                
+                print(f"DEBUG: Added existing like to inbox anyway to avoid errors")
+                return Response({"message": "Like already exists"}, status=status.HTTP_200_OK)
 
             try:
                 # Determine if this is a post like or a comment like
@@ -356,7 +388,7 @@ class InboxView(APIView):
                     # For post likes
                     parts = like_object.split('/posts/')
                     content_author_id = parts[0]  # This gives us the full author URL
-                    print(f"Identified as post like for author: {content_author_id}")
+                    print(f"From inbox_views: Identified as post like for author: {content_author_id}")
                     
                 elif '/comments/' in like_object or '/commented/' in like_object:
                     # For comment likes - first get the comment to find the associated post
@@ -386,31 +418,32 @@ class InboxView(APIView):
                             if '/posts/' in post_id:
                                 parts = post_id.split('/posts/')
                                 content_author_id = parts[0]  # The author of the post
-                                print(f"Identified as comment like for post by author: {content_author_id}")
+                                print(f"From inbox_views: Identified as comment like for post by author: {content_author_id}")
                             else:
-                                print(f"Unusual post ID format: {post_id}")
+                                print(f"From inbox_views: Unusual post ID format: {post_id}")
                         else:
-                            print(f"Comment not found for ID: {comment_id}")
+                            print(f"From inbox_views: Comment not found for ID: {comment_id}")
                     except Exception as e:
                         print(f"Error finding comment: {str(e)}")
                         print(traceback.format_exc())
                 else:
-                    print(f"Unrecognized object URL format: {like_object}")
+                    print(f"From inbox_views: Unrecognized object URL format: {like_object}")
                     
                 if content_author_id:
                     # Call the appropriate distribution function based on like type
-                    if is_comment_like:
-                        # Use the specialized function for comment likes
-                        distribute_comment_likes(like_obj, data, content_author_id)
-                        print(f"Distributed comment like to followers of: {content_author_id}")
-                    else:
-                        # Use the regular function for post likes
-                        distribute_likes(like_obj, data, content_author_id)
-                        print(f"Distributed post like to followers of: {content_author_id}")
+                    if is_author_in_our_node(content_author_id):
+                        if is_comment_like:
+                            # Use the specialized function for comment likes
+                            distribute_comment_likes(like_obj, data, content_author_id)
+                            print(f"From inbox_views: Distributed comment like to followers of: {content_author_id}")
+                        else:
+                            # Use the regular function for post likes
+                            distribute_likes(like_obj, data, content_author_id)
+                            print(f"From inbox_views: Distributed post like to followers of: {content_author_id}")
                 else:
-                    print(f"Could not determine content author from like object URL: {like_object}")
+                    print(f"From inbox_views: Could not determine content author from like object URL: {like_object}")
             except Exception as e:
-                print(f"Error distributing like: {str(e)}")
+                print(f"From inbox_views: Error distributing like: {str(e)}")
                 print(traceback.format_exc())
 
         elif item_type.lower() == "comment":
@@ -430,7 +463,7 @@ class InboxView(APIView):
 
             # Ensure required fields are present
             if not (comment_id and comment_author_id and comment_post_id and comment_content):
-                return Response({"error": "Missing required comment fields"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "From inbox_views: Missing required comment fields"}, status=status.HTTP_400_BAD_REQUEST)
 
             # Get or create the comment author (handle remote authors)
             author_instance, _ = Author.objects.update_or_create(
@@ -464,7 +497,7 @@ class InboxView(APIView):
             )
 
             inbox.inbox_comments.add(comment)
-            print(f"[INFO] Stored comment by {author_instance.displayName} on post {comment_post_id}")
+            print(f"[INFO]From inbox_views:  Stored comment by {author_instance.displayName} on post {comment_post_id}")
 
             try:
                 # Extract the content author ID from the post ID
@@ -474,13 +507,14 @@ class InboxView(APIView):
                 content_author_id = post_instance.author.id
                 
                 if content_author_id:
-                    # Call the distribute_comments function
-                    distribute_comments(comment, data, content_author_id)
+                    if is_author_in_our_node(content_author_id):
+                        # Call the distribute_comments function
+                        distribute_comments(comment, data, content_author_id)
                 else:
-                    print(f"Could not determine content author for comment on post: {comment_post_id}")
+                    print(f"From inbox_views: Could not determine content author for comment on post: {comment_post_id}")
             except Exception as e:
                 import traceback
-                print(f"Error distributing comment: {str(e)}")
+                print(f"From inbox_views: Error distributing comment: {str(e)}")
                 print(traceback.format_exc())
 
 
@@ -498,15 +532,12 @@ class InboxView(APIView):
             post_page = data.get("page", "")
             post_author_data = data.get("author", {})
             post_author_id = post_author_data.get("id", "")
-
-            print("HERE0")
-            print(post_id)
+            print("From inbox_views: Post Id is" post_id)
             
             
             #if not (post_id and post_author_id and post_title):
                 #return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-            print("HERE1")
             
             # Ensure author exists (remote or local)
             author_instance, _ = Author.objects.update_or_create(
@@ -519,8 +550,6 @@ class InboxView(APIView):
                     "page": post_author_data.get("page", "")
                 }
             )
-
-            print("HERE2")
             
             # Save the post with the remote ID
             post, _ = Post.objects.update_or_create(
@@ -537,10 +566,9 @@ class InboxView(APIView):
                 }
             )
             
-            print("HERE3")
 
             inbox.inbox_posts.add(post)
-            print(f"[INFO] Stored post '{post_title}' from {post_author_id}")
+            print(f"[INFO] From inbox_views: Stored post '{post_title}' from {post_author_id}")
 
 
 
