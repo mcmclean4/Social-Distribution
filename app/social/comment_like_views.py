@@ -1,18 +1,21 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Author, Comment, Like, Node
+from .models import Author, Comment, Like, Node,Post
 from .serializers import LikeSerializer
 import requests 
 import uuid
 from datetime import datetime
+import traceback
+from .distribution_utils import distribute_likes, distribute_comment_likes
 
 
 @api_view(['POST'])
 def send_comment_like_to_inbox(request):
     """
     Receives a like request from frontend for a remote comment
-    and sends it to the appropriate inbox
+    and sends it to the appropriate inbox.
+    Also distributes the like to followers of the post author if it's a local post.
     """
     try:
         print("Sending Comment Like to inbox")
@@ -75,6 +78,23 @@ def send_comment_like_to_inbox(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
+        # Get or extract the post author's ID
+        post_author_id = None
+        # First try to get from the post if it exists locally
+        try:
+            post = Post.objects.get(id=post_fqid)
+            post_author_id = post.author.id
+            print(f"Found local post, author ID: {post_author_id}")
+        except Post.DoesNotExist:
+            # Extract from the post_fqid
+            if '/authors/' in post_fqid and '/posts/' in post_fqid:
+                parts = post_fqid.split('/authors/')
+                host = parts[0]
+                remainder = parts[1]
+                author_id_part = remainder.split('/posts/')[0]
+                post_author_id = f"{host}/authors/{author_id_part}"
+                print(f"Extracted post author ID: {post_author_id}")
+        
         # Comment already exists (should always happen)
         # Check if the like already exists
         existing_like = Like.objects.filter(
@@ -82,6 +102,7 @@ def send_comment_like_to_inbox(request):
             object=existing_comment.id
         ).first()
         
+        new_like = None
         if existing_like:
             # Unlike if already liked
             existing_like.delete()
@@ -100,9 +121,19 @@ def send_comment_like_to_inbox(request):
             like_count = Like.objects.filter(object=existing_comment.id).count()
             print(f"Updated like count: {like_count}")
             
-            # Send to inbox
+            # Determine if this is a local or remote post/comment
+            is_local_post = False
+            current_host = request.get_host()
+            
+            if post_fqid.startswith(f"http://{current_host}") or post_fqid.startswith(f"https://{current_host}"):
+                is_local_post = True
+                print(f"This is a local post: {post_fqid}")
+            else:
+                print(f"This is a remote post: {post_fqid}")
+            
+            # Send to the comment author's inbox
             try:
-                # Extract host and author ID from the post ID
+                # Extract host and author ID from the comment
                 print(f"comment made by {existing_comment.author.id}")
                 comment_author = Author.objects.get(id=existing_comment.author.id)
                 print(f"fetched comment_author {comment_author.id}")
@@ -149,6 +180,34 @@ def send_comment_like_to_inbox(request):
                 print(f"Node does not exist for host: {host}")
             except Exception as e:
                 print(f"Failed to send comment like to inbox: {str(e)}")
+            
+            # If it's a local post, distribute the like to the post author's followers
+            if is_local_post and new_like and post_author_id:
+                try:
+                    # Create the like data structure for distribution
+                    distribute_like_data = {
+                        "type": "like",
+                        "author": {
+                            "type": "author",
+                            "id": liker.id,
+                            "host": liker.host,
+                            "displayName": liker.displayName,
+                            "page": liker.page,
+                            "github": liker.github,
+                            "profileImage": liker.profileImage
+                        },
+                        "published": new_like.published.isoformat(),
+                        "id": new_like.id,
+                        "object": existing_comment.id,
+                        "summary": f"{liker.displayName} liked a comment on a post by {existing_comment.author.displayName}"
+                    }
+                    
+                    # Distribute the like to followers of the post author
+                    distribute_comment_likes(new_like, distribute_like_data, post_author_id)
+                    print(f"Distributed comment like to followers of post author: {post_author_id}")
+                except Exception as e:
+                    print(f"Error distributing comment like to followers: {str(e)}")
+                    print(traceback.format_exc())
         
         # Update like count
         like_count = Like.objects.filter(object=existing_comment.id).count()
@@ -172,8 +231,7 @@ def send_comment_like_to_inbox(request):
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
+        )   
 
 
 @api_view(['GET'])

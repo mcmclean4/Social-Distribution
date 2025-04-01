@@ -15,6 +15,8 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.http import JsonResponse
+from .distribution_utils import distribute_likes
+import traceback
 
 
 def follow_inbox_view(request):
@@ -266,6 +268,8 @@ class InboxView(APIView):
             actor_data = data.get("actor", {})
             follower_id = actor_data.get("id")
             follower_host = actor_data.get("host")
+            if follower_id.endswith('/'):
+                follower_id = follower_id[:-1]  # Remove the last character
 
             if not follower_id:
                 return Response({"error": "Missing actor id"}, status=status.HTTP_400_BAD_REQUEST)
@@ -310,6 +314,10 @@ class InboxView(APIView):
             if not (like_id and like_object and like_author_id):
                 return Response({"error": "Missing required like fields"}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Check if like_author_id ends with '/' and remove it if it does
+            if like_author_id.endswith('/'):
+                like_author_id = like_author_id[:-1]  # Remove the last character
+
             # Create or update the author (may be remote)
             author_instance, _ = Author.objects.update_or_create(
                 id=like_author_id,
@@ -336,9 +344,74 @@ class InboxView(APIView):
                 inbox.inbox_likes.add(like_obj)
                 print(f"[INFO] Stored Like from {like_author_id} on {like_object}")
             else:
-                print("Like arlready exists")
-                return Response({"error": "Follow request already exists"}, status=status.HTTP_409_CONFLICT)
+                print("Like already exists")
+                return Response({"error": "Like already exists"}, status=status.HTTP_409_CONFLICT)
 
+            try:
+                # Determine if this is a post like or a comment like
+                is_comment_like = False
+                content_author_id = None
+                
+                if '/posts/' in like_object:
+                    # For post likes
+                    parts = like_object.split('/posts/')
+                    content_author_id = parts[0]  # This gives us the full author URL
+                    print(f"Identified as post like for author: {content_author_id}")
+                    
+                elif '/comments/' in like_object or '/commented/' in like_object:
+                    # For comment likes - first get the comment to find the associated post
+                    is_comment_like = True
+                    
+                    if '/comments/' in like_object:
+                        comment_id = like_object
+                    else:  # '/commented/' in like_object
+                        comment_id = like_object
+                    
+                    try:
+                        # Try to find the comment
+                        comment = None
+                        # First try exact match
+                        try:
+                            comment = Comment.objects.get(id=comment_id)
+                        except Comment.DoesNotExist:
+                            # Try to match by the UUID part at the end
+                            uuid_part = comment_id.split('/')[-1]
+                            comment = Comment.objects.filter(id__endswith=uuid_part).first()
+                        
+                        if comment:
+                            # Get the post associated with the comment
+                            post_id = comment.post
+                            
+                            # Extract the post author ID from the post ID
+                            if '/posts/' in post_id:
+                                parts = post_id.split('/posts/')
+                                content_author_id = parts[0]  # The author of the post
+                                print(f"Identified as comment like for post by author: {content_author_id}")
+                            else:
+                                print(f"Unusual post ID format: {post_id}")
+                        else:
+                            print(f"Comment not found for ID: {comment_id}")
+                    except Exception as e:
+                        print(f"Error finding comment: {str(e)}")
+                        print(traceback.format_exc())
+                else:
+                    print(f"Unrecognized object URL format: {like_object}")
+                    
+                if content_author_id:
+                    # Call the appropriate distribution function based on like type
+                    if is_comment_like:
+                        # Use the specialized function for comment likes
+                        distribute_comment_likes(like_obj, data, content_author_id)
+                        print(f"Distributed comment like to followers of: {content_author_id}")
+                    else:
+                        # Use the regular function for post likes
+                        distribute_likes(like_obj, data, content_author_id)
+                        print(f"Distributed post like to followers of: {content_author_id}")
+                else:
+                    print(f"Could not determine content author from like object URL: {like_object}")
+            except Exception as e:
+                print(f"Error distributing like: {str(e)}")
+                print(traceback.format_exc())
 
         elif item_type.lower() == "comment":
             print("received comment")
@@ -351,6 +424,9 @@ class InboxView(APIView):
             print(f"THIS IS POST ID: {comment_post_id}")
             comment_published = data.get("published", timezone.now().isoformat())
             comment_content_type = data.get("contentType", "text/markdown")
+
+            if comment_author_id.endswith('/'):
+                comment_author_id = comment_author_id[:-1]  # Remove the last character
 
             # Ensure required fields are present
             if not (comment_id and comment_author_id and comment_post_id and comment_content):
@@ -389,6 +465,23 @@ class InboxView(APIView):
 
             inbox.inbox_comments.add(comment)
             print(f"[INFO] Stored comment by {author_instance.displayName} on post {comment_post_id}")
+
+            try:
+                # Extract the content author ID from the post ID
+                content_author_id = None
+                
+                # For post comments, the post_instance.author.id already gives us the content author
+                content_author_id = post_instance.author.id
+                
+                if content_author_id:
+                    # Call the distribute_comments function
+                    distribute_comments(comment, data, content_author_id)
+                else:
+                    print(f"Could not determine content author for comment on post: {comment_post_id}")
+            except Exception as e:
+                import traceback
+                print(f"Error distributing comment: {str(e)}")
+                print(traceback.format_exc())
 
 
 
