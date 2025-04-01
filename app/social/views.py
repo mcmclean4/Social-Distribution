@@ -31,6 +31,10 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .forms import EditProfileForm
+from .models import Author
 
 # Like
 from .models import Post, Comment
@@ -293,40 +297,47 @@ def get_authors(request):
         "authors": serializer.data
     })
 
-@login_required
+
 def profile_page(request, id):
     """Retrieves the profile page of an author."""
     base_url = get_base_url(request)  # Get the correct host dynamically
     full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct correct ID
     
-    # Get the author
-    currentAuthor = get_object_or_404(Author, id=full_author_id)
-    
-    following_number =  len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
-    follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
-    
-    # Get all posts by this author (excluding deleted)
-    posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
-
-    # Format posts for rendering
-    postsToRender = []
-    for post in posts:
-        postDict = {
-            "title": post["title"],
-            #"image": post["image"],
-            "content": post["content"],
-            "contentType": post["contentType"],
-            "description": post["description"],
-            "id": post["internal_id"]
-        }
-        postsToRender.append(postDict)
+    try:
+        # Get the author
+        currentAuthor = get_object_or_404(Author, id=full_author_id)
         
-    return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id, 'followers': follower_number, 'following': following_number})
+        following_number = len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
+        follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
+        
+        # Get all posts by this author (excluding deleted)
+        posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from .forms import EditProfileForm
-from .models import Author
+        # Format posts for rendering
+        postsToRender = []
+        for post in posts:
+            postDict = {
+                "title": post["title"],
+                "content": post["content"],
+                "contentType": post["contentType"],
+                "description": post["description"],
+                "id": post["internal_id"]
+            }
+            postsToRender.append(postDict)
+        
+        return render(request, 'social/profile.html', {
+            "posts": postsToRender,
+            "author": currentAuthor,
+            'profile_author_id': id,
+            'followers': follower_number,
+            'following': following_number
+        })
+    except Exception:
+        return render(request, 'social/not_found_author.html', status=404)
+
+def not_found_author(request):
+    """Renders a page when the author is not found."""
+    return render(request, 'social/not_found_author.html', {"message": "The requested author could not be found."})
 
 @login_required
 def profile_edit(request, id):
