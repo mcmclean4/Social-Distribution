@@ -2,9 +2,9 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Follow Authors</h2>
+    <h1 class="mb-4 text-center fw-bold">Follow Authors</h1>
 
-    <h4>Follow Remote Authors</h4>
+    <h4 class="text-center">Follow Remote Authors</h4>
     <select id="node-select" class="form-select mb-3">
         <option value="">-- Select a node --</option>
         {% for node in nodes %}
@@ -13,7 +13,7 @@
     </select>
     <div id="remote-authors" class="mb-4"></div>
 
-    <h4>Local Authors</h4>
+    <h4 class="mb-4 text-center">Local Authors</h4>
     {% if authors %}
         <ul>
         {% for author in authors %}
@@ -31,7 +31,7 @@
         {% endfor %}
         </ul>
     {% else %}
-        <p>No authors available</p>  
+        <p class="text-center">No authors available</p>  
     {% endif %}
 </div>
 
@@ -126,7 +126,7 @@
                 const authors = data.authors || [];
 
                 const container = document.getElementById("remote-authors");
-                container.innerHTML = "<h5>Remote Authors</h5><ul>";
+                container.innerHTML = "<h4 class='mb-4 text-center'>Remote Authors</h4><ul>";
 
                 authors.forEach(author => {
                     container.innerHTML += `

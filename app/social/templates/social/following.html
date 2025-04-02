@@ -1,7 +1,7 @@
 {% extends "social/base.html" %} {% block content %}
 
 <div class="container mt-4">
-	<h2>Users You're Following</h2>
+	<h1 class="mb-4 text-center fw-bold">Users You're Following</h1>
     {%if following_authors%}
         {%for author in following_authors%}
         <ul>

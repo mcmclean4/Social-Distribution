@@ -5,20 +5,26 @@
 <style>
     .gridContainer{
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1em;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5em;
+        margin-top: 2em;
     }
     
     h2{
         color: aqua;
     }
     .post {
-            position: relative;
-            width: 20em;
-            height: 20em;
-            border: 1px solid #ddd;
-            padding: 0px;
-            background-color: #fff;
+        position: relative;
+        width: 100%;
+        height: 300px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .post:hover {
+        transform: translateY(-5px);
     }
 
     .imagePost{
@@ -33,6 +39,8 @@
         align-items: center;
         justify-content: center;
         text-align: center;
+        padding: 1.5rem;
+        background-color: #f8f9fa;
         transition: 0.3s ease-in-out;
     }
 
@@ -43,38 +51,76 @@
         overflow: hidden;
         transition: opacity 0.3s ease-in-out;
     }
+    
+    .video-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #000;
+    }
+    
+    .video-container video {
+        max-width: 100%;
+        max-height: 100%;
+    }
 
     .post-title-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5em;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5em;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
     }
 
     .post:hover .post-title-overlay {
-    opacity: 1;
+        opacity: 1;
     }
 
     .post:hover .textPost {
-    filter: blur(3px);
+        filter: blur(3px);
     }   
 
     .post:hover .imagePost {
-    filter: blur(3px);
-    }   
+        filter: blur(3px);
+    }
+    
+    .post:hover .video-container {
+        filter: blur(3px);
+    }
+    
+    .profile-header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .profile-image-container {
+        margin-right: 2rem;
+    }
+    
+    .profile-info {
+        flex: 1;
+    }
+    
     .displayName{
-        display: inline;
-        margin-left: 0.5em;
-        margin-right: 2em;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+        color: #333;
     }
 
     .profilePicture{
@@ -83,45 +129,138 @@
         border-radius: 50%;
         object-fit: cover;
         border: 3px solid #333;
-        margin-bottom: 3em;
+    }
+    
+    .stats-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .stats-group {
+        display: flex;
+        gap: 1.5rem;
+        flex-grow: 1;
+    }
+    
+    .stat-box {
+        padding: 0.5rem 1rem;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #333;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    @media (max-width: 768px) {
+        .profile-header {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .profile-image-container {
+            margin-right: 0;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stats-container {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .stats-group {
+            justify-content: center;
+        }
     }
 </style>
-<div class="container mt-4">
-    <img src="{{ author.profileImage }}" alt="{{author.username}}" class="profilePicture">
-    <h1 class="displayName">{{ author.displayName }}</h1>
-    <h4 style="display: inline; margin-right: 1em;">Followers: {{ followers }}</h4>
-    <h4 style="display: inline; margin-right: 1em;">Following: {{ following }}</h4>
 
-    <form action="{% url 'social:profile_edit' id=author_id %}" style="display: inline;">
-        {% if author_id == profile_author_id %}
-        <button class="btn btn-primary" type="submit">Edit Profile</button>
-        {% endif %}
-    </form>
+<div class="container mt-4">
+    <div class="profile-header">
+        <div class="profile-image-container">
+            <img src="{{ author.profileImage }}" alt="{{author.username}}" class="profilePicture">
+        </div>
+        <div class="profile-info">
+            <h1 class="displayName">{{ author.displayName }}</h1>
+            
+            <div class="stats-container">
+                <div class="stats-group">
+                    <div class="stat-box">
+                        <div class="stat-value">{{ followers }}</div>
+                        <div class="stat-label">Followers</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">{{ following }}</div>
+                        <div class="stat-label">Following</div>
+                    </div>
+                </div>
+                
+                {% if author_id == profile_author_id %}
+                <div>
+                    <form action="{% url 'social:profile_edit' id=author_id %}">
+                        <button class="btn btn-primary" type="submit">Edit Profile</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="gridContainer">
         {% for post in posts %}
-        <a href="{% url 'social:post_detail' internal_id=post.id %}">
+        <a href="{% url 'social:post_detail' internal_id=post.id %}" class="text-decoration-none">
             <div class="post">
-                
-                    {% if post.contentType == 'text/plain' or post.contentType == 'text/markdown' %}
-                    <div class="textPost">
-                        <p> {{ post.content }} </p>
-                    </div>
-                    <div class="post-title-overlay">
-                        <h2>{{ post.title }}</h2>
-                    </div>
+                {% if post.contentType == 'text/plain' or post.contentType == 'text/markdown' %}
+                <div class="textPost">
+                    <p class="mb-0">{{ post.content }}</p>
+                </div>
+                <div class="post-title-overlay">
+                    <h2>{{ post.title }}</h2>
+                </div>
+                {% elif 'image' in post.contentType or post.contentType == 'application/base64' %}
+                <div class="imagePost">
+                    {% if 'image' in post.contentType %}
+                        <img src="data:{{ post.contentType }},{{ post.content }}" alt="{{ post.title }}">
                     {% else %}
-                    <div class="imagePost">
-                        <img src="/media/{{ post.image }}" class="postImage">
-                    </div>
-                    <div class="post-title-overlay">
-                        <h2>{{ post.title }}</h2>
-                    </div>
+                        <img src="data:image/webp;base64,{{ post.content }}" alt="{{ post.title }}">
                     {% endif %}
+                </div>
+                <div class="post-title-overlay">
+                    <h2>{{ post.title }}</h2>
+                </div>
+                {% elif 'video' in post.contentType %}
+                <div class="video-container">
+                    <video controls>
+                        <source src="/social/test-video/{{ post.internal_id }}/"
+                               type="{{ post.contentType|cut:';base64' }}">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="post-title-overlay">
+                    <h2>{{ post.title }}</h2>
+                </div>
+                {% else %}
+                <div class="textPost">
+                    <h3>{{ post.title }}</h3>
+                    <p class="small text-muted">Posted on {{ post.published|date:"M d, Y" }}</p>
+                </div>
+                <div class="post-title-overlay">
+                    <h2>{{ post.title }}</h2>
+                </div>
+                {% endif %}
             </div>
         </a>
         {% endfor %}
     </div>
-    
 </div>
 
 {% endblock %}
