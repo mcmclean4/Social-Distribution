@@ -7,7 +7,7 @@ from . import like_views
 from . import video_views
 from .views import *
 from .inbox_views import(InboxView, inbox_view, follow_inbox_view, )
-from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, send_follow_decision_to_inbox, fetch_remote_authors_view,local_follow_finalize)
+from .follow_views import (FollowerDetailView, FollowersListView, follow_view, followers_view, unfollow_view, following_view, friends_view, send_follow_decision_to_inbox, fetch_remote_authors_view,local_follow_finalize,send_unfollow_to_inbox)
 from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
@@ -155,6 +155,7 @@ urlpatterns = [
 
     path('api/send-comment-like-to-inbox/', send_comment_like_to_inbox, name='send_comment_like_to_inbox'),
     path('api/send-follow-decision-to-inbox/', send_follow_decision_to_inbox, name='send_follow_decision_to_inbox'),
+    path('api/send-unfollow-to-inbox/', send_unfollow_to_inbox, name='send_unfollow_to_inbox'),
 
     path('notifications/', notifications_views.notifications_home, name='notifications_home'),
     path('notifications/likes/', notifications_views.notifications_likes, name='notifications_likes'),

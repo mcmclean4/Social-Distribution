@@ -330,6 +330,7 @@ def comment_to_inbox(post, comment, author):
 
         # Send the post to the recipient's inbox
         print(f"INDOX URL: {inbox_url}")
+        print("sent comment is:",comment_data)
         response = requests.post(
             inbox_url,
             json=comment_data,

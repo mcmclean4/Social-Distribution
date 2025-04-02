@@ -325,13 +325,13 @@ def send_unfollow_to_inbox(request):
     print(f"INBOX URL: {inbox_url}")
     response = requests.post(
         inbox_url,
-        json = decision_data,
+        json=unfollow_data,
         auth=(node.auth_username, node.auth_password),
         headers={"Content-Type": "application/json"},
         timeout=5
     )
     response.raise_for_status()
-    print(f"Successfully sent unfollow to {follower_id}'s inbox")
+    print(f"Successfully sent unfollow to {followee_id}'s inbox")
     return Response({"message": "Unfollow sent to inbox"}, status=200)
 
 
@@ -545,36 +545,50 @@ def following_view(request):
     })
 
 def unfollow_view(request):
-    """Handles unfollowing an author by deleting the follow object in the database."""
-
-    print(" Unfollow request received. User:", request.user)
-
+    """
+    Handles unfollowing an author by deleting both the follow object and any related
+    follow request objects in the database.
+    """
+    print("Unfollow request received. User:", request.user)
+    
     if request.method != "DELETE":
         return JsonResponse({"error": "Invalid request method"}, status=405)
-
+        
     if not hasattr(request.user, 'author'):
         return JsonResponse({"error": "User is not an author"}, status=403)
-
+        
     try:
         data = json.loads(request.body)
         followee_id = data.get("followee_id")  # Get followee ID from request body
+        
         if not followee_id:
             return JsonResponse({"error": "Missing followee ID"}, status=400)
-
+            
         my_author = request.user.author  # Get logged-in author's profile
         print("Unfollowing:", followee_id, "from author:", my_author.id)
-
-        # Delete the follow object
-        deleted, _ = Follow.objects.filter(follower_id=my_author.id, followee__id=followee_id).delete()
-
-        if deleted:
-            return JsonResponse({"message": "Unfollowed successfully"}, status=200)
+        
+        # Delete both Follow and FollowRequest objects
+        follow_deleted, _ = Follow.objects.filter(
+            follower_id=my_author.id, 
+            followee__id=followee_id
+        ).delete()
+        
+        request_deleted, _ = FollowRequest.objects.filter(
+            follower_id=my_author.id, 
+            followee__id=followee_id
+        ).delete()
+        
+        if follow_deleted or request_deleted:
+            return JsonResponse({
+                "message": "Unfollowed successfully", 
+                "follow_deleted": bool(follow_deleted),
+                "request_deleted": bool(request_deleted)
+            }, status=200)
         else:
             return JsonResponse({"error": "Not following this author"}, status=404)
-
+            
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
-
 
 def friends_view(request):
     """Shows a list of friends (mutual followers) of the logged-in user."""
