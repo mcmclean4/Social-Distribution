@@ -10,6 +10,8 @@ import requests
 import uuid
 from datetime import datetime
 from .authentication import NodeBasicAuthentication
+from .distribution_utils import distribute_comments
+import traceback
 
 
 @api_view(['GET', 'POST'])
@@ -101,6 +103,108 @@ def get_post_comments(request, author_id, post_serial):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+def create_local_comment(request):
+    """
+    Create a comment directly for a local post without making additional API requests
+    Also distributes the comment to remote followers
+    """
+    try:
+        # Get data from request
+        data = request.data
+        author_id = data.get('authorId')
+        post_id = data.get('postId')
+        post_fqid = data.get('postFqid')
+        comment_text = data.get('comment')
+        content_type = data.get('contentType', 'text/markdown')
+        
+        if not all([author_id, post_id, comment_text]):
+            return Response(
+                {"error": "Missing required fields"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the current user's author object
+        current_author = Author.objects.get(user=request.user)
+        
+        # Get the post (it should exist since it's a local post)
+        try:
+            post = Post.objects.get(id=post_fqid)
+        except Post.DoesNotExist:
+            # Try to get by internal ID if FQID fails
+            try:
+                post = Post.objects.get(internal_id=post_id)
+            except Post.DoesNotExist:
+                return Response(
+                    {"error": "Post not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        # Create the comment
+        comment = Comment.objects.create(
+            post=post_fqid or post.id,
+            author=current_author,
+            comment=comment_text,
+            contentType=content_type
+        )
+        
+        # Distribute the comment to the post author's inbox if it's not the same as the commenter
+        if post.author.id != current_author.id:
+            try:
+                comment_to_inbox(post, comment, current_author)
+            except Exception as e:
+                print(f"Error sending comment to inbox: {str(e)}")
+        
+        # Distribute the comment to followers
+        try:
+            comment_data = {
+                "type": "comment",
+                "author": {
+                    "type": "author", 
+                    "id": current_author.id,
+                    "host": current_author.host,
+                    "displayName": current_author.displayName,
+                    "page": current_author.page,
+                    "github": current_author.github,
+                    "profileImage": current_author.profileImage
+                },
+                "comment": comment.comment,
+                "contentType": comment.contentType,
+                "published": comment.published.isoformat(),
+                "id": comment.id,
+                "post": post.id
+            }
+            
+            distribute_comments(comment, comment_data, post.author.id)
+            print(f"[INFO] Distributed comment to followers of {post.author.displayName}")
+        except Exception as e:
+            print(f"[WARNING] Error distributing comment to followers: {str(e)}")
+            print(traceback.format_exc())
+        
+        # Return comment data for frontend display
+        comment_data = {
+            "id": str(comment.id),
+            "post": post_fqid or post.id,
+            "author": {
+                "id": current_author.id,
+                "displayName": current_author.displayName,
+                "host": current_author.host,
+                "url": current_author.page,
+            },
+            "comment": comment_text,
+            "contentType": content_type,
+            "published": comment.published.isoformat()
+        }
+        
+        return Response(comment_data, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 @api_view(['POST'])
 def send_comment_to_inbox_view(request):
     """
