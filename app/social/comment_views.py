@@ -31,8 +31,10 @@ def get_post_comments(request, author_id, post_serial):
         post_fqid = request.data.get('postFqid', '')
         print("fqid is")
         print(post_fqid)
-
-        post = Post.objects.get(id=post_fqid)
+        if post_fqid:
+            post = Post.objects.get(id=post_fqid)
+        else:
+            post = Post.objects.get(id=post_id)
         print(post)
 
         # Might also need to use post_fqid in the future, idk
