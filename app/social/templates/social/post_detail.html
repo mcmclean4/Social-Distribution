@@ -474,55 +474,52 @@
                 isLocalPost
             });
             
-            let response;
+            let apiUrl;
+            let requestBody;
             
             if (isLocalPost) {
-                // Regular flow for local posts - send to our API directly
-                const apiUrl = `/social/api/authors/${authorNumber}/posts/${postId}/comments/`;
+                // For local posts - directly create comment object using a simplified endpoint
+                apiUrl = `/social/api/create-local-comment/`;
                 
-                console.log("Sending local comment to:", apiUrl);
+                requestBody = {
+                    authorId: authorNumber,
+                    postId: postId,
+                    postFqid: postFqid,
+                    comment: commentText,
+                    contentType: "text/markdown"
+                };
                 
-                response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({ 
-                        comment: commentText,  
-                        contentType: "text/markdown",
-                        postFqid: postFqid
-                    })
-                });
+                console.log("Creating local comment via:", apiUrl);
             } else {
                 // For foreign posts - use our special endpoint to handle foreign inbox sending
-                const apiUrl = `/social/api/send-comment-to-inbox/`;
+                apiUrl = `/social/api/send-comment-to-inbox/`;
+                
+                requestBody = {
+                    postFqid: postFqid,
+                    comment: commentText,
+                    contentType: "text/markdown",
+                    author: {
+                        id: `${window.location.origin}/social/api/authors/${authorNumber}`
+                    }
+                };
                 
                 console.log("Sending foreign comment to:", apiUrl);
-                
-                response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    credentials: 'same-origin',
-                    body: JSON.stringify({
-                        postFqid: postFqid,
-                        comment: commentText,
-                        contentType: "text/markdown",
-                        author: {
-                            id: `${window.location.origin}/social/api/authors/${authorNumber}`
-                        }
-                    })
-                });
             }
             
+            // Make the request
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(requestBody)
+            });
+            
             // Process response
-            await handleCommentResponse(response, commentInput, postId);
+             await handleCommentResponse(response, commentInput, postId);
             
         } catch (error) {
             console.error('Error posting comment:', error);

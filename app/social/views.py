@@ -31,6 +31,14 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .forms import EditProfileForm
+from .models import Author
+# Import and call distribute_likes
+from .distribution_utils import distribute_likes
+# Log the full exception for server-side debugging
+import traceback
 
 # Like
 from .models import Post, Comment
@@ -293,40 +301,47 @@ def get_authors(request):
         "authors": serializer.data
     })
 
-@login_required
+
 def profile_page(request, id):
     """Retrieves the profile page of an author."""
     base_url = get_base_url(request)  # Get the correct host dynamically
     full_author_id = f"{base_url}/social/api/authors/{id}"  # Construct correct ID
     
-    # Get the author
-    currentAuthor = get_object_or_404(Author, id=full_author_id)
-    
-    following_number =  len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
-    follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
-    
-    # Get all posts by this author (excluding deleted)
-    posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
-
-    # Format posts for rendering
-    postsToRender = []
-    for post in posts:
-        postDict = {
-            "title": post["title"],
-            #"image": post["image"],
-            "content": post["content"],
-            "contentType": post["contentType"],
-            "description": post["description"],
-            "id": post["internal_id"]
-        }
-        postsToRender.append(postDict)
+    try:
+        # Get the author
+        currentAuthor = get_object_or_404(Author, id=full_author_id)
         
-    return render(request, 'social/profile.html', {"posts": postsToRender, "author": currentAuthor, 'profile_author_id': id, 'followers': follower_number, 'following': following_number})
+        following_number = len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
+        follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
+        
+        # Get all posts by this author (excluding deleted)
+        posts = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED").values()
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from .forms import EditProfileForm
-from .models import Author
+        # Format posts for rendering
+        postsToRender = []
+        for post in posts:
+            postDict = {
+                "title": post["title"],
+                "content": post["content"],
+                "contentType": post["contentType"],
+                "description": post["description"],
+                "id": post["internal_id"]
+            }
+            postsToRender.append(postDict)
+        
+        return render(request, 'social/profile.html', {
+            "posts": postsToRender,
+            "author": currentAuthor,
+            'profile_author_id': id,
+            'followers': follower_number,
+            'following': following_number
+        })
+    except Exception:
+        return render(request, 'social/not_found_author.html', status=404)
+
+def not_found_author(request):
+    """Renders a page when the author is not found."""
+    return render(request, 'social/not_found_author.html', {"message": "The requested author could not be found."})
 
 @login_required
 def profile_edit(request, id):
@@ -518,6 +533,40 @@ class PostLikeView(APIView):
                 action = 'liked'
                 # Send like to the inbox of the post's author
                 self.like_to_inbox(post, post_like)
+                            # ADDED: Distribute the like to followers if it's a local post
+                try:
+                    # Check if the post is local
+                    current_host = request.get_host()
+                    post_author_host = post.author.host.split('//')[1].rstrip('/') if '//' in post.author.host else post.author.host.rstrip('/')
+                    
+                    is_local_post = not post.author.host or current_host in post_author_host
+                    
+                    if is_local_post:
+                        # Prepare like data for distribution
+                        like_data = {
+                            "type": "like",
+                            "author": {
+                                "type": "author",
+                                "id": request_user_author.id,
+                                "host": request_user_author.host,
+                                "displayName": request_user_author.displayName,
+                                "page": request_user_author.page,
+                                "github": request_user_author.github,
+                                "profileImage": request_user_author.profileImage
+                            },
+                            "published": post_like.published.isoformat(),
+                            "id": post_like.id,
+                            "object": post.id,
+                            "summary": f"{request_user_author.displayName} liked your post"
+                        }
+                        
+
+                        distribute_likes(post_like, like_data, post.author.id)
+                        print(f"[INFO] Distributed like to followers of {post.author.displayName}")
+                except Exception as e:
+                    import traceback
+                    print(f"[ERROR] Error distributing like: {str(e)}")
+                    print(traceback.format_exc())
             
             return Response({
                 'action': action,
@@ -525,8 +574,7 @@ class PostLikeView(APIView):
             })
         
         except Exception as e:
-            # Log the full exception for server-side debugging
-            import traceback
+
             traceback.print_exc()
             return Response({
                 'error': 'An unexpected error occurred',
