@@ -532,7 +532,7 @@ class InboxView(APIView):
             post_page = data.get("page", "")
             post_author_data = data.get("author", {})
             post_author_id = post_author_data.get("id", "")
-            print("From inbox_views: Post Id is" post_id)
+            print("From inbox_views: Post Id is", post_id)
             
             
             #if not (post_id and post_author_id and post_title):
