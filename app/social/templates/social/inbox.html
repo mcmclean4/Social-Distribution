@@ -2,12 +2,25 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Inbox</h2>
+    <h1 class="mb-4 text-center fw-bold">Inbox</h1>
     
-    <div class="d-grid gap-2 col-6 mx-auto">
-        <a href="#" class="btn btn-secondary">Comments</a>
-        <a href="#" class="btn btn-secondary">Likes</a>
-        <a href="/social/inbox/follow/" class="btn btn-primary">Follow Requests</a>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex gap-3 flex-wrap justify-content-center">
+                <a href="#" class="btn btn-secondary">
+                    <i class="bi bi-chat-text me-2"></i>Comments
+                </a>
+                <a href="#" class="btn btn-secondary">
+                    <i class="bi bi-heart me-2"></i>Likes
+                </a>
+                <a href="/social/inbox/follow/" class="btn btn-primary">
+                    <i class="bi bi-person-plus me-2"></i>Follow Requests
+                    {% if request_count and request_count > 0 %}
+                    <span class="badge bg-light text-primary ms-2">{{ request_count }}</span>
+                    {% endif %}
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
