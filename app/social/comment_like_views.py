@@ -198,7 +198,7 @@ def get_comment_likes(request, author_id, post_serial, comment_fqid):
         # Return the likes object as specified in the API
         return Response({
             "type": "likes",
-            "id": f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}/comments/{comment_fqid}/likes",
+            "id": f"http://{request.get_host()}/social/api/authors/{author_id}/posts/{post_serial}/commented/{comment_fqid}/likes",
             "page": f"http://{request.get_host()}/social/authors/{author_id}/posts/{post_serial}/comments/{comment_fqid}/likes",
             "page_number": 1,
             "size": 50,

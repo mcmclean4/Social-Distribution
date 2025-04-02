@@ -221,7 +221,7 @@ class Comment(models.Model):
             author_id_part = self.author.id.split('/')[-1]
 
             # Construct the unique comment ID
-            self.id = f"{base_url}/social/api/authors/{author_id_part}/comments/{self.internal_id}"     
+            self.id = f"{base_url}/social/api/authors/{author_id_part}/commented/{self.internal_id}"     
         super().save(*args, **kwargs)
     
     class Meta:
