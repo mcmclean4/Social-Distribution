@@ -2,8 +2,20 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from urllib.parse import urlparse
+from django.conf import settings
 
 from .models import Like, Comment, FollowRequest, Post, Notification, Author
+NODE_IP = getattr(settings, "NODE_IP", None)
+def check_origin(url):
+    """
+    Check if an it belongs to our node by simply checking if the ID contains our local IP.
+    """
+    try:
+        # Simply check if the NODE_IP is present in the author_id
+        return NODE_IP in url
+    except Exception as e:
+        print(f"From inbox_views: Error checking if author is in our node: {str(e)}")
+        return False
 
 def get_author_from_url(url):
     """
@@ -61,7 +73,11 @@ def create_like_notification(sender, instance, created, **kwargs):
             content_preview = comment.comment[:100]
             notification_type = 'like_comment'
             comment_post = Post.objects.get(id = comment.post)
-            content_page_url = comment_post.page
+            if check_origin(comment_post.page):
+                content_page_url = comment_post.page
+            else:
+                #redirect to index if post is not from our node
+                content_page_url = f"http://{NODE_IP}/social/index/"
         except Comment.DoesNotExist:
             # Can't find the liked object, skip
             return

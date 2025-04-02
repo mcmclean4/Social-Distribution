@@ -7,7 +7,7 @@
         <ul>
             <li>
                 <strong>{{ author.displayName }}</strong> ({{ author.id }}) 
-                <button class="unfollow-button btn btn-danger btn-sm" aria-label="Unfollow {{ author.displayName }}" data-author-id="{{ author.id }}" data-author-name="{{ author.displayName }}">Unfollow ❌</button>
+                <button class="unfollow-button btn btn-danger btn-sm" aria-label="Unfollow {{ author.displayName }}" data-author-id="{{ author.id }}" data-author-name="{{ author.displayName }}">Unfollow </button>
             </li>
         </ul>
         {% endfor%}
@@ -38,7 +38,8 @@
                 let authorId = this.getAttribute("data-author-id");
                 let authorName = this.getAttribute("data-author-name");
                 let myAuthorId = "{{ my_author_id }}";  // Logged-in author's ID
-                
+                const currentHost = window.location.origin;
+                const isLocalUnFollow = authorId.includes(currentHost)
                 let confirmUnfollow = confirm(`Are you sure you want to unfollow ${authorName}?`);
                 if (!confirmUnfollow) {
                     console.log("Unfollow canceled");
@@ -66,6 +67,24 @@
                     location.reload(); 
                 } else {
                     alert(result.error || "Error unfollowing.");
+                }
+                if (! isLocalUnFollow) {
+                    console.log("Not a local follow, sending an unfollow decision")
+                    const apiUrl = `/social/api/send-unfollow-to-inbox/`;
+                    console.log("Sending unfollow decision to :", apiUrl);
+                    let decisionResponse = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            followee_id: authorId,
+                            decision: "false"
+                        })
+                    });
                 }
             };
         });

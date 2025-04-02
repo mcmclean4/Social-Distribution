@@ -244,9 +244,12 @@ def send_follow_decision_to_inbox(request):
     author = Author.objects.get(user=request.user)
     follower =  Author.objects.get(id = follower_id)
     decision = data.get('decision')
-    inbox_url = f"{follower_id}/inbox"
+    inbox_url = f"{follower_id}/inbox/"
+    print("follower_host", follower.host)
 
-    node = Node.objects.get(base_url=author.host)
+    node = Node.objects.get(base_url=follower.host)
+    print(f"NODE USER: {node.auth_username}")
+    print(f"NODE PASS: {node.auth_password}")
     decision_data = {
         "type": "follow-decision",
         "decision": decision,
@@ -275,12 +278,61 @@ def send_follow_decision_to_inbox(request):
         inbox_url,
         json = decision_data,
         auth=(node.auth_username, node.auth_password),
-            headers={"Content-Type": "application/json"},
-            timeout=5
+        headers={"Content-Type": "application/json"},
+        timeout=5
     )
     response.raise_for_status()
     print(f"Successfully sent follow_decision to {follower_id}'s inbox")
     return Response({"message": "Follow decision sent to inbox"}, status=200)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_unfollow_to_inbox(request):
+    print("sending un-follow decision to inbox")
+    print(request.data)
+    data = request.data
+    followee_id = data.get('followee_id')
+    author = Author.objects.get(user=request.user)
+    followee =  Author.objects.get(id = followee_id)
+    inbox_url = f"{followee_id}/inbox/"
+    print("followee_host", followee.host)
+
+    node = Node.objects.get(base_url=followee.host)
+    print(f"NODE USER: {node.auth_username}")
+    print(f"NODE PASS: {node.auth_password}")
+    unfollow_data = {
+        "type": "unfollow",
+        "actor":{
+            "type": "author",
+            "id": author.id,
+            "host": author.host,
+            "displayName": author.displayName,
+            "page": author.page,
+            "github": author.github,
+            "profileImage": author.profileImage
+        },
+        "object":{
+            "type": "author",
+            "id":followee_id,
+            "host": followee.host,
+            "displayName": followee.displayName,
+            "page": followee.page,
+            "github": followee.github,
+            "profileImage": followee.profileImage
+        }
+    }
+    print("Unfollow data:", unfollow_data)
+    print(f"INBOX URL: {inbox_url}")
+    response = requests.post(
+        inbox_url,
+        json = decision_data,
+        auth=(node.auth_username, node.auth_password),
+        headers={"Content-Type": "application/json"},
+        timeout=5
+    )
+    response.raise_for_status()
+    print(f"Successfully sent unfollow to {follower_id}'s inbox")
+    return Response({"message": "Unfollow sent to inbox"}, status=200)
 
 
 class FollowersListView(APIView):
