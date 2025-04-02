@@ -449,6 +449,7 @@
         try {
             const commentInput = document.getElementById(`comment-input-${postId}`);
             const commentText = commentInput.value.trim();
+            console.log("received post fwid:", postId)
             
             if (!commentText) return;
 

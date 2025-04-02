@@ -14,6 +14,7 @@ from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
 from .comment_views import(get_post_comments,get_comments_by_post_fqid, get_specific_comment,send_comment_to_inbox_view, create_local_comment)
 from .comment_like_views import(get_comment_likes,like_comment,send_comment_like_to_inbox)
 from .like_views import(send_like_to_inbox)
+from . import notifications_views
 
 app_name = 'social'
 
@@ -154,5 +155,12 @@ urlpatterns = [
 
     path('api/send-comment-like-to-inbox/', send_comment_like_to_inbox, name='send_comment_like_to_inbox'),
     path('api/send-follow-decision-to-inbox/', send_follow_decision_to_inbox, name='send_follow_decision_to_inbox'),
+
+    path('notifications/', notifications_views.notifications_home, name='notifications_home'),
+    path('notifications/likes/', notifications_views.notifications_likes, name='notifications_likes'),
+    path('notifications/comments/', notifications_views.notifications_comments, name='notifications_comments'),
+    path('notifications/mark-read/<int:notification_id>/', notifications_views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', notifications_views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('notifications/count/', notifications_views.get_notification_count, name='notification_count'),
 
 ]

@@ -183,6 +183,15 @@ def local_follow_finalize(request):
             headers={"Content-Type": "application/json"},
             timeout=10  # Set timeout to avoid hanging requests
         )
+        if response.status_code not in [200, 201, 202, 204]:
+            inbox_url = f"{followee_id}/inbox"
+            response = requests.post(
+                inbox_url,
+                json=follow_data,
+                auth=(remote_node.auth_username, remote_node.auth_password),
+                headers={"Content-Type": "application/json"},
+                timeout=10  # Set timeout to avoid hanging requests
+            )
         
         
         
@@ -193,7 +202,7 @@ def local_follow_finalize(request):
                 "details": response.text,
                 "status_code": response.status_code
             }, status=response.status_code)
-            
+        print("Follow request sent to remote server")
         # If we got a successful response, create the local objects
         with transaction.atomic():
             # Create the FollowRequest with pending status

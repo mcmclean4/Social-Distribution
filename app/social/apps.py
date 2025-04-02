@@ -10,6 +10,7 @@ class SocialConfig(AppConfig):
     def ready(self):
         # Register the signal handler
         post_migrate.connect(self.initialize_node, sender=self)
+        import social.signals
 
     def initialize_node(self, sender, **kwargs):
         # Import here to avoid app registry not ready errors

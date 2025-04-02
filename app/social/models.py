@@ -323,3 +323,30 @@ class Inbox(models.Model):
     inbox_likes = models.ManyToManyField(Like, blank=True)
     inbox_follows = models.ManyToManyField(FollowRequest, blank=True)
     inbox_comments = models.ManyToManyField(Comment,  blank=True)
+
+class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('like_post', 'Like on Post'),
+        ('like_comment', 'Like on Comment'),
+        ('comment', 'New Comment'),
+        ('follow_request', 'Follow Request'),
+    ]
+    
+    recipient = models.ForeignKey(Author, on_delete=models.CASCADE, related_name='notifications')
+    sender_id = models.CharField(max_length=255)  # Store sender ID as URL string
+    sender_name = models.CharField(max_length=255)  # Store display name for quick access
+    sender_image = models.URLField(default=BLANK_PIC_URL)
+    
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    content_object_id = models.URLField()  # URL to the post/comment/like object
+    content_object_page = models.URLField()
+    
+    content_preview = models.CharField(max_length=100, blank=True)  # Short preview of content
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.sender_name} {self.get_notification_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

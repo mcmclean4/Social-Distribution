@@ -234,7 +234,6 @@ def send_comment_to_inbox_view(request):
             post = Post.objects.get(id=post_fqid)
         except Post.DoesNotExist:
             # If post doesn't exist locally, create a placeholder
-            # You might need to adjust this based on your model
             post_parts = post_fqid.split('/')
             post_id = post_parts[-1]
             author_id = post_parts[-3]

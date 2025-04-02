@@ -1,0 +1,44 @@
+{% extends "social/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4 text-center fw-bold">Notifications</h1>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex gap-3 flex-wrap justify-content-center">
+                <a href="{% url 'social:notifications_comments' %}" class="btn {% if active_tab == 'comments' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i class="bi bi-chat-text me-2"></i>Comments
+                    {% if comment_count and comment_count > 0 %}
+                    <span class="badge bg-light {% if active_tab == 'comments' %}text-primary{% else %}text-dark{% endif %} ms-2">{{ comment_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'social:notifications_likes' %}" class="btn {% if active_tab == 'likes' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i class="bi bi-heart me-2"></i>Likes
+                    {% if like_count and like_count > 0 %}
+                    <span class="badge bg-light {% if active_tab == 'likes' %}text-primary{% else %}text-dark{% endif %} ms-2">{{ like_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'social:web_inbox' %}" class="btn {% if active_tab == 'follow' %}btn-primary{% else %}btn-secondary{% endif %}">
+                    <i class="bi bi-person-plus me-2"></i>Follow Requests
+                    {% if follow_count and follow_count > 0 %}
+                    <span class="badge bg-light {% if active_tab == 'follow' %}text-primary{% else %}text-dark{% endif %} ms-2">{{ follow_count }}</span>
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    {% block notification_content %}
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body text-center">
+                    <p class="mb-0">Select a category above to view your notifications.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+</div>
+{% endblock %}

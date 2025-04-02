@@ -1,0 +1,49 @@
+{% extends "social/notifications_view.html" %}
+
+{% block notification_content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Comments on Your Posts</h5>
+                {% if notifications %}
+                <a href="{% url 'social:mark_all_notifications_read' %}" class="btn btn-sm btn-outline-secondary">
+                    Mark All as Read
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if notifications %}
+                    <div class="list-group list-group-flush">
+                        {% for notification in notifications %}
+                            <div class="list-group-item {% if not notification.is_read %}bg-light{% endif %}">
+                                <div class="d-flex align-items-center">
+                                    <img src="{{ notification.sender_image }}" alt="{{ notification.sender_name }}" class="rounded-circle me-3" width="40">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{{ notification.sender_name }}</strong> commented on your post
+                                            </div>
+                                            <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                                        </div>
+                                        {% if notification.content_preview %}
+                                            <div class="mt-1">
+                                                {{ notification.content_preview }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <a href="{{ notification.content_object_page }}" class="stretched-link"></a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center">
+                        <p class="text-muted">No comment notifications yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
