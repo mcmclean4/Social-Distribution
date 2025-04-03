@@ -50,6 +50,29 @@
                 let unfollowUrl = `/social/unfollow/`;
 
                 console.log("Unfollowing author:", authorId);
+                // First handle remote unfollow if needed
+                if (!isLocalUnFollow) {
+                    console.log("Not a local follow, sending an unfollow decision");
+                    const apiUrl = `/social/api/send-unfollow-to-inbox/`;
+                    console.log("Sending unfollow decision to:", apiUrl);
+                    
+                    let decisionResponse = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            followee_id: authorId,
+                        })
+                    });
+                    
+                    if (!decisionResponse.ok) {
+                        console.error("Error sending unfollow to remote inbox:", await decisionResponse.text());
+                    }
+                }
 
                 let response = await fetch(unfollowUrl, { 
                     method: "DELETE",
@@ -67,24 +90,6 @@
                     location.reload(); 
                 } else {
                     alert(result.error || "Error unfollowing.");
-                }
-                if (! isLocalUnFollow) {
-                    console.log("Not a local follow, sending an unfollow decision")
-                    const apiUrl = `/social/api/send-unfollow-to-inbox/`;
-                    console.log("Sending unfollow decision to :", apiUrl);
-                    let decisionResponse = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({
-                            followee_id: authorId,
-                            decision: "false"
-                        })
-                    });
                 }
             };
         });

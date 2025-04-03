@@ -271,8 +271,34 @@ class InboxView(APIView):
         if item_type =='follow-decision':
             print("From inbox_views: Follow-decision received in inbox")
             return JsonResponse({'status': 'ok'}, status=200)
-        if item_type =='unfollow':
+        if item_type == 'unfollow':
             print("From inbox_views: Unfollow received in inbox")
+            
+            # Extract actor (the person who is unfollowing)
+            actor_data = data.get('actor', {})
+            follower_id = actor_data.get('id')
+            
+            if follower_id:
+                # Remove trailing slash if present
+                if follower_id.endswith('/'):
+                    follower_id = follower_id[:-1]
+                    
+                # Remove the follow relationship if it exists
+                try:
+                    # Check if there is a follow relationship to remove
+                    follow_relation = Follow.objects.filter(follower_id=follower_id, followee=author)
+                    
+                    if follow_relation.exists():
+                        follow_relation.delete()
+                        print(f"Follow relationship removed between {follower_id} and {expected_author_id}")
+                    
+                    # Also check for any pending follow requests and remove those
+                    follow_request = FollowRequest.objects.filter(follower_id=follower_id, followee=author)
+                    if follow_request.exists():
+                        follow_request.delete()
+                        print(f"Follow request removed between {follower_id} and {expected_author_id}")
+                except Exception as e:
+                    print(f"Error processing unfollow: {str(e)}")
             return JsonResponse({'status': 'ok'}, status=200)
 
         if self.check_disabled_nodes(data, item_type):
