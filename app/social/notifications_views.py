@@ -172,7 +172,7 @@ def mark_all_notifications_read(request):
 @login_required
 def get_notification_count(request):
     """
-    AJAX endpoint to get unread notification counts for badges
+    endpoint to get unread notification counts for badges
     """
     if request.method == 'GET':
         if not hasattr(request.user, 'author'):
