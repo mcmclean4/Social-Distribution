@@ -2,26 +2,66 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Follow Requests for You</h2> 
-    {% if follow_requests %}
-        {% for request in follow_requests %}
-        <ul>
-            <li>
-                <strong>{{ request.actor.displayName }} ({{ request.actor.id }})</strong>   wants to follow you.
-                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}", data-display-name="{{ request.actor.displayName }}">
-                    Approve
-                </button>
-                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}", data-display-name="{{ request.actor.displayName }}">
-                    Deny
-                </button>
-            </li>
-        </ul>
-        {% endfor %}
-    {% else %}
-        <p>Follow requests</p>  <!--  Moved outside <ul> -->
-    {% endif %}
+    <h1 class="mb-4 text-center fw-bold">Notifications</h1>
+    
+    <!-- Add the navigation tabs -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex gap-3 flex-wrap justify-content-center">
+                <a href="{% url 'social:notifications_comments' %}" class="btn btn-secondary">
+                    <i class="bi bi-chat-text me-2"></i>Comments
+                    {% if comment_count and comment_count > 0 %}
+                    <span class="badge bg-light text-dark ms-2">{{ comment_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'social:notifications_likes' %}" class="btn btn-secondary">
+                    <i class="bi bi-heart me-2"></i>Likes
+                    {% if like_count and like_count > 0 %}
+                    <span class="badge bg-light text-dark ms-2">{{ like_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'social:web_inbox' %}" class="btn btn-primary">
+                    <i class="bi bi-person-plus me-2"></i>Follow Requests
+                    {% if follow_count and follow_count > 0 %}
+                    <span class="badge bg-light text-primary ms-2">{{ follow_count }}</span>
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Your existing follow request content -->
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Follow Requests for You</h5>
+                </div>
+                <div class="card-body">
+                    {% if follow_requests %}
+                        {% for request in follow_requests %}
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <strong>{{ request.actor.displayName }}</strong> from <strong>{{ request.actor.host }}</strong> wants to follow you.
+                            <div>
+                                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}" data-display-name="{{ request.actor.displayName }}">
+                                    Approve
+                                </button>
+                                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}" data-display-name="{{ request.actor.displayName }}">
+                                    Deny
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center">No follow requests at this time.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Keep your existing JavaScript -->
 <script>
     function getCookie(name) {
             let cookieValue = null;
@@ -97,8 +137,13 @@
 
                 let result = await response.json();
                 if (response.ok) {
+                    // Update notification badge
+                    if (typeof window.updateNotificationBadge === 'function') {
+                        window.updateNotificationBadge();
+                    }
+                    
                     alert(result.message || "Follow request approved!");
-                    this.parentElement.innerHTML = `<span class="text-success">Approved </span>`;
+                    this.closest(".d-flex").innerHTML = `<div class="alert alert-success mb-0 w-100">Follow request from ${displayName} approved!</div>`;
                 } else {
                     alert(result.error || "Error approving follow request.");
                 }
@@ -110,6 +155,7 @@
         document.querySelectorAll(".deny-follow").forEach(button => {
             button.onclick = async function () {
                 let followerId = this.getAttribute("data-follower-id");
+                let displayName = this.getAttribute("data-display-name");
                 let authorId = "{{ my_author_id }}";  // Ensure the local author ID is used
                 const currentHost = window.location.origin;
             
@@ -152,8 +198,13 @@
 
                 let result = await response.json();
                 if (response.ok) {
+                    // Update notification badge
+                    if (typeof window.updateNotificationBadge === 'function') {
+                        window.updateNotificationBadge();
+                    }
+                    
                     alert(result.message || "Follow request denied.");
-                    this.parentElement.innerHTML = `<span class="text-danger">Denied </span>`;
+                    this.closest(".d-flex").innerHTML = `<div class="alert alert-danger mb-0 w-100">Follow request from ${displayName} denied!</div>`;
                 } else {
                     alert(result.error || "Error denying follow request.");
                 }
@@ -162,5 +213,4 @@
 
     });
 </script>
-
 {% endblock %}

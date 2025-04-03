@@ -84,6 +84,7 @@ def send_comment_like_to_inbox(request):
         try:
             post = Post.objects.get(id=post_fqid)
             post_author_id = post.author.id
+            post_author_host = post.author.host
             print(f"Found a post, author ID: {post_author_id}")
         except Post.DoesNotExist:
             # Extract from the post_fqid
@@ -134,17 +135,14 @@ def send_comment_like_to_inbox(request):
             # Send to the comment author's inbox
             try:
                 # Extract host and author ID from the comment
-                print(f"From comment_like_views: comment made by {existing_comment.author.id}")
                 comment_author = Author.objects.get(id=existing_comment.author.id)
-                print(f"From comment_like_views: fetched comment_author {comment_author.id}")
-                print(f"From comment_like_views: comment_author's host is {comment_author.host}")
-                host = comment_author.host
+                host = post_author_host
                 
                 # Get the foreign node information
                 node = Node.objects.get(base_url__contains=host.split('//')[1])
                 
                 # Construct inbox URL
-                inbox_url = f"{comment_author.id}/inbox"
+                inbox_url = f"{post_author_id}/inbox"
                 
                 # Create like data
                 like_data = {

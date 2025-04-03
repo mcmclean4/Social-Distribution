@@ -183,6 +183,15 @@ def local_follow_finalize(request):
             headers={"Content-Type": "application/json"},
             timeout=10  # Set timeout to avoid hanging requests
         )
+        if response.status_code not in [200, 201, 202, 204]:
+            inbox_url = f"{followee_id}/inbox"
+            response = requests.post(
+                inbox_url,
+                json=follow_data,
+                auth=(remote_node.auth_username, remote_node.auth_password),
+                headers={"Content-Type": "application/json"},
+                timeout=10  # Set timeout to avoid hanging requests
+            )
         
         
         
@@ -193,7 +202,7 @@ def local_follow_finalize(request):
                 "details": response.text,
                 "status_code": response.status_code
             }, status=response.status_code)
-            
+        print("Follow request sent to remote server")
         # If we got a successful response, create the local objects
         with transaction.atomic():
             # Create the FollowRequest with pending status
@@ -235,9 +244,12 @@ def send_follow_decision_to_inbox(request):
     author = Author.objects.get(user=request.user)
     follower =  Author.objects.get(id = follower_id)
     decision = data.get('decision')
-    inbox_url = f"{follower_id}/inbox"
+    inbox_url = f"{follower_id}/inbox/"
+    print("follower_host", follower.host)
 
-    node = Node.objects.get(base_url=author.host)
+    node = Node.objects.get(base_url=follower.host)
+    print(f"NODE USER: {node.auth_username}")
+    print(f"NODE PASS: {node.auth_password}")
     decision_data = {
         "type": "follow-decision",
         "decision": decision,
@@ -266,12 +278,61 @@ def send_follow_decision_to_inbox(request):
         inbox_url,
         json = decision_data,
         auth=(node.auth_username, node.auth_password),
-            headers={"Content-Type": "application/json"},
-            timeout=5
+        headers={"Content-Type": "application/json"},
+        timeout=5
     )
     response.raise_for_status()
     print(f"Successfully sent follow_decision to {follower_id}'s inbox")
     return Response({"message": "Follow decision sent to inbox"}, status=200)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def send_unfollow_to_inbox(request):
+    print("sending un-follow decision to inbox")
+    print(request.data)
+    data = request.data
+    followee_id = data.get('followee_id')
+    author = Author.objects.get(user=request.user)
+    followee =  Author.objects.get(id = followee_id)
+    inbox_url = f"{followee_id}/inbox/"
+    print("followee_host", followee.host)
+
+    node = Node.objects.get(base_url=followee.host)
+    print(f"NODE USER: {node.auth_username}")
+    print(f"NODE PASS: {node.auth_password}")
+    unfollow_data = {
+        "type": "unfollow",
+        "actor":{
+            "type": "author",
+            "id": author.id,
+            "host": author.host,
+            "displayName": author.displayName,
+            "page": author.page,
+            "github": author.github,
+            "profileImage": author.profileImage
+        },
+        "object":{
+            "type": "author",
+            "id":followee_id,
+            "host": followee.host,
+            "displayName": followee.displayName,
+            "page": followee.page,
+            "github": followee.github,
+            "profileImage": followee.profileImage
+        }
+    }
+    print("Unfollow data:", unfollow_data)
+    print(f"INBOX URL: {inbox_url}")
+    response = requests.post(
+        inbox_url,
+        json=unfollow_data,
+        auth=(node.auth_username, node.auth_password),
+        headers={"Content-Type": "application/json"},
+        timeout=5
+    )
+    response.raise_for_status()
+    print(f"Successfully sent unfollow to {followee_id}'s inbox")
+    return Response({"message": "Unfollow sent to inbox"}, status=200)
 
 
 class FollowersListView(APIView):
@@ -484,36 +545,50 @@ def following_view(request):
     })
 
 def unfollow_view(request):
-    """Handles unfollowing an author by deleting the follow object in the database."""
-
-    print(" Unfollow request received. User:", request.user)
-
+    """
+    Handles unfollowing an author by deleting both the follow object and any related
+    follow request objects in the database.
+    """
+    print("Unfollow request received. User:", request.user)
+    
     if request.method != "DELETE":
         return JsonResponse({"error": "Invalid request method"}, status=405)
-
+        
     if not hasattr(request.user, 'author'):
         return JsonResponse({"error": "User is not an author"}, status=403)
-
+        
     try:
         data = json.loads(request.body)
         followee_id = data.get("followee_id")  # Get followee ID from request body
+        
         if not followee_id:
             return JsonResponse({"error": "Missing followee ID"}, status=400)
-
+            
         my_author = request.user.author  # Get logged-in author's profile
         print("Unfollowing:", followee_id, "from author:", my_author.id)
-
-        # Delete the follow object
-        deleted, _ = Follow.objects.filter(follower_id=my_author.id, followee__id=followee_id).delete()
-
-        if deleted:
-            return JsonResponse({"message": "Unfollowed successfully"}, status=200)
+        
+        # Delete both Follow and FollowRequest objects
+        follow_deleted, _ = Follow.objects.filter(
+            follower_id=my_author.id, 
+            followee__id=followee_id
+        ).delete()
+        
+        request_deleted, _ = FollowRequest.objects.filter(
+            follower_id=my_author.id, 
+            followee__id=followee_id
+        ).delete()
+        
+        if follow_deleted or request_deleted:
+            return JsonResponse({
+                "message": "Unfollowed successfully", 
+                "follow_deleted": bool(follow_deleted),
+                "request_deleted": bool(request_deleted)
+            }, status=200)
         else:
             return JsonResponse({"error": "Not following this author"}, status=404)
-
+            
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
-
 
 def friends_view(request):
     """Shows a list of friends (mutual followers) of the logged-in user."""

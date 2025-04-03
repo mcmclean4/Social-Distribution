@@ -271,6 +271,35 @@ class InboxView(APIView):
         if item_type =='follow-decision':
             print("From inbox_views: Follow-decision received in inbox")
             return JsonResponse({'status': 'ok'}, status=200)
+        if item_type == 'unfollow':
+            print("From inbox_views: Unfollow received in inbox")
+            
+            # Extract actor (the person who is unfollowing)
+            actor_data = data.get('actor', {})
+            follower_id = actor_data.get('id')
+            
+            if follower_id:
+                # Remove trailing slash if present
+                if follower_id.endswith('/'):
+                    follower_id = follower_id[:-1]
+                    
+                # Remove the follow relationship if it exists
+                try:
+                    # Check if there is a follow relationship to remove
+                    follow_relation = Follow.objects.filter(follower_id=follower_id, followee=author)
+                    
+                    if follow_relation.exists():
+                        follow_relation.delete()
+                        print(f"Follow relationship removed between {follower_id} and {expected_author_id}")
+                    
+                    # Also check for any pending follow requests and remove those
+                    follow_request = FollowRequest.objects.filter(follower_id=follower_id, followee=author)
+                    if follow_request.exists():
+                        follow_request.delete()
+                        print(f"Follow request removed between {follower_id} and {expected_author_id}")
+                except Exception as e:
+                    print(f"Error processing unfollow: {str(e)}")
+            return JsonResponse({'status': 'ok'}, status=200)
 
         if self.check_disabled_nodes(data, item_type):
             # Deny any post request if its sending data from a disabled node
@@ -282,7 +311,8 @@ class InboxView(APIView):
             follower_host = actor_data.get("host")
             if follower_id.endswith('/'):
                 follower_id = follower_id[:-1]  # Remove the last character
-
+            if actor_data.get("profileImage") == None:
+                actor_data["profileImage"] = ""
             if not follower_id:
                 return Response({"error": "From inbox_views: Missing actor id"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -329,7 +359,9 @@ class InboxView(APIView):
             # Check if like_author_id ends with '/' and remove it if it does
             if like_author_id.endswith('/'):
                 like_author_id = like_author_id[:-1]  # Remove the last character
-
+            
+            if like_author_data.get('profileImage') == None:
+                like_author_data['profileImage'] = ""
         # Add debug logs
             print(f"DEBUG:From inbox_views:  Processing like from author ID: {like_author_id}")
             print(f"DEBUG: From inbox_views: Like object URL: {like_object}")
@@ -460,6 +492,9 @@ class InboxView(APIView):
 
             if comment_author_id.endswith('/'):
                 comment_author_id = comment_author_id[:-1]  # Remove the last character
+            
+            if comment_author_data.get("profileImage") == None:
+                comment_author_data["profileImage"] = ""
 
             # Ensure required fields are present
             if not (comment_id and comment_author_id and comment_post_id and comment_content):
@@ -538,7 +573,8 @@ class InboxView(APIView):
             #if not (post_id and post_author_id and post_title):
                 #return Response({"error": "Missing required post fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-            
+            if post_author_data.get("profileImage") == None:
+                post_author_data["profileImage"] = ""
             # Ensure author exists (remote or local)
             author_instance, _ = Author.objects.update_or_create(
                 id=post_author_id,
