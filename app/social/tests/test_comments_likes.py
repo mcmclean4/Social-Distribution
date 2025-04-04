@@ -9,7 +9,7 @@ import base64
 
 class CommentsLikesAPITests(TestCase):
     def setUp(self):
-        settings.HOST = "http://localhost:8000/social/"
+        settings.HOST = "http://localhost:8000/social/api/"
         
         # Create test users
         self.user1 = User.objects.create_user(username="user1", password="password")
@@ -27,17 +27,22 @@ class CommentsLikesAPITests(TestCase):
         self.post = Post.objects.create(
             author=self.author1,
             title="Test Post",
-            content="This is a test post."
+            content="This is a test post.",
+            id= "http://localhost:8000/social/api/authors/1/posts/1",
+            page="http://localhost:8000/social/post/1"
         )
         
         # Refresh to get the posttid
         self.post.refresh_from_db()
         self.post_id = self.post.id  # Store the actual ID assigned
         print(self.post.id)
+        print(f"POST PAGE: {self.post.page}")
+
 
         # Initialize API client
         self.client = APIClient()
         self.client.force_login(self.user2)
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
 
         self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testadmin", auth_password="testsecret")
 
@@ -68,10 +73,10 @@ class CommentsLikesAPITests(TestCase):
         }
 
         # auth header for django test client
-        auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
-        auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
+        #auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
+        #auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
 
-        response = self.client.post(url, data, format="json", HTTP_AUTHORIZATION=auth_header)
+        response = self.client.post(url, data, format="json")
 
         # Debugging output
 
