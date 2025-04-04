@@ -69,7 +69,11 @@ class CustomPageNumberPagination(PageNumberPagination):
 
 @login_required
 def stream(request):
-    friends = get_friends(request.user.author)
+    if valid_user(request.user):
+        friends = get_friends(request.user.author)
+    else:
+        return redirect("social:login")
+
 
     # Check for recent github activity of the current user
     # if request.user.author.github:

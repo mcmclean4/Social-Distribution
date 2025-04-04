@@ -3,6 +3,18 @@ from django.shortcuts import get_object_or_404
 from social.models import *
 
 
+def valid_user(user):
+    """
+    Checks if the user is approved and has an existing author
+    """
+    try:
+        if not user.author or not user.is_active:
+            return False
+        else:
+            return True
+    except:
+        return False
+
 def get_friends(author):
     """
     Return list of author objects that are friends with the given author
