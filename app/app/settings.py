@@ -168,12 +168,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
 
-
+NODE_IP = os.getenv("LOCAL_IP")
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://10.2.7.95",
 ]
+CSRF_TRUSTED_ORIGINS.append(f"http://{NODE_IP}")
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -182,7 +183,6 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 GITHUB_CALLBACK_URL = "http://localhost:8000/social/github/callback/"
 
 # Set up the initial node in apps.py
-NODE_IP = os.getenv("LOCAL_IP")
 CURRENT_NODE_URL = f"http://{NODE_IP}/social/api/"
 CURRENT_NODE_NAME = "LocalNode"
 CURRENT_NODE_USERNAME = "admin"
