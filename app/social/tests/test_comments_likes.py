@@ -44,7 +44,7 @@ class CommentsLikesAPITests(TestCase):
         self.client.force_login(self.user2)
         self.client.defaults['HTTP_HOST'] = 'localhost:8000'
 
-        self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testadmin", auth_password="testsecret")
+        self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testNodeUsername", auth_password="testNodePassword")
 
 
     
@@ -71,10 +71,6 @@ class CommentsLikesAPITests(TestCase):
             },
             "post": post_id  # Ensure the correct post ID is used
         }
-
-        # auth header for django test client
-        #auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
-        #auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
 
         response = self.client.post(url, data, format="json")
 
