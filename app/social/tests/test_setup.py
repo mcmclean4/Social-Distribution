@@ -66,14 +66,9 @@ class TestSetUp(TestCase):
         # Create an Author instance in the test database
         self.author = Author.objects.create(
             user=self.user,
-            type="author",
-            #id=f"http://localhost:8000/social/api/authors/{2}",
+            id=f"http://localhost:8000/social/api/authors/99",
             host="http://localhost:8000/social/api/",
-            displayName="Test Author",
-            github="",
-            profileImage=self.generate_test_image(),
-            page=f"http://localhost:8000/social/authors/{2}",
-            isAdmin=False
+            displayName="Test Author"
         )
 
 

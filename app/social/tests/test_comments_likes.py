@@ -3,8 +3,9 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework.test import APIClient
-from social.models import Author, Post, Comment, Like
+from social.models import Author, Post, Comment, Like, Node
 from django.conf import settings
+import base64
 
 class CommentsLikesAPITests(TestCase):
     def setUp(self):
@@ -15,8 +16,10 @@ class CommentsLikesAPITests(TestCase):
         self.user2 = User.objects.create_user(username="user2", password="password")
 
         # Create test authors
-        self.author1 = Author.objects.create(user=self.user1, displayName="Lara Croft", host=settings.HOST)
-        self.author2 = Author.objects.create(user=self.user2, displayName="Greg Johnson", host=settings.HOST)
+        self.author1 = Author.objects.create(user=self.user1, id=f"http://localhost:8000/social/api/authors/1", displayName="Lara Croft", host=settings.HOST)
+        print("author 1 id:")
+        print(self.author1.id)
+        self.author2 = Author.objects.create(user=self.user2, id=f"http://localhost:8000/social/api/authors/2", displayName="Greg Johnson", host=settings.HOST)
 
         # Extract author ID
         author_id = self.author1.id.split('/')[-1]
@@ -30,10 +33,13 @@ class CommentsLikesAPITests(TestCase):
         # Refresh to get the posttid
         self.post.refresh_from_db()
         self.post_id = self.post.id  # Store the actual ID assigned
+        print(self.post.id)
 
         # Initialize API client
         self.client = APIClient()
         self.client.force_login(self.user2)
+
+        self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testadmin", auth_password="testsecret")
 
 
     
@@ -61,7 +67,11 @@ class CommentsLikesAPITests(TestCase):
             "post": post_id  # Ensure the correct post ID is used
         }
 
-        response = self.client.post(url, data, format="json")
+        # auth header for django test client
+        auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
+        auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
+
+        response = self.client.post(url, data, format="json", HTTP_AUTHORIZATION=auth_header)
 
         # Debugging output
 
