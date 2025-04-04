@@ -2,6 +2,7 @@
 from .test_setup import TestSetUp
 from social.models import Post
 import json
+import base64
 
 class TestPosting(TestSetUp):
     '''
@@ -17,6 +18,7 @@ class TestPosting(TestSetUp):
     '''
     
     def test_create_plaintext_post(self):
+
         # Create a post
         create_response = self.client.post(
             self.posts_url, self.plaintext_post_data, format="json")
@@ -103,32 +105,26 @@ class TestPosting(TestSetUp):
     '''
     
     def test_create_image_post(self):
-        print(self.image_post_data['author'])
 
+        # Send post request with the image as a base64 encoded string in the content field
         create_response = self.client.post(
-            self.posts_url, self.image_post_data, format="multipart")
-        print(create_response)
-        print(create_response.data)
+            self.posts_url, self.image_post_data, format="json")
         self.assertEqual(create_response.status_code, 201)
 
-        # create_response.data['id'] should be "http://localhost:8000/social/api/authors/2/posts/1", parse for serial ids
+
         parts = create_response.data['id'].split('/')
         author_serial = int(parts[-3])
         post_serial = int(parts[-1]) 
 
         # Check data fields are same as the post data that we sent
         self.assertEqual(create_response.data['contentType'], self.image_post_data['contentType'])
-        self.assertEqual(create_response.data['image'], self.image_post_data['image'])
-        # Check if image is included in response, and should return as a url
-        self.assertIn("image", create_response.data)
-        self.assertTrue(create_response.data["image"].startswith("http"))
+        self.assertEqual(create_response.data['content'], self.image_post_data['content'])
 
         # Check we can also retrieve the post, and the data is the same again
         get_response = self.client.get(self.post_general_url(author_serial, post_serial))
         self.assertEqual(get_response.status_code, 200)
-        # Remove ['post'] if we change get_author_and_post to only return post
         self.assertEqual(get_response.data['post']['contentType'], self.image_post_data['contentType'])
-        self.assertEqual(get_response.data['post']['image'], self.image_post_data['image'])
+        self.assertEqual(get_response.data['post']['content'], self.image_post_data['content'])
     
 
 
@@ -166,10 +162,20 @@ class TestPosting(TestSetUp):
         visit_response = self.client.get(self.post_create_url)
         self.assertEqual(visit_response.status_code, 200)
         self.assertTemplateUsed(visit_response, 'social/create_post.html')
+
+        # Create a flattened version of post data suitable for form submission
+        form_data = {
+            "title": self.plaintext_post_data['title'],
+            "description": self.plaintext_post_data['description'],
+            "contentType": self.plaintext_post_data['contentType'],
+            "content": self.plaintext_post_data['content'],
+            "visibility": self.plaintext_post_data['visibility']
+        }
         
         # Submit the plaintext post as a form with POST request
-        submit_response = self.client.post(self.post_create_url, self.plaintext_post_data, format='json')
-        self.assertEqual(submit_response.status_code, 200)
+        submit_response = self.client.post(self.post_create_url, form_data)
+        # Expect to be redirected upon a successful post creation
+        self.assertEqual(submit_response.status_code, 302)
 
         # Verify that the post was created in the database
         post = Post.objects.first()
