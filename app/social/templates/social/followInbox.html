@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <h1 class="mb-4 text-center fw-bold">Notifications</h1>
     
-    <!-- Add the navigation tabs -->
+    <!-- Navigation tabs -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex gap-3 flex-wrap justify-content-center">
@@ -30,7 +30,7 @@
         </div>
     </div>
     
-    <!-- Your existing follow request content -->
+    <!-- Follow Requests -->
     <div class="row">
         <div class="col-md-8 mx-auto">
             <div class="card">
@@ -40,17 +40,7 @@
                 <div class="card-body">
                     {% if follow_requests %}
                         {% for request in follow_requests %}
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <strong>{{ request.actor.displayName }}</strong> from <strong>{{ request.actor.host }}</strong> wants to follow you.
-                            <div>
-                                <button class="approve-follow btn btn-success btn-sm" data-follower-id="{{ request.actor.id }}" data-display-name="{{ request.actor.displayName }}">
-                                    Approve
-                                </button>
-                                <button class="deny-follow btn btn-danger btn-sm" data-follower-id="{{ request.actor.id }}" data-display-name="{{ request.actor.displayName }}">
-                                    Deny
-                                </button>
-                            </div>
-                        </div>
+                            {% include "social/_author_display.html" with  author=request.actor button_class="approve-follow btn btn-success btn-sm" button_text="Approve" data_attribute_name="follower-id" data_attribute_value=request.actor.id data_attribute_display_name="display-name" data_attribute_display_name_value=request.actor.displayName second_button_class="deny-follow btn btn-danger btn-sm" second_button_text="Deny" second_data_attribute_name="follower-id" second_data_attribute_value=request.actor.id second_data_attribute_display_name="display-name" second_data_attribute_display_name_value=request.actor.displayName %}
                         {% endfor %}
                     {% else %}
                         <p class="text-center">No follow requests at this time.</p>
@@ -61,8 +51,17 @@
     </div>
 </div>
 
-<!-- Keep your existing JavaScript -->
 <script>
+    function viewAuthorProfile(authorId,page) {
+        const currentHost = window.location.origin;
+        const isLocalAuthor = authorId.includes(currentHost)
+        if (isLocalAuthor){
+            window.location.href = page
+        }
+        else{
+            window.location.href = `/social/remote-authors/${encodeURIComponent(authorId)}`;
+        }
+    }
     function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== "") {

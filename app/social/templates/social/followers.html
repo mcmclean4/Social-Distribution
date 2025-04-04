@@ -5,22 +5,17 @@
     <h1 class="mb-4 text-center fw-bold">My Followers</h1>
 
     {% if followers %}
-        {% for follower in followers %}
-        <ul>
-            <li>
-                <strong>{{ follower.displayName }}</strong> ({{ follower.id }})
-                <button class="delete-follower btn btn-danger btn-sm"
-                        data-follower-id="{{ follower.id }}">
-                    Remove 
-                </button>
-            </li>
-        </ul>
-        {% endfor %}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                {% for follower in followers %}
+                    {% include "social/_author_display.html" with author=follower button_class="delete-follower btn btn-danger btn-sm" button_text="Remove"  data_attribute_name="follower-id"  data_attribute_value=follower.id %}
+                {% endfor %}
+            </div>
+        </div>
     {% else %}
-        <p>No followers yet.</p>  
+        <div class="alert alert-info">No followers yet.</div>  
     {% endif %}
 </div>
-
 
 <script>
     function getCookie(name) {
@@ -37,6 +32,16 @@
             }
         }
         return cookieValue;
+    }
+    function viewAuthorProfile(authorId,page) {
+        const currentHost = window.location.origin;
+        const isLocalAuthor = authorId.includes(currentHost)
+        if (isLocalAuthor){
+            window.location.href = page
+        }
+        else{
+            window.location.href = `/social/remote-authors/${encodeURIComponent(authorId)}`;
+        }
     }
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".delete-follower").forEach(button => {
@@ -62,7 +67,7 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Follower removed successfully.");
-                    this.parentElement.remove();  //  Remove from UI
+                    this.closest('.card').remove();  // Remove the card instead of reloading
                 } else {
                     alert(result.error || "Error removing follower.");
                 }

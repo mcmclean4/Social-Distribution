@@ -37,6 +37,7 @@ urlpatterns = [
     path('profile/<int:id>', views.profile_page, name='profile_page'),
     path('profile/<int:id>/edit', views.profile_edit, name="profile_edit"),
     path('api/authors/<int:id>', views.get_author, name='get_author'),
+    path('remote-authors/<path:author_fqid>/', views.remote_author_profile, name='remote_author_profile'),
 
     # Image Posts
     path('api/authors/<int:author_serial>/posts/<int:post_serial>/image', get_image_with_serial, name='get_image_with_serial'),

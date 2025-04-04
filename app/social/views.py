@@ -301,6 +301,90 @@ def get_authors(request):
         "authors": serializer.data
     })
 
+def remote_author_profile(request, author_fqid):
+    print("Fetching remote profile on our own")
+    full_author_id = author_fqid
+    print("author_id is", full_author_id)
+    try:
+        currentAuthor = Author.objects.get(id=full_author_id)
+        
+        # Get the current logged-in user's author profile
+        current_user_author = request.user.author if hasattr(request.user, 'author') else None
+        
+        following_number = len(set(Follow.objects.filter(follower_id=full_author_id).values_list("followee_id", flat=True)))
+        follower_number = len(set(Follow.objects.filter(followee_id=full_author_id).values_list("follower_id", flat=True)))
+        
+        # Check if the current user is a friend of the profile author
+        is_friend = False
+        if current_user_author:
+            is_friend = currentAuthor in current_user_author.friends
+        
+        # Base query for posts by the author
+        posts_query = Post.objects.filter(author=currentAuthor).exclude(visibility="DELETED")
+        
+        # If not friends, exclude FRIENDS visibility posts
+        if not is_friend:
+            posts_query = posts_query.exclude(visibility="FRIENDS")
+        
+        # Fetch posts with additional context
+        posts = list(posts_query)
+        
+        # Annotate posts dynamically if needed
+        for post in posts:
+            # No need to set likes_count, it's a property
+            # Check if the current user has liked the post
+            post.is_liked = False
+            if request.user.is_authenticated:
+                post.is_liked = post.likes.filter(author=request.user.author).exists()
+
+        return render(request, 'social/remote_profile.html', {
+            "posts": posts,
+            "author": currentAuthor,
+            'profile_author_id': request.user.author.id if request.user.is_authenticated else None,
+            'followers': follower_number,
+            'current_host': request.get_host(),
+            'following': following_number,
+            'is_friend': is_friend
+        })
+    except Author.DoesNotExist:
+        # Fetch remote author information
+        author_host = author_fqid.split('/api/')[0]
+        node = Node.objects.filter(base_url__contains=author_host).first()
+        
+        if not node:
+            return render(request, 'social/not_found_author.html', status=404)
+        
+        try:
+            response = requests.get(
+                author_fqid,
+                auth=(node.auth_username, node.auth_password),
+                headers={"Accept": "application/json"},
+                timeout=5
+            )
+            
+            if response.ok:
+                remote_author_data = response.json()
+                
+                return render(request, 'social/remote_profile.html', {
+                    "posts": [],
+                    "author": {
+                        'id': remote_author_data.get('id', full_author_id),
+                        'displayName': remote_author_data.get('displayName', 'Unknown Author'),
+                        'host': remote_author_data.get('host', author_host),
+                        'profileImage': remote_author_data.get('profileImage', ''),
+                    },
+                    'profile_author_id': request.user.author.id if request.user.is_authenticated else None,
+                    'followers': 0,
+                    'current_host': request.get_host(),
+                    'following': 0,
+                    'is_friend': False
+                })
+            else:
+                return render(request, 'social/not_found_author.html', status=404)
+        
+        except Exception:
+            return render(request, 'social/not_found_author.html', status=404)
+
 
 def profile_page(request, id):
     """Retrieves the profile page of an author."""
@@ -334,6 +418,7 @@ def profile_page(request, id):
             "author": currentAuthor,
             'profile_author_id': id,
             'followers': follower_number,
+            'current_host': request.get_host(),
             'following': following_number
         })
     except Exception:

@@ -481,7 +481,7 @@ def post_detail(request, internal_id):
     for comment in post.comments.all():
         comment.like_count = comment.get_likes_count()
 
-    return render(request, 'social/post_detail.html', {'post': post})
+    return render(request, 'social/post_detail.html', {'post': post, 'current_host': request.get_host() })
 
 
 @api_view(['PUT'])

@@ -57,7 +57,10 @@
         
      
         <p class="text-muted text-center">
-            <strong>By:</strong> <a  href="{{ post.author.page }}"><span class="fw-semibold">{{ post.author.displayName }}</span><a> &bull;
+            <strong>By:</strong> 
+            <a href="{% if current_host in post.author.id %}{{ post.author.page }}{% else %}/social/remote-authors/{{ post.author.id|urlencode }}{% endif %}">
+                <span class="fw-semibold">{{ post.author.displayName }}</span>
+            </a> &bull;
             <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
         </p>
 
@@ -152,7 +155,6 @@
                 </button>
             </div>
 
-            <!-- Comment section -->
             <!-- Comment section -->
             <div id="comment-section-{{ post.internal_id }}" 
             class="comment-section mt-3" 

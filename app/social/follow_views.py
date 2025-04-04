@@ -514,7 +514,7 @@ def followers_view(request):
             follower_id = follow.follower_id
             follower = Author.objects.get(id=follower_id)
             serializer = AuthorSerializer(follower)
-            followers_list.append(serializer.data)
+            followers_list.append(follower)
         except Author.DoesNotExist:
             print(f"Local follower {follow.follower_id} not found in database.")
             continue
