@@ -2,7 +2,7 @@ from rest_framework.test import APIClient
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from social.models import Author
+from social.models import Author, Node
 from django.core.files.uploadedfile import SimpleUploadedFile
 import io
 import os
@@ -13,6 +13,7 @@ from django.conf import settings
 import json
 from social.serializers import AuthorSerializer
 from django.utils.safestring import mark_safe
+import base64
 
 
 # Referenced:
@@ -40,14 +41,36 @@ class TestSetUp(TestCase):
         super().tearDown()
 
         # Create a user for the author
-        self.user = User.objects.create_user(username="test_user", password="password")
+        self.user = User.objects.create_user(username="TestUser", password="password")
+        self.node = Node.objects.create(name="TestNode", base_url="http://localhost:8000/social/api/", auth_username="admin9", auth_password="secret9")
         
+        # Create an Author instance in the test database
+        # Manually set author serial to 99 to avoid collision
+        self.author = Author.objects.create(
+            user=self.user,
+            id=f"http://localhost:8000/social/api/authors/99",
+            host="http://localhost:8000/social/api/",
+            displayName="Test Author"
+        )
 
+        # save the test author
+        self.author.refresh_from_db()
+        self.user.author = self.author
+        self.author.save()
+
+        # Authenticate the test client
+        self.client = APIClient()
+        self.client.force_login(self.user)
+
+        # Organized creating json objects and urls for different test cases
+        self.setUpPosting()
         self.setUpIdentity()
         self.setUpReading()
+     
+        return super().setUp()
+    
 
-        # ** EVERYTHING BELOW WAS MADE FOR TEST_POSTING.PY **
-        # So may or may not need everything for other test files.
+    def setUpPosting(self):
 
         # urls of endpoints from urls.py
         self.posts_url = reverse('social:post_list_create')
@@ -58,34 +81,9 @@ class TestSetUp(TestCase):
         self.post_delete_url = lambda post_id: reverse('social:delete_post', kwargs={'auto_id': post_id})
         self.post_create_url = reverse('social:create_post')
 
-        #debug
-        print("Existing authors before creating new one:")
-        for author in Author.objects.all():
-            print(author.id, author.user_id)
-        
-        # Create an Author instance in the test database
-        self.author = Author.objects.create(
-            user=self.user,
-            id=f"http://localhost:8000/social/api/authors/99",
-            host="http://localhost:8000/social/api/",
-            displayName="Test Author"
-        )
-
-
-        self.author.refresh_from_db()
-        self.user.author = self.author
-        self.author.save()
-
-        # Authenticate the test client
-        self.client = APIClient()
-        self.client.force_login(self.user)
-
-        # hardcoding 1 in .../authors/{author_serial}/posts/{1} for consistency, this post should always be the author's first post
-        print(self.author.id)
+        # Data for a plain text post for self.author, will be post serial 1
         parts = self.author.id.split('/')
         author_serial = int(parts[-1])
-        print(author_serial)
-        # Data for a plain text post
         self.plaintext_post_data = {
             "type": "post",
             "title":"A post title about a post about web dev",
@@ -97,11 +95,11 @@ class TestSetUp(TestCase):
             "content": "Þā wæs on burgum Bēowulf Scyldinga",
             "author": {
                 "type": self.author.type,
-                "id": f"http://localhost:8000/social/api/authors/{author_serial}",
+                "id": self.author.id,
                 "displayName": self.author.displayName,
                 "github": self.author.github,
-                "profileImage": "http://localhost:8000/static/images/pfp.jpg",
-                "page": f"http://localhost:8000/social/authors/{author_serial}",
+                "profileImage": self.author.profileImage,
+                "page": self.author.page,
                 "isAdmin": self.author.isAdmin
             },
             "published": "2015-03-09T13:07:04+00:00",
@@ -109,54 +107,17 @@ class TestSetUp(TestCase):
             "likes": [],
             "comments": []
         }
-
-        # data for a CommonMark post
-        self.markdown_post_data = {
-            "type": "post",
-            "title": "A different title for the markdown post",
-            "id":f"http://localhost:8000/social/api/authors/{author_serial}/posts/{1}",
-            "page": self.author.page,
-            "description":"This post discusses stuff -- brief",
-            "contentType": "text/markdown",
-            "content": "# Header **bold text**",
-            "author": {
-                "type": self.author.type,
-                "id": f"http://localhost:8000/social/api/authors/{author_serial}",
-                "displayName": self.author.displayName,
-                "github": self.author.github,
-                "profileImage": "http://localhost:8000/static/images/pfp.jpg",
-                "page": f"http://localhost:8000/social/authors/{author_serial}",
-                "isAdmin": self.author.isAdmin
-            },
-            "published": "2015-03-09T13:07:04+00:00",
-            "visibility": "PUBLIC",
-            "likes": [],
-            "comments": []
-        }
-        
-        # Create a test image in memory
-        self.image = self.generate_test_image()
-        # data for a post with an image
-        author_json_string = json.dumps(AuthorSerializer(self.author).data)
-        self.image_post_data = {
-            "type": "post",
-            "title":"A post title about a post about web dev",
-            "id":f"http://localhost:8000/social/api/authors/{author_serial}/posts/{1}",
-            "page": self.author.page,
-            "title":"A post title about a post about web dev",
-            "description":"This post discusses stuff -- brief",
-            "contentType": "image/png;base64",
-            "content": "placeholder content",
-            "image": self.image,
-            "author": AuthorSerializer(self.author).data,
-            "published": "2015-03-09T13:07:04+00:00",
-            "visibility": "PUBLIC",
-            "likes": [],
-            "comments": []
-        }
-        
-        return super().setUp()
     
+        # Data for a markdown post
+        self.markdown_post_data = self.plaintext_post_data.copy()
+        self.markdown_post_data["title"] = "A different title for the markdown post"
+        self.markdown_post_data["contentType"] = "text/markdown"
+        self.markdown_post_data["content"] = "# Header **bold text**"
+
+        self.image_post_data = self.plaintext_post_data.copy()
+        self.image_post_data["contentType"] = "image/png;base64"
+        self.image_post_data["content"] = self.generate_test_image()
+
 
     def setUpIdentity(self):
 
@@ -182,18 +143,33 @@ class TestSetUp(TestCase):
 
     def setUpReading(self):
         self.stream_url = reverse('social:index')
+
+
+    def generate_test_image(self):
+        # Generates a simple test png image, returns as base64 encoded string.
+        # Create a BytesIO object to hold the image data
+        image = io.BytesIO()
+        # Create a simple 100x100 red image
+        img = Image.new("RGB", (100, 100), color=(255, 0, 0))
+        # Save the image to the BytesIO object
+        img.save(image, format="PNG")
+        # Reset the file pointer to the beginning
+        image.seek(0)
+        # Convert the image data to base64
+        image_data = base64.b64encode(image.getvalue()).decode('utf-8')
+        # Store the BytesIO object for cleanup in tearDown
+        self.test_image_bytes = image
+        return image_data
         
 
     def tearDown(self):
         print("Cleaning up test data...")
+        # deletes the generated test image
+        if hasattr(self, 'test_image_bytes'):
+            print("deleting test img")
+            self.test_image_bytes.close()
         return super().tearDown()
     
 
-    def generate_test_image(self):
-        # Generates a simple test png image
-        image = io.BytesIO()
-        img = Image.new("RGB", (100, 100), color=(255, 0, 0))  # Create a red image
-        img.save(image, format="PNG")
-        image.seek(0)
-        return SimpleUploadedFile("test_image.png", image.getvalue(), content_type="image/png")
+
     

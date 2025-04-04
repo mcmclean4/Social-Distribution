@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
 from .serializers import PostSerializer, AuthorSerializer
 from .models import Post, Author
@@ -31,10 +32,11 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [NodeBasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication, SessionAuthentication]
 
     def perform_create(self, serializer):
         # Ensure the author is created or retrieved for the current user
+        print(f"self.request.user {self.request.user} ")
         author, created = Author.objects.get_or_create(
             user=self.request.user,
             defaults={"type": "author", "displayName": self.request.user.username}
