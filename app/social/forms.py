@@ -3,9 +3,11 @@ from .models import Post, Author
 from .models import Comment
 from django.core.exceptions import ValidationError
 import re
+import html
+import bleach
 
 class PostForm(forms.ModelForm):
-    image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}))
+    image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}), help_text="Upload a image (max 10MB)")
     video = forms.FileField(required=False, help_text="Upload a video (MP4, WebM, max 50MB)")
     class Meta:
         model = Post
@@ -24,42 +26,80 @@ class PostForm(forms.ModelForm):
         self.fields['visibility'].choices = [
             choice for choice in Post.CONTENT_VISIBILITY_CHOICES if choice[0] != 'DELETED']
         # Make content field not required at the form level
-        # We'll handle validation in clean()
-        self.fields['content'].required = False        
+        self.fields['content'].required = False
 
     def clean(self):
         cleaned_data = super().clean()
         content_type = cleaned_data.get('contentType', '')
         content = cleaned_data.get('content', '')
+        title = cleaned_data.get('title', '')
+        description = cleaned_data.get('description', '')
+
+        # Validate title
+        if title:
+            if len(title) > 100:  # Reasonable title length limit
+                self.add_error('title', 'Title must be less than 100 characters.')
+            if not re.match(r'^[a-zA-Z0-9\s.,!?()-]+$', title):
+                self.add_error('title', 'Title contains invalid characters.')
+            cleaned_data['title'] = html.escape(title)
+
+        # Validate description
+        if description:
+            if len(description) > 500:  # Reasonable description length limit
+                self.add_error('description', 'Description must be less than 500 characters.')
+            if not re.match(r'^[a-zA-Z0-9\s.,!?()-]+$', description):
+                self.add_error('description', 'Description contains invalid characters.')
+            cleaned_data['description'] = html.escape(description)
+
+        # Validate content based on content type
+        if content_type == 'text/plain':
+            # For text content, check for reasonable length and valid characters
+            if len(content) > 10000:  # 10KB limit for text
+                self.add_error('content', 'Text content is too long.')
+            if not re.match(r'^[\w\s.,!?()-\n]+$', content):
+                self.add_error('content', 'Text content contains invalid characters.')
+            cleaned_data['content'] = html.escape(content)
+
+        elif content_type == 'text/markdown':
+            # For markdown, allow more characters but still sanitize
+            if len(content) > 10000:  # 10KB limit for text
+                self.add_error('content', 'Text content is too long.')
+            # Sanitize HTML in markdown to prevent XSS
+            cleaned_data['content'] = bleach.clean(content, strip=True)
+
+        elif content_type == 'text/html':
+            # For HTML, strictly sanitize to prevent XSS
+            if len(content) > 10000:  # 10KB limit for text
+                self.add_error('content', 'HTML content is too long.')
+            # Use bleach to sanitize HTML and remove dangerous tags/attributes
+            cleaned_data['content'] = bleach.clean(
+                content,
+                tags=['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
+                attributes={'a': ['href']},
+                strip=True
+            )
 
         # Get files from self.files to handle file inputs
         image = self.files.get('image')
+        # Validate image file size
+        if image:
+            if image.size > 10 * 1024 * 1024:  # 10MB limit
+                self.add_error('image', 'Image file size must be less than 10MB.')
+
         video = self.files.get('video')
+        if video:
+            if video.size > 50 * 1024 * 1024:  # 50MB limit
+                self.add_error('video', 'Video file size must be less than 50MB.')
 
-        print(f"Clean method - Content type: {content_type}")
-        print(f"Clean method - Content present: {bool(content)}")
-        print(f"Clean method - Image present: {bool(image)}")
-        print(f"Clean method - Video present: {bool(video)}")
-
-        # For text content types, require content field
-        if content_type.startswith('text/') and not content:
-            print("Content required for text content type")
-            self.add_error('content', 'This field is required for text content types.')
-
-         # For image content types, require image file only if it's a new post or no existing image
-        elif (content_type.startswith('image/') or content_type == 'application/base64'):
-            if not image and (not self.instance or not self.instance.content):
-                print("Image required for image content type")
-                self.add_error('image', 'An image file is required for image content types.')
-            elif not image:
-                # Retain existing image if no new one is uploaded
-                cleaned_data['content'] = self.instance.content     
-
-        # For video content types, require video file
-        elif content_type.startswith('video/') and not video:
-            print("Video required for video content type")
-            self.add_error('video', 'A video file is required for video content types.')
         return cleaned_data
+
+    def clean_text_content(self, text):
+        """Use Django's built-in text cleaning"""
+        # Remove potentially dangerous characters
+        text = re.sub(r'[^\w\s.,!?()-\n]', '', text)
+        # Convert to plain text
+        return text.strip()
+
 class EditProfileForm(forms.ModelForm):
     class Meta:
         model = Author
@@ -85,13 +125,41 @@ class EditProfileForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ['comment', 'contentType'] 
-        
+        fields = ['comment', 'contentType']
+
         widgets = {
             'comment': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'contentType': forms.Select(attrs={'class': 'form-control'}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        content_type = cleaned_data.get('contentType', '')
+        content = cleaned_data.get('content', '')
+
+        if content_type == 'text/plain':
+            if len(content) > 10000:
+                self.add_error('content', 'Text content is too long.')
+            if not re.match(r'^[\w\s.,!?()-\n]+$', content):
+                self.add_error('content', 'Text content contains invalid characters.')
+            cleaned_data['content'] = html.escape(content)
+
+        elif content_type == 'text/markdown':
+            if len(content) > 10000:
+                self.add_error('content', 'Text content is too long.')
+            cleaned_data['content'] = bleach.clean(content, strip=True)
+            
+        elif content_type == 'text/html':
+            if len(content) > 10000:
+                self.add_error('content', 'HTML content is too long.')
+            cleaned_data['content'] = bleach.clean(
+                content,
+                tags=['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
+                attributes={'a': ['href']},
+                strip=True
+            )
+
+        return cleaned_data
 class RegisterForm(forms.Form):
     username = forms.CharField(max_length=100)
     password = forms.CharField(widget=forms.PasswordInput)
