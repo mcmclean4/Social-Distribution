@@ -16,10 +16,22 @@
                     <div class="card-body">
                         <h5 class="card-title fw-semibold">{{ post.title }}</h5>
                         <p class="card-text">{{ post.description|truncatewords:20 }}</p>
-                        <p class="card-text text-muted small">
-                            <strong>By:</strong> {{ post.author.displayName }} &bull;
-                            <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
-                        </p>
+                        <div class="d-flex align-items-center mt-3">
+                            <!-- Author Profile Picture -->
+                            <div class="me-2">
+                                {% if post.author.profileImage %}
+                                    <img src="{{ post.author.profileImage }}" class="rounded-circle" width="32" height="32" alt="{{ post.author.displayName }}">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px;">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <p class="card-text text-muted small mb-0">
+                                <strong>By:</strong> {{ post.author.displayName }} &bull;
+                                <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
+                            </p>
+                        </div>
                     </div>
                 </a>
                 <!-- Video section -->
@@ -36,19 +48,14 @@
                 <!-- Like and Comment section -->
                 <div class="card-footer mt-4">
                     <div class="d-flex justify-content-between">
-                        <div class="like-section" 
-                             data-post-id="{{ post.internal_id }}" 
-                             data-author-id="{{ post.author.id }}" 
-                             data-fqid="{{ post.id }}">
-                            <button class="btn btn-link text-decoration-none" 
-                                    onclick="handleLike('{{ post.author.id }}', '{{ post.internal_id }}')">
-                                <i id="like-icon-{{ post.internal_id }}" 
-                                   class="bi bi-hand-thumbs-up{% if post.is_liked %}-fill{% endif %}">
-                                </i>
-                                <span class="like-text">Like</span>
-                                <span class="like-count" id="like-count-{{ post.internal_id }}">{{ post.likes.count }}</span>
-                            </button>
-                        </div>
+                    <div class="like-section" data-post-id="{{ post.internal_id }}" data-author-id="{{ post.author.id }}" data-fqid="{{ post.id }}">
+                        <button class="btn btn-link text-decoration-none" onclick="handleLike('{{ post.author.id }}', '{{ post.internal_id }}')">
+                        <i class="bi bi-hand-thumbs-up{% if post.is_liked %}-fill{% endif %}"></i>
+                        <span class="like-text">Like</span>
+                        <span class="like-count" id="like-count-{{ post.internal_id }}">{{ post.likes.count }}</span>
+                        </button>
+                    </div>
+        
                         <button class="btn btn-link text-decoration-none" 
                                 onclick="toggleCommentSection('{{ post.internal_id }}')" 
                                 type="button">
@@ -59,41 +66,58 @@
 
                     <!-- Comment section -->
                     <div id="comment-section-{{ post.internal_id }}" 
-                         class="comment-section mt-3" 
-                         data-post-id="{{ post.internal_id }}" 
-                         data-author-id="{{ post.author.id }}" 
-                         data-fqid="{{ post.id }}"
-                         style="display: none;">
+                    class="comment-section mt-3" 
+                    data-post-id="{{ post.internal_id }}" 
+                    data-author-id="{{ post.author.id }}" 
+                    data-fqid="{{ post.id }}"
+                    style="display: none;">
                         <!-- Comment form -->
                         <form onsubmit="handleComment(event, '{{ post.author.id }}', '{{ post.internal_id }}', '{{post.id}}')" class="comment-form mb-3">
                             {% csrf_token %}
                             <div class="input-group">
-                                <textarea class="form-control" id="comment-input-{{ post.internal_id }}" 
-                                          placeholder="Write a comment..." rows="1"></textarea>
+                                <textarea class="form-control" 
+                                        id="comment-input-{{ post.internal_id }}" 
+                                        placeholder="Write a comment..." 
+                                        rows="1"></textarea>
                                 <button class="btn btn-primary" type="submit">Post</button>
                             </div>
                         </form>
 
                         <div class="comments-list">
                             {% for comment in post.comments.all %}
-                                <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}" data-post-fqid="{{ post.id }}">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <strong class="me-2">{{ comment.author.displayName }}</strong>
-                                            <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
+                            <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}"       data-post-fqid="{{ post.id }}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="d-flex align-items-start">
+                                            <!-- Comment Author Profile Picture -->
+                                        <div class="me-2">
+                                            {% if comment.author.profileImage %}
+                                                <img src="{{ comment.author.profileImage }}" class="rounded-circle" width="32" height="32" alt="{{ comment.author.displayName }}">
+                                            {% else %}
+                                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px;">
+                                                    <i class="bi bi-person-fill"></i>
+                                                </div>
+                                            {% endif %}
                                         </div>
-                                        <button class="btn btn-link text-decoration-none p-0" 
-                                            onclick="handleCommentLike(this, '{{ post.author.id }}', '{{ post.id }}', '{{ comment.id }}')">
-                                            <i class="bi bi-hand-thumbs-up{% if comment.is_liked %}-fill{% endif %}"></i>
-                                            <span class="like-count">
-                                                {% with like_count=comment.get_likes_count %}
-                                                    {{ like_count }}
-                                                {% endwith %}
-                                            </span>
-                                        </button>
+                                        <div>
+                                            <!-- Clickable comment author name -->
+                                            <a href="{% if current_host in comment.author.id %}{{ comment.author.page }}{% else %}/social/remote-authors/{{ comment.author.id|urlencode }}{% endif %}" class="text-decoration-none">
+                                                <strong class="me-2">{{ comment.author.displayName }}</strong>
+                                            </a>
+                                            <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
+                                            <p class="mb-1">{{ comment.comment }}</p>
+                                        </div>
                                     </div>
-                                    <p class="mb-1">{{ comment.comment }}</p>
+                                    <button class="btn btn-link text-decoration-none p-0" 
+                                        onclick="handleCommentLike(this, '{{ post.author.id }}', '{{ post.id }}', '{{ comment.id }}')">
+                                        <i class="bi bi-hand-thumbs-up{% if comment.is_liked %}-fill{% endif %}"></i>
+                                        <span class="like-count">
+                                            {% with like_count=comment.get_likes_count %}
+                                                {{ like_count }}
+                                            {% endwith %}
+                                        </span>
+                                    </button>
                                 </div>
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
@@ -391,12 +415,28 @@
         const postElement = document.querySelector(`[data-post-id="${postId}"]`);
         const postFqid = postElement ? postElement.getAttribute('data-fqid') || '' : '';
         
+        // Create profile picture HTML
+        let profilePicHtml = '';
+        if (comment.author?.profileImage) {
+            profilePicHtml = `<img src="${comment.author.profileImage}" class="rounded-circle" width="32" height="32" alt="${displayName}">`;
+        } else {
+            profilePicHtml = `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px;">
+                <i class="bi bi-person-fill"></i>
+            </div>`;
+        }
+        
         return `
             <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}" data-comment-id="${commentId}" data-post-fqid="${postFqid}">
                 <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <strong class="me-2">${displayName}</strong>
-                        <small class="text-muted">${formattedDate}</small>
+                    <div class="d-flex align-items-start">
+                        <div class="me-2">
+                            ${profilePicHtml}
+                        </div>
+                        <div>
+                            <strong class="me-2">${displayName}</strong>
+                            <small class="text-muted">${formattedDate}</small>
+                            <p class="mb-1">${comment.comment}</p>
+                        </div>
                     </div>
                     <button class="btn btn-link text-decoration-none p-0" 
                             onclick="handleCommentLike(this, '${authorId}', '${postFqid}', '${commentId}')">
@@ -404,7 +444,6 @@
                         <span class="like-count">0</span>
                     </button>
                 </div>
-                <p class="mb-1">${comment.comment}</p>
             </div>
         `;
     }

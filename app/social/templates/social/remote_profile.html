@@ -219,53 +219,8 @@
             </div>
         </div>
     </div>
+    {% include "social/_post_list.html" with posts=posts %}
 
-    <div class="gridContainer">
-        {% for post in posts %}
-        <a href="{% url 'social:post_detail' internal_id=post.id %}" class="text-decoration-none">
-            <div class="post">
-                {% if post.contentType == 'text/plain' or post.contentType == 'text/markdown' %}
-                <div class="textPost">
-                    <p class="mb-0">{{ post.content }}</p>
-                </div>
-                <div class="post-title-overlay">
-                    <h2>{{ post.title }}</h2>
-                </div>
-                {% elif 'image' in post.contentType or post.contentType == 'application/base64' %}
-                <div class="imagePost">
-                    {% if 'image' in post.contentType %}
-                        <img src="data:{{ post.contentType }},{{ post.content }}" alt="{{ post.title }}">
-                    {% else %}
-                        <img src="data:image/webp;base64,{{ post.content }}" alt="{{ post.title }}">
-                    {% endif %}
-                </div>
-                <div class="post-title-overlay">
-                    <h2>{{ post.title }}</h2>
-                </div>
-                {% elif 'video' in post.contentType %}
-                <div class="video-container">
-                    <video controls>
-                        <source src="/social/test-video/{{ post.internal_id }}/"
-                               type="{{ post.contentType|cut:';base64' }}">
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-                <div class="post-title-overlay">
-                    <h2>{{ post.title }}</h2>
-                </div>
-                {% else %}
-                <div class="textPost">
-                    <h3>{{ post.title }}</h3>
-                    <p class="small text-muted">Posted on {{ post.published|date:"M d, Y" }}</p>
-                </div>
-                <div class="post-title-overlay">
-                    <h2>{{ post.title }}</h2>
-                </div>
-                {% endif %}
-            </div>
-        </a>
-        {% endfor %}
-    </div>
 </div>
 
 {% endblock %}

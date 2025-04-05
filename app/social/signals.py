@@ -77,7 +77,7 @@ def create_like_notification(sender, instance, created, **kwargs):
                 content_page_url = comment_post.page
             else:
                 #redirect to index if post is not from our node
-                content_page_url = f"http://{NODE_IP}/social/index/"
+                content_page_url = f"http://{NODE_IP}/social/remote-post/{comment_post.id}/"
         except Comment.DoesNotExist:
             # Can't find the liked object, skip
             return

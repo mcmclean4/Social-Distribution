@@ -56,11 +56,30 @@
         </div>
         
      
-        <p class="text-muted text-center">
-            <strong>By:</strong> <a  href="{{ post.author.page }}"><span class="fw-semibold">{{ post.author.displayName }}</span><a> &bull;
-            <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
-        </p>
-
+        <!-- Author info with profile picture -->
+        <div class="d-flex justify-content-center align-items-center mb-3">
+            <div class="d-flex align-items-center">
+                <!-- Author Profile Picture -->
+                <div class="me-3">
+                {% if post.author.profileImage %}
+                    <img src="{{ post.author.profileImage }}" class="rounded-circle" width="50" height="50" alt="{{ post.author.displayName }}">
+                {% else %}
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 50px; height: 50px;">
+                        <i class="bi bi-person-fill fs-4"></i>
+                    </div>
+                {% endif %}
+                </div>
+                <div>
+                    <p class="text-muted mb-0">
+                        <strong>By:</strong> 
+                        <a href="{% if current_host in post.author.id %}{{ post.author.page }}{% else %}/social/remote-authors/{{ post.author.id|urlencode }}{% endif %}">
+                            <span class="fw-semibold">{{ post.author.displayName }}</span>
+                        </a> &bull;
+                        <strong>Posted on:</strong> {{ post.published|date:"M d, Y" }}
+                    </p>
+                </div>
+            </div>
+        </div>
         <p class="lead mt-3 text-center text-secondary">{{ post.description }}</p>
 
         <div class="mt-3">
@@ -153,7 +172,6 @@
             </div>
 
             <!-- Comment section -->
-            <!-- Comment section -->
             <div id="comment-section-{{ post.internal_id }}" 
             class="comment-section mt-3" 
             data-post-id="{{ post.internal_id }}" 
@@ -174,11 +192,27 @@
 
                 <div class="comments-list">
                     {% for comment in post.comments.all %}
-                    <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}" data-post-fqid="{{ post.id }}">
+                    <div class="comment mb-2 border-bottom pb-2" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}"       data-post-fqid="{{ post.id }}">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong class="me-2">{{ comment.author.displayName }}</strong>
-                                <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
+                            <div class="d-flex align-items-start">
+                                    <!-- Comment Author Profile Picture -->
+                                <div class="me-2">
+                                    {% if comment.author.profileImage %}
+                                        <img src="{{ comment.author.profileImage }}" class="rounded-circle" width="32" height="32" alt="{{ comment.author.displayName }}">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px;">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <!-- Clickable comment author name -->
+                                    <a href="{% if current_host in comment.author.id %}{{ comment.author.page }}{% else %}/social/remote-authors/{{ comment.author.id|urlencode }}{% endif %}" class="text-decoration-none">
+                                        <strong class="me-2">{{ comment.author.displayName }}</strong>
+                                    </a>
+                                    <small class="text-muted">{{ comment.published|date:"M d, Y" }}</small>
+                                    <p class="mb-1">{{ comment.comment }}</p>
+                                </div>
                             </div>
                             <button class="btn btn-link text-decoration-none p-0" 
                                 onclick="handleCommentLike(this, '{{ post.author.id }}', '{{ post.id }}', '{{ comment.id }}')">
@@ -190,7 +224,6 @@
                                 </span>
                             </button>
                         </div>
-                        <p class="mb-1">{{ comment.comment }}</p>
                     </div>
                     {% endfor %}
                 </div>
@@ -587,12 +620,28 @@
         const postElement = document.querySelector(`[data-post-id="${postId}"]`);
         const postFqid = postElement ? postElement.getAttribute('data-fqid') || '' : '';
         
+        // Create profile picture HTML
+        let profilePicHtml = '';
+        if (comment.author?.profileImage) {
+            profilePicHtml = `<img src="${comment.author.profileImage}" class="rounded-circle" width="32" height="32" alt="${displayName}">`;
+        } else {
+            profilePicHtml = `<div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white" style="width: 32px; height: 32px;">
+                <i class="bi bi-person-fill"></i>
+            </div>`;
+        }
+        
         return `
             <div class="comment mb-2 border-bottom pb-2" id="comment-${commentId}" data-comment-id="${commentId}" data-post-fqid="${postFqid}">
                 <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <strong class="me-2">${displayName}</strong>
-                        <small class="text-muted">${formattedDate}</small>
+                    <div class="d-flex align-items-start">
+                        <div class="me-2">
+                            ${profilePicHtml}
+                        </div>
+                        <div>
+                            <strong class="me-2">${displayName}</strong>
+                            <small class="text-muted">${formattedDate}</small>
+                            <p class="mb-1">${comment.comment}</p>
+                        </div>
                     </div>
                     <button class="btn btn-link text-decoration-none p-0" 
                             onclick="handleCommentLike(this, '${authorId}', '${postFqid}', '${commentId}')">
@@ -600,7 +649,6 @@
                         <span class="like-count">0</span>
                     </button>
                 </div>
-                <p class="mb-1">${comment.comment}</p>
             </div>
         `;
     }

@@ -11,32 +11,33 @@
             <option value="{{ node.base_url }}">{{ node.name }} - {{ node.base_url }}</option>
         {% endfor %}
     </select>
-    <div id="remote-authors" class="mb-4"></div>
+    <div id="remote-authors" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4"></div>
 
     <h4 class="mb-4 text-center">Local Authors</h4>
     {% if authors %}
-        <ul>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
         {% for author in authors %}
-            <li>
-                <button class="follow-button btn btn-primary btn-sm" 
-                        data-author-id="{{ author.id }}" 
-                        data-author-name="{{ author.displayName }}"
-                        data-author-host="{{ author.host }}"
-                        data-author-github="{{ author.github|default:'' }}"
-                        data-author-profileImage="{{ author.profileImage|default:'' }}"
-                        data-author-page="{{ author.page|default:'' }}">
-                    Follow {{ author.displayName }} ({{ author.id }})
-                </button>
-            </li>
+            <div class="col">
+                {% include "social/_author_display.html" with author=author button_class="follow-button btn btn-primary btn-sm" button_text="Follow" data_attribute_name="author-id" data_attribute_value=author.id  data_attribute_display_name="author-name" data_attribute_display_name_value=author.displayName %}
+            </div>
         {% endfor %}
-        </ul>
+        </div>
     {% else %}
         <p class="text-center">No authors available</p>  
     {% endif %}
 </div>
 
 <script>
-
+    function viewAuthorProfile(authorId,page) {
+        const currentHost = window.location.origin;
+        const isLocalAuthor = authorId.includes(currentHost)
+        if (isLocalAuthor){
+            window.location.href = page
+        }
+        else{
+            window.location.href = `/social/remote-authors/${encodeURIComponent(authorId)}`;
+        }
+    }
     var THIS_USER_ID = ""
 
     const MY_AUTHOR_ID = "{{ my_author.id|escapejs }}";
@@ -62,53 +63,58 @@
     }
 
     function attachFollowHandlers() {
-    document.querySelectorAll(".follow-remote, .follow-button").forEach(button => {
-        button.onclick = async function () {
-            let authorId = this.getAttribute("data-author-id");
-            let authorName = this.getAttribute("data-author-name");
-            let authorHost = this.getAttribute("data-author-host");
-            let authorGithub = this.getAttribute("data-author-github");
-            let authorProfileImage = this.getAttribute("data-author-profileImage");
-            let authorPage = this.getAttribute("data-author-page");
+        document.querySelectorAll(".follow-remote, .follow-button").forEach(button => {
+            button.onclick = async function () {
+                let authorId = this.getAttribute("data-author-id");
+                let authorName = this.getAttribute("data-author-name");
+                let authorHost = this.getAttribute("data-author-host") || "";
+                let authorGithub = this.getAttribute("data-author-github") || "";
+                let authorProfileImage = this.getAttribute("data-author-profileImage") || "";
+                let authorPage = this.getAttribute("data-author-page") || "";
 
-            let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
-            if (!confirmFollow) return;
-
-            try {
-                let response = await fetch("/social/api/follow/confirm/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie("csrftoken")
-                    },
-                    body: JSON.stringify({
-                        followee_id: authorId,
-                        displayName: authorName,
-                        host: authorHost || "",
-                        github: authorGithub || "",
-                        profileImage: authorProfileImage || "",
-                        page: authorPage || "",
-                        summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
-                        userId: THIS_USER_ID
-                    })
-                });
-
-                let result = await response.json();
-                if (response.ok) {
-                    alert("Follow request processed!");
-                    location.reload();
-                } else {
-                    alert(result.error || "Error processing follow request.");
-                    console.log(result);
+                // Fallback to get name if attribute is missing
+                if (!authorName) {
+                    const authorDisplay = this.closest('.author-display');
+                    authorName = authorDisplay.querySelector('h5').textContent;
                 }
-            } catch (err) {
-                alert("Network error processing follow request.");
-                console.error(err);
-            }
-        };
-    });
-}
 
+                let confirmFollow = confirm(`Are you sure you want to follow ${authorName}?`);
+                if (!confirmFollow) return;
+
+                try {
+                    let response = await fetch("/social/api/follow/confirm/", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCookie("csrftoken")
+                        },
+                        body: JSON.stringify({
+                            followee_id: authorId,
+                            displayName: authorName,
+                            host: authorHost,
+                            github: authorGithub,
+                            profileImage: authorProfileImage,
+                            page: authorPage,
+                            summary: `${MY_AUTHOR_NAME} wants to follow ${authorName}`,
+                            userId: THIS_USER_ID
+                        })
+                    });
+
+                    let result = await response.json();
+                    if (response.ok) {
+                        alert("Follow request processed!");
+                        location.reload();
+                    } else {
+                        alert(result.error || "Error processing follow request.");
+                        console.log(result);
+                    }
+                } catch (err) {
+                    alert("Network error processing follow request.");
+                    console.error(err);
+                }
+            };
+        });
+    }
 
     document.addEventListener("DOMContentLoaded", function () {
         attachFollowHandlers();
@@ -126,31 +132,61 @@
                 const authors = data.authors || [];
 
                 const container = document.getElementById("remote-authors");
-                container.innerHTML = "<h4 class='mb-4 text-center'>Remote Authors</h4><ul>";
+                container.innerHTML = ''; // Clear previous content
 
                 authors.forEach(author => {
-                    container.innerHTML += `
-                        <li>
-                            <button class="follow-remote btn btn-secondary btn-sm"
-                                data-author-id="${author.id}"
-                                data-author-name="${author.displayName || 'Unknown'}"
-                                data-author-host="${author.host || selectedNode}"
-                                data-author-github="${author.github || ''}"
-                                data-author-profileImage="${author.profileImage || ''}"
-                                data-author-page="${author.page || ''}">
-                                Follow ${author.displayName || 'Unknown'} (${author.id})
-                            </button>
-                        </li>`;
+                    // Create a column div
+                    const colDiv = document.createElement('div');
+                    colDiv.className = 'col';
+
+                    // Create the author display HTML manually
+                    colDiv.innerHTML = `
+                        <div class="author-display card mb-2">
+                            <div class="card-body py-2">
+                                <div class="d-flex align-items-center">
+                                    <div onclick="viewAuthorProfile('${author.id}', '${author.page || ''}')" style="cursor: pointer;">
+                                        ${author.profileImage ? 
+                                            `<img src="${author.profileImage}" class="rounded-circle me-3" width="40" height="40" alt="${author.displayName}">` : 
+                                            `<div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <span class="text-white">${author.displayName.charAt(0)}</span>
+                                            </div>`
+                                        }
+                                    </div>
+                                    
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-0" onclick="viewAuthorProfile('${author.id}', '${author.page || ''}')" style="cursor: pointer;">${author.displayName}</h5>
+                                        <small class="text-muted">${author.id}</small>
+                                    </div>
+                                    
+                                    <div class="d-flex gap-2">
+                                        <button class="follow-remote btn btn-secondary btn-sm"
+                                                onclick="event.stopPropagation();"
+                                                data-author-id="${author.id}"
+                                                data-author-name="${author.displayName}">
+                                            Follow
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                ${author.github ? 
+                                    `<div class="mt-1 small">
+                                        <i class="bi bi-github"></i> ${author.github}
+                                    </div>` : ''
+                                }
+                            </div>
+                        </div>
+                    `;
+
+                    // Add to the container
+                    container.appendChild(colDiv);
                 });
 
-                container.innerHTML += "</ul>";
                 attachFollowHandlers();
             } catch (err) {
                 alert("Failed to load authors from your backend.");
                 console.error(err);
             }
         });
-
     });
 </script>
 {% endblock %}

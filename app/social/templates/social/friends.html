@@ -5,23 +5,29 @@
     <h1 class="mb-4 text-center fw-bold">Friends</h1>
 
     {% if friends %}
+    <div class="card shadow-sm">
+        <div class="card-body">
         {% for friend in friends %}
-        <ul>
-            <li>
-                <strong>{{ friend.displayName }}</strong> ({{ friend.id }})
-                <button class="unfriend-button btn btn-danger btn-sm"
-                        data-friend-id="{{ friend.id }}">
-                    Unfriend 
-                </button>
-            </li>
-        </ul>
+            {% include "social/_author_display.html" with author=friend button_class="unfriend-button btn btn-danger btn-sm" button_text="Unfriend"  data_attribute_name="friend-id"  data_attribute_value=friend.id %}
         {% endfor %}
+        </div>
+    </div>
     {% else %}
-        <p>No friends yet.</p>  
+        <div class="alert alert-info">No followers yet.</div>  
     {% endif %}
 </div>
 
 <script>
+    function viewAuthorProfile(authorId,page) {
+        const currentHost = window.location.origin;
+        const isLocalAuthor = authorId.includes(currentHost)
+        if (isLocalAuthor){
+            window.location.href = page
+        }
+        else{
+            window.location.href = `/social/remote-authors/${encodeURIComponent(authorId)}`;
+        }
+    }
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -61,7 +67,7 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Friend removed successfully.");
-                    location.reload();
+                    this.closest('.card').remove(); 
                 } else {
                     alert(result.error || "Error removing friend.");
                 }

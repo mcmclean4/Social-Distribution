@@ -3,20 +3,29 @@
 <div class="container mt-4">
 	<h1 class="mb-4 text-center fw-bold">Users You're Following</h1>
     {%if following_authors%}
+    <div class="card shadow-sm">
+        <div class="card-body">
         {%for author in following_authors%}
-        <ul>
-            <li>
-                <strong>{{ author.displayName }}</strong> ({{ author.id }}) 
-                <button class="unfollow-button btn btn-danger btn-sm" aria-label="Unfollow {{ author.displayName }}" data-author-id="{{ author.id }}" data-author-name="{{ author.displayName }}">Unfollow </button>
-            </li>
-        </ul>
+        {% include "social/_author_display.html" with author=author button_class="unfollow-button btn btn-danger btn-sm" button_text="Unfollow"  data_attribute_name="author-id"  data_attribute_value=author.id data_attribute_author_name="author-name" data_attribute_author_name_value=author.displayName %}
         {% endfor%}
-    {% else%}
-  
-	<p>You're not following anyone yet.</p>{% endif %}
+        </div>
+    </div>
+    {% else %}
+        <div class="alert alert-info">No followers yet.</div>  
+    {% endif %}
 
 </div>
 <script>
+    function viewAuthorProfile(authorId,page) {
+        const currentHost = window.location.origin;
+        const isLocalAuthor = authorId.includes(currentHost)
+        if (isLocalAuthor){
+            window.location.href = page
+        }
+        else{
+            window.location.href = `/social/remote-authors/${encodeURIComponent(authorId)}`;
+        }
+    }
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -40,6 +49,10 @@
                 let myAuthorId = "{{ my_author_id }}";  // Logged-in author's ID
                 const currentHost = window.location.origin;
                 const isLocalUnFollow = authorId.includes(currentHost)
+                if (!authorName) {
+                    const authorDisplay = this.closest('.author-display');
+                    authorName = authorDisplay.querySelector('h5').textContent;
+                }
                 let confirmUnfollow = confirm(`Are you sure you want to unfollow ${authorName}?`);
                 if (!confirmUnfollow) {
                     console.log("Unfollow canceled");
@@ -86,8 +99,7 @@
                 let result = await response.json();
                 if (response.ok) {
                     alert(result.message || "Unfollowed successfully.");
-                    this.parentElement.remove();  //  Remove from UI
-                    location.reload(); 
+                    this.closest('.card').remove();  // Remove the card instead of reloading
                 } else {
                     alert(result.error || "Error unfollowing.");
                 }
