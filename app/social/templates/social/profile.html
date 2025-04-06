@@ -202,11 +202,14 @@
                         <div class="stat-value">{{ following }}</div>
                         <div class="stat-label">Following</div>
                     </div>
-                    {% if current_host in author.host %}
-                    <span class="badge bg-success ms-1">Local</span>
-                    {% else %}
-                    <span class="badge bg-secondary ms-1">Remote</span>
-                    {% endif %}
+                    <div class="stat-box">
+                        {% if current_host in author.host %}
+                        <div class="stat-value"><span class="badge bg-success">Local</span></div>
+                        {% else %}
+                        <div class="stat-value"><span class="badge bg-secondary">Remote</span></div>
+                        {% endif %}
+                        <div class="stat-label">Author Type</div>
+                    </div>
                 </div>
                 
                 {% if author_id == profile_author_id %}
