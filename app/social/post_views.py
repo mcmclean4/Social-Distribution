@@ -27,6 +27,7 @@ import requests
 from django.conf import settings
 import json
 from .authentication import NodeBasicAuthentication
+import bleach
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     queryset = Post.objects.all()
@@ -482,6 +483,21 @@ def post_detail(request, internal_id):
     # Add like count for comments
     for comment in post.comments.all():
         comment.like_count = comment.get_likes_count()
+
+    allowed_tags = ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'span', 'img']
+    allowed_attrs = {
+        'img': ['src', 'alt', 'width', 'height'],
+        'a': ['href', 'rel', 'target'],
+        'span': ['class']
+    }
+    
+    if post.contentType in ['text/markdown', 'text/plain']:
+        post.content = bleach.clean(
+            post.content,
+            tags=allowed_tags,
+            attributes=allowed_attrs,
+            strip=True
+        )
 
     return render(request, 'social/post_detail.html', {'post': post, 'current_host': request.get_host() })
 
