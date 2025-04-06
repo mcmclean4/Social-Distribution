@@ -88,7 +88,7 @@ CSP_FONT_SRC = ("'self'", "https:", "data:")
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# Add SecurityMiddleware to the top of your MIDDLEWARE list
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',  # Make sure this is first
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -99,7 +99,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'social.middleware.SecurityMiddleware',  # Add our custom security middleware
+    'social.middleware.SecurityMiddleware',
 ]
 
 # Allowed Content Types

@@ -5,6 +5,9 @@ from django.core.exceptions import ValidationError
 import re
 import html
 import bleach
+import base64
+from PIL import Image
+from io import BytesIO
 
 class PostForm(forms.ModelForm):
     image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}), help_text="Upload a image (max 10MB)")
@@ -35,9 +38,18 @@ class PostForm(forms.ModelForm):
         title = cleaned_data.get('title', '')
         description = cleaned_data.get('description', '')
 
+        VALID_CONTENT_TYPES = [
+            'text/plain', 'text/markdown', 'text/html',
+            'application/base64', 'image/png;base64', 'image/jpeg;base64',
+            'video/mp4;base64', 'video/webm;base64']
+        
+        # Ensure valid contentType
+        if content_type not in VALID_CONTENT_TYPES:
+            self.add_error('contentType', 'Invalid content type.')
+
         # Validate title
         if title:
-            if len(title) > 100:  # Reasonable title length limit
+            if len(title) > 100:
                 self.add_error('title', 'Title must be less than 100 characters.')
             if not re.match(r'^[a-zA-Z0-9\s.,!?()-]+$', title):
                 self.add_error('title', 'Title contains invalid characters.')
@@ -45,60 +57,63 @@ class PostForm(forms.ModelForm):
 
         # Validate description
         if description:
-            if len(description) > 500:  # Reasonable description length limit
+            if len(description) > 500:
                 self.add_error('description', 'Description must be less than 500 characters.')
             if not re.match(r'^[a-zA-Z0-9\s.,!?()-]+$', description):
                 self.add_error('description', 'Description contains invalid characters.')
             cleaned_data['description'] = html.escape(description)
 
         # Validate content based on content type
-        if content_type == 'text/plain':
-            # For text content, check for reasonable length and valid characters
-            if len(content) > 10000:  # 10KB limit for text
-                self.add_error('content', 'Text content is too long.')
-            if not re.match(r'^[\w\s.,!?()-\n]+$', content):
-                self.add_error('content', 'Text content contains invalid characters.')
-            cleaned_data['content'] = html.escape(content)
+        if content:
+            if len(content.encode('utf-8')) > 10 * 1024 * 1024:  # max 10MB
+                self.add_error('content', 'Content exceeds 10MB.')
 
-        elif content_type == 'text/markdown':
-            # For markdown, allow more characters but still sanitize
-            if len(content) > 10000:  # 10KB limit for text
-                self.add_error('content', 'Text content is too long.')
-            # Sanitize HTML in markdown to prevent XSS
-            cleaned_data['content'] = bleach.clean(content, strip=True)
+            if content_type == 'text/plain':
+                if not re.match(r'^[\w\s.,!?()\-\n]+$', content):
+                    self.add_error('content', 'Text content contains invalid characters.')
+                cleaned_data['content'] = html.escape(content)
 
-        elif content_type == 'text/html':
-            # For HTML, strictly sanitize to prevent XSS
-            if len(content) > 10000:  # 10KB limit for text
-                self.add_error('content', 'HTML content is too long.')
-            # Use bleach to sanitize HTML and remove dangerous tags/attributes
-            cleaned_data['content'] = bleach.clean(
-                content,
-                tags=['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
-                attributes={'a': ['href']},
-                strip=True
-            )
+            elif content_type == 'text/markdown':
+                cleaned_data['content'] = bleach.clean(content, strip=True)
 
-        # Get files from self.files to handle file inputs
+            elif content_type == 'text/html':
+                cleaned_data['content'] = bleach.clean(
+                    content,
+                    tags=['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li'],
+                    attributes={'a': ['href']},
+                    strip=True
+                )
+
+            # elif content_type in ['image/png;base64', 'image/jpeg;base64', 'application/base64']:
+            #     try:
+            #         header, b64data = content.split(',', 1) if ',' in content else (None, content)
+            #         binary_data = base64.b64decode(b64data)
+            #         if len(binary_data) > 10 * 1024 * 1024:
+            #             self.add_error('content', 'Base64 image exceeds 10MB.')
+            #         img = Image.open(BytesIO(binary_data))
+            #         img.verify()
+
+            #         if content_type == 'image/png;base64' and img.format != 'PNG':
+            #             self.add_error('content', 'Expected PNG image.')
+            #         elif content_type == 'image/jpeg;base64' and img.format != 'JPEG':
+            #             self.add_error('content', 'Expected JPEG image.')
+            #         elif content_type == 'application/base64' and img.format in ['PNG', 'JPEG', 'GIF']:
+            #             self.add_error('content', 'Use correct image content type for PNG/JPEG.')
+            #     except Exception:
+            #         self.add_error('content', 'Invalid base64 image.')
+
+        # Validate file uploads
         image = self.files.get('image')
-        # Validate image file size
         if image:
-            if image.size > 10 * 1024 * 1024:  # 10MB limit
+            if image.size > 10 * 1024 * 1024:
                 self.add_error('image', 'Image file size must be less than 10MB.')
 
         video = self.files.get('video')
         if video:
-            if video.size > 50 * 1024 * 1024:  # 50MB limit
+            if video.size > 50 * 1024 * 1024:
                 self.add_error('video', 'Video file size must be less than 50MB.')
 
         return cleaned_data
-
-    def clean_text_content(self, text):
-        """Use Django's built-in text cleaning"""
-        # Remove potentially dangerous characters
-        text = re.sub(r'[^\w\s.,!?()-\n]', '', text)
-        # Convert to plain text
-        return text.strip()
 
 class EditProfileForm(forms.ModelForm):
     class Meta:
@@ -160,6 +175,7 @@ class CommentForm(forms.ModelForm):
             )
 
         return cleaned_data
+    
 class RegisterForm(forms.Form):
     username = forms.CharField(max_length=100)
     password = forms.CharField(widget=forms.PasswordInput)
@@ -174,5 +190,4 @@ class RegisterForm(forms.Form):
 
         if password != confirm_password:
             raise ValidationError("The two password fields must match.")
-
         return cleaned_data
