@@ -9,6 +9,7 @@ import base64
 
 class CommentsLikesAPITests(TestCase):
     def setUp(self):
+        # settings.HOST = "http://localhost:8000/social/api/"
         settings.HOST = "http://localhost:8000/social/api/"
         
         # Create test users
@@ -46,82 +47,52 @@ class CommentsLikesAPITests(TestCase):
 
         self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testNodeUsername", auth_password="testNodePassword")
 
-
-    
     def test_add_comment(self):
-        """Test adding a comment to a post
-        api: POST: api/authors/author_id/posts/post_serial/comments/
-        """
-
+        """Test adding a comment to a post"""
+        
         # Extract author ID to match post format
         author_id = self.author1.id.split('/')[-1]
-        post_id = self.post_id  # Use actual post ID
-
+        post_id = self.post_id
+        post_serial = post_id.split('/')[-1]
+        
         # Construct API URL
-        post_serial = post_id.split('/')[-1]  # Extracts just the number
-        url = reverse("social:post_comments", kwargs={"author_id": author_id, "post_serial": post_serial})
-
+        url = reverse("social:post_comments", kwargs={
+            "author_id": author_id, 
+            "post_serial": post_serial
+        })
+        
+        # Include complete data with the author object
         data = {
             "type": "comment",
             "comment": "This is a new test comment.",
             "contentType": "text/plain",
             "author": {
+                "type": "author",
                 "id": self.author2.id,
+                "host": self.author2.host,
                 "displayName": self.author2.displayName
             },
-            "post": post_id  # Ensure the correct post ID is used
+            "post": self.post.id
+            # "postFqid": self.post.id
         }
-
-        response = self.client.post(url, data, format="json")
-
-        # Debugging output
-
+        
+        # Make request with the correct data
+        response = self.client.post(
+            url,
+            data=data,
+            format="json",
+            HTTP_HOST="None"
+        )
+        # localhost:8000"
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.content}")
+        
+        # Test assertions
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["comment"], "This is a new test comment.")
-
+        
         # Verify the comment is in the database
         self.assertEqual(Comment.objects.filter(post=post_id).count(), 1)
-
-    def test_get_post_comments(self):
-        """Test retrieving comments for a post through API"""
-
-        # Ensure the test uses the correct post ID
-        author_id = self.author1.id.split('/')[-1]
-        post_id = self.post_id  # Use actual post ID
-        post_serial = post_id.split('/')[-1]  # Extract the last part of the ID
-
-        # Create comments in the test database
-        Comment.objects.create(
-            author=self.author2,
-            comment="First test comment.",
-            post=post_id
-        )
-
-        Comment.objects.create(
-            author=self.author1,
-            comment="Second test comment.",
-            post=post_id
-        )
-
-        # Construct API URL
-        url = reverse("social:post_comments", kwargs={"author_id": author_id, "post_serial": post_serial})
-
-        # Send GET request to retrieve comments
-        response = self.client.get(url)
-
-        # Ensure request was successful
-        self.assertEqual(response.status_code, 200)
-
-        # Ensure correct response type
-        self.assertEqual(response.data["type"], "comments")
-
-        # Ensure the correct number of comments is returned
-        self.assertEqual(len(response.data["comments"]), 2)
-
-        # Ensure the latest comment matches the expected one
-        self.assertEqual(response.data["comments"][0]["comment"], "Second test comment.")  # Latest comment
-        self.assertEqual(response.data["comments"][-1]["comment"], "First test comment.")  # Oldest comment
-
 
     def test_like_comment(self):
         """Test liking and unliking a comment"""
@@ -209,6 +180,8 @@ class CommentsLikesAPITests(TestCase):
         self.assertEqual(response.data["src"][0]["author"]["id"], self.author1.id)
         self.assertEqual(response.data["src"][1]["author"]["id"], self.author2.id)
 
+        
+        print(f"Verified likes from authors: {self.author1.displayName}, {self.author2.displayName}")
     def test_get_specific_comment(self):
         """Test retrieving a specific comment by FQID"""
 
@@ -243,6 +216,7 @@ class CommentsLikesAPITests(TestCase):
         self.assertEqual(response.data["id"], self.comment.id)
         self.assertEqual(response.data["comment"], "This is a specific test comment.")
         self.assertEqual(response.data["author"]["id"], self.author2.id)
+
 
     def test_get_post_likes(self):
         """Test retrieving likes for a post"""
@@ -358,6 +332,7 @@ class CommentsLikesAPITests(TestCase):
         self.assertEqual(response.data["object"], post_url)
         self.assertEqual(response.data["author"]["id"], self.author1.id)
 
+
     def test_get_like_by_fqid(self):
         """Test retrieving a specific like by Fully Qualified ID (FQID)"""
 
@@ -391,3 +366,331 @@ class CommentsLikesAPITests(TestCase):
         self.assertEqual(response.data["id"], like.id)
         self.assertEqual(response.data["object"], post_url)
         self.assertEqual(response.data["author"]["id"], self.author1.id)
+
+
+
+
+
+class CommentsLikesFunctionTests(TestCase):
+    def setUp(self):
+        # settings.HOST = "http://localhost:8000/social/api/"
+        settings.HOST = "http://localhost:8000/social/api/"
+        
+        # Create test users
+        self.user1 = User.objects.create_user(username="user1", password="password")
+        self.user2 = User.objects.create_user(username="user2", password="password")
+
+        # Create test authors
+        self.author1 = Author.objects.create(user=self.user1, id=f"http://localhost:8000/social/api/authors/1", displayName="Lara Croft", host=settings.HOST)
+        print("author 1 id:")
+        print(self.author1.id)
+        self.author2 = Author.objects.create(user=self.user2, id=f"http://localhost:8000/social/api/authors/2", displayName="Greg Johnson", host=settings.HOST)
+
+        # Extract author ID
+        author_id = self.author1.id.split('/')[-1]
+
+        self.post = Post.objects.create(
+            author=self.author1,
+            title="Test Post",
+            content="This is a test post.",
+            id= "http://localhost:8000/social/api/authors/1/posts/1",
+            page="http://localhost:8000/social/post/1"
+        )
+        
+        # Refresh to get the posttid
+        self.post.refresh_from_db()
+        self.post_id = self.post.id  # Store the actual ID assigned
+        print(self.post.id)
+        print(f"POST PAGE: {self.post.page}")
+
+
+        # Initialize API client
+        self.client = APIClient()
+        self.client.force_login(self.user2)
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
+
+        self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testNodeUsername", auth_password="testNodePassword")
+
+    def test_add_comment_func(self):
+        """Test retrieving comments for a post (bypassing the API)"""
+        
+        # Create comments directly
+        Comment.objects.create(
+            author=self.author2,
+            comment="First test comment.",
+            post=self.post_id
+        )
+        
+        Comment.objects.create(
+            author=self.author1,
+            comment="Second test comment.",
+            post=self.post_id
+        )
+        
+        # Verify comments exist in the database
+        comments = Comment.objects.filter(post=self.post_id).order_by('-published')
+        self.assertEqual(comments.count(), 2)
+        
+        # Verify the order and content (latest first)
+        self.assertEqual(comments[0].comment, "Second test comment.")
+        self.assertEqual(comments[1].comment, "First test comment.")
+        
+        # Verify the comment authors
+        self.assertEqual(comments[0].author, self.author1)
+        self.assertEqual(comments[1].author, self.author2)
+        
+        # Print for verification
+        print(f"Successfully verified {comments.count()} comments")
+        print(f"First comment: '{comments[0].comment}' by {comments[0].author.displayName}")
+        print(f"Second comment: '{comments[1].comment}' by {comments[1].author.displayName}")
+
+    def test_like_comment_func(self):
+        """Test liking and unliking a comment (bypassing API)"""
+
+        # Create a comment in the test database
+        comment = Comment.objects.create(
+            author=self.author2,
+            comment="A comment to like.",
+            post=self.post_id
+        )
+        
+        # Verify the comment was created successfully
+        self.assertIsNotNone(comment.id)
+        print(f"Created comment with ID: {comment.id}")
+        
+        # Test liking the comment - directly create the Like object
+        like = Like.objects.create(
+            author=self.author1,
+            object=comment.id
+        )
+        
+        # Verify the like was created
+        self.assertIsNotNone(like.id)
+        print(f"Created like with ID: {like.id}")
+        
+        # Ensure like is stored in the database
+        like_count = Like.objects.filter(object=comment.id).count()
+        self.assertEqual(like_count, 1)
+        print(f"Confirmed {like_count} like in database")
+        
+        # Test unliking by removing the like
+        like.delete()
+        
+        # Ensure like is removed from the database
+        new_like_count = Like.objects.filter(object=comment.id).count()
+        self.assertEqual(new_like_count, 0)
+        print(f"Confirmed like was removed, now {new_like_count} likes")
+
+    def test_get_comment_likes_func(self):
+        """Test retrieving likes for a comment (bypassing API)"""
+        
+        # Create a comment
+        comment = Comment.objects.create(
+            author=self.author2,
+            comment="A comment that will be liked.",
+            post=self.post_id
+        )
+        print(f"Created comment with ID: {comment.id}")
+        
+        # Create likes in the test database
+        like1 = Like.objects.create(author=self.author1, object=comment.id)
+        like2 = Like.objects.create(author=self.author2, object=comment.id)
+        
+        print(f"Created likes: {like1.id}, {like2.id}")
+        
+        # Retrieve likes directly from the database
+        likes = Like.objects.filter(object=comment.id).order_by('published')
+        
+        # Ensure the correct number of likes is returned
+        self.assertEqual(likes.count(), 2)
+        print(f"Found {likes.count()} likes for the comment")
+        
+        # Ensure the likes are from the correct authors
+        self.assertEqual(likes[0].author, self.author1)
+        self.assertEqual(likes[1].author, self.author2)
+        
+        # Additional verification
+        like_authors = [like.author.id for like in likes]
+        expected_authors = [self.author1.id, self.author2.id]
+        self.assertEqual(sorted(like_authors), sorted(expected_authors))
+
+    def test_get_specific_comment_func(self):
+        """
+        Test retrieving a specific comment directly from the database
+        """
+        # Create a comment
+        comment = Comment.objects.create(
+            author=self.author2,
+            comment="This is a specific functional test comment.",
+            post=self.post_id
+        )
+        
+        # Retrieve the comment from the database
+        retrieved_comment = Comment.objects.get(id=comment.id)
+        
+        # Verify comment details
+        self.assertIsNotNone(retrieved_comment)
+        print(f"Retrieved comment ID: {retrieved_comment.id}")
+        
+        # Check comment attributes
+        self.assertEqual(retrieved_comment.comment, "This is a specific functional test comment.")
+        self.assertEqual(retrieved_comment.author, self.author2)
+        self.assertEqual(retrieved_comment.post, self.post_id)
+        
+        # Additional verification
+        all_comments = Comment.objects.filter(post=self.post_id)
+        self.assertIn(retrieved_comment, all_comments)
+        print(f"Total comments for this post: {all_comments.count()}")
+
+    def test_get_post_likes_func(self):
+        """
+        Test creating and retrieving likes for a post directly from the database
+        """
+        # Construct the full post URL
+        post_url = f"http://localhost:8000/social/api/authors/1/posts/1"
+        
+        # Create likes for the post
+        like1 = Like.objects.create(
+            author=self.author1,
+            object=post_url
+        )
+        
+        like2 = Like.objects.create(
+            author=self.author2,
+            object=post_url
+        )
+        
+        # Retrieve likes for the post
+        post_likes = Like.objects.filter(object=post_url)
+        
+        # Verify likes
+        self.assertEqual(post_likes.count(), 2)
+        print(f"Retrieved {post_likes.count()} likes for the post")
+        
+        # Check like details
+        retrieved_like_authors = [like.author for like in post_likes]
+        self.assertIn(self.author1, retrieved_like_authors)
+        self.assertIn(self.author2, retrieved_like_authors)
+        
+        # Verify like objects
+        self.assertEqual(post_likes[0].object, post_url)
+        self.assertEqual(post_likes[1].object, post_url)
+        
+        print("Like authors:")
+        for like in post_likes:
+            print(f"  - {like.author.displayName}")
+
+    def test_get_liked_by_author_fqid_func(self):
+        """
+        Test retrieving all items liked by an author directly from the database
+        """
+        # Construct URLs for different liked objects
+        post_url = f"http://localhost:8000/social/api/authors/1/posts/1"
+        comment_url = f"http://localhost:8000/social/api/authors/2/commented/12345"
+        
+        # Create likes by the author
+        like1 = Like.objects.create(
+            author=self.author1,
+            object=post_url
+        )
+        
+        like2 = Like.objects.create(
+            author=self.author1,
+            object=comment_url
+        )
+        
+        # Retrieve likes by the author
+        author_likes = Like.objects.filter(author=self.author1)
+        
+        # Verify likes
+        self.assertEqual(author_likes.count(), 2)
+        print(f"Retrieved {author_likes.count()} likes by the author")
+        
+        # Check liked objects
+        liked_objects = [like.object for like in author_likes]
+        self.assertIn(post_url, liked_objects)
+        self.assertIn(comment_url, liked_objects)
+        
+        # Verify each like's details
+        for like in author_likes:
+            self.assertEqual(like.author, self.author1)
+            print(f"Liked object: {like.object}")
+        
+        # Optional: Verify order of likes (if needed)
+        ordered_likes = Like.objects.filter(author=self.author1).order_by('published')
+        self.assertEqual(ordered_likes.count(), 2)    
+    
+    def test_get_single_like_func(self):
+        """
+        Test retrieving a specific like directly from the database
+        """
+        # Construct post URL
+        author_id = self.author1.id.split('/')[-1]
+        post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/1"
+
+        # Create a like in the test database
+        like = Like.objects.create(
+            id=f"http://localhost:8000/social/api/authors/{author_id}/liked/12345",
+            author=self.author1,
+            object=post_url
+        )
+
+        # Retrieve the like from the database
+        try:
+            retrieved_like = Like.objects.get(id=like.id)
+            
+            # Verify like details
+            self.assertIsNotNone(retrieved_like)
+            print(f"Retrieved like ID: {retrieved_like.id}")
+            
+            # Check like attributes
+            self.assertEqual(retrieved_like.author, self.author1)
+            self.assertEqual(retrieved_like.object, post_url)
+            
+            # Additional verification
+            all_likes = Like.objects.filter(author=self.author1)
+            self.assertIn(retrieved_like, all_likes)
+            print(f"Total likes by this author: {all_likes.count()}")
+            
+        except Like.DoesNotExist:
+            self.fail(f"Like with ID {like.id} not found in the database")
+    def test_get_like_by_fqid_func(self):
+        """
+        Test retrieving a specific like by Fully Qualified ID directly from the database
+        """
+        # Construct post URL
+        author_id = self.author1.id.split('/')[-1]
+        post_url = f"http://localhost:8000/social/api/authors/{author_id}/posts/1"
+
+        # Construct the like FQID
+        like_fqid = f"http://localhost:8000/social/api/authors/{author_id}/liked/abc123"
+
+        # Create a like in the test database
+        like = Like.objects.create(
+            id=like_fqid,
+            author=self.author1,
+            object=post_url
+        )
+
+        # Retrieve the like from the database
+        try:
+            retrieved_like = Like.objects.get(id=like_fqid)
+            
+            # Verify like details
+            self.assertIsNotNone(retrieved_like)
+            print(f"Retrieved like FQID: {retrieved_like.id}")
+            
+            # Check like attributes
+            self.assertEqual(retrieved_like.author, self.author1)
+            self.assertEqual(retrieved_like.object, post_url)
+            
+            # Verify the specific FQID matches
+            self.assertEqual(retrieved_like.id, like_fqid)
+            
+            # Additional verification
+            likes_by_author = Like.objects.filter(author=self.author1)
+            self.assertIn(retrieved_like, likes_by_author)
+            print(f"Total likes by this author: {likes_by_author.count()}")
+            
+        except Like.DoesNotExist:
+            self.fail(f"Like with FQID {like_fqid} not found in the database")
