@@ -71,9 +71,6 @@
                 let authorGithub = this.getAttribute("data-author-github") || "";
                 let authorProfileImage = this.getAttribute("data-author-profileImage") || "";
                 let authorPage = this.getAttribute("data-author-page") || "";
-                console.log(authorId);
-                console.log(authorName);
-                console.log(authorHost);
 
                 // Fallback to get name if attribute is missing
                 if (!authorName) {
@@ -124,7 +121,6 @@
 
         document.getElementById("node-select").addEventListener("change", async function () {
             const selectedNode = this.value;
-            console.log(selectedNode);
             if (!selectedNode) return;
 
             try {
@@ -134,7 +130,6 @@
 
                 console.log(THIS_USER_ID);
                 const authors = data.authors || [];
-                console.log(authors);
 
                 const container = document.getElementById("remote-authors");
                 container.innerHTML = ''; // Clear previous content
@@ -167,11 +162,7 @@
                                         <button class="follow-remote btn btn-secondary btn-sm"
                                                 onclick="event.stopPropagation();"
                                                 data-author-id="${author.id}"
-                                                data-author-name="${author.displayName}"
-                                                data-author-host="${author.host}"
-                                                data-author-github="${author.github}"
-                                                data-author-profileImage="${author.profileImage}"
-                                                data-author-page="${author.page}">
+                                                data-author-name="${author.displayName}">
                                             Follow
                                         </button>
                                     </div>

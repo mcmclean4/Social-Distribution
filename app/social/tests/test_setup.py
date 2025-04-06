@@ -131,8 +131,7 @@ class TestSetUp(TestCase):
         self.register_data = {
             "username":"test_username",
             "password": "password",
-            "displayName": "test_displayName",
-            "github": ""
+            "displayName": "test_displayName"
         }
 
         self.register_data_2 = {

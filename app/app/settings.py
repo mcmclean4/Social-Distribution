@@ -66,16 +66,40 @@ REST_FRAMEWORK = {
 }
 
 
+# Security Settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# File Upload Settings
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+
+# Content Security Policy
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+CSP_FONT_SRC = ("'self'", "https:", "data:")
+
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
-    'django.middleware.security.SecurityMiddleware',
+    'django.middleware.security.SecurityMiddleware',  # Make sure this is first
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'social.middleware.SecurityMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -101,6 +125,30 @@ TEMPLATES = [
         },
     },
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'WARNING',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+        'social': {  # Change this to match your app's name
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
+
 
 WSGI_APPLICATION = 'app.wsgi.application'
 
@@ -152,7 +200,6 @@ USE_TZ = True
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
@@ -166,13 +213,19 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Hardcoded test user for local development
-MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
+MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/1"
 
+TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in TRUSTED_ORIGINS.split(',') if origin.strip()]
 
+NODE_IP = os.getenv("LOCAL_IP")
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://10.2.7.95",
+    "http://{NODE_IP}",
+    "http://10.2.7.122",
+    "http://10.2.4.238/",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -182,7 +235,6 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 GITHUB_CALLBACK_URL = "http://localhost:8000/social/github/callback/"
 
 # Set up the initial node in apps.py
-NODE_IP = os.getenv("LOCAL_IP")
 CURRENT_NODE_URL = f"http://{NODE_IP}/social/api/"
 CURRENT_NODE_NAME = "LocalNode"
 CURRENT_NODE_USERNAME = "admin"

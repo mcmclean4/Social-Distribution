@@ -253,18 +253,6 @@ class InboxView(APIView):
 
 
     @method_decorator(csrf_exempt, name='dispatch')
-    def delete(self, request, author_id):
-        print("inbox received delete to delete post")
-        return self.post(request, author_id)
-
-
-    @method_decorator(csrf_exempt, name='dispatch')
-    def put(self, request, author_id):
-        print("inbox received put to update post")
-        return self.post(request, author_id)
-
-
-    @method_decorator(csrf_exempt, name='dispatch')
     def post(self, request, author_id):
         """Stores any incoming request (posts, likes, comments, follows) in the inbox."""
 
