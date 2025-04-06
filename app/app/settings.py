@@ -85,10 +85,8 @@ CSP_DEFAULT_SRC = ("'self'",)
 CSP_SCRIPT_SRC = ("'self'",)
 CSP_FONT_SRC = ("'self'", "https:", "data:")
 
-# Session Security
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Add SecurityMiddleware to the top of your MIDDLEWARE list
 MIDDLEWARE = [
