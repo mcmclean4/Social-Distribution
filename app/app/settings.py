@@ -195,7 +195,7 @@ TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in TRUSTED_ORIGINS.split(',') if origin.strip()]
 
 NODE_IP = os.getenv("LOCAL_IP")
-CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
+CORS_ALLOW_ALL_ORIGINS = False  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://10.2.7.95",
