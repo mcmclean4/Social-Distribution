@@ -1,14 +1,9 @@
 from django import forms
-from .models import Post, Author
-from .models import Comment
+from .models import Post, Author, Comment
 from django.core.exceptions import ValidationError
 import re
 import html
 import bleach
-import base64
-from PIL import Image
-from io import BytesIO
-from django.core.validators import RegexValidator
 
 class PostForm(forms.ModelForm):
     image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}), help_text="Upload a image (max 10MB)")

@@ -75,8 +75,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # File Upload Settings
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o644
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 
@@ -100,18 +99,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'social.middleware.SecurityMiddleware',
-]
-
-# Allowed Content Types
-ALLOWED_CONTENT_TYPES = [
-    'text/plain',
-    'text/html',
-    'text/markdown',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'video/mp4',
-    'video/webm',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -203,11 +190,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Hardcoded test user for local development
 MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/2"
 
-
+NODE_IP = os.getenv("LOCAL_IP")
 CORS_ALLOW_ALL_ORIGINS = True  # If testing federated requests
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://10.2.7.95",
+    "http://{NODE_IP}"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -217,7 +205,6 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 GITHUB_CALLBACK_URL = "http://localhost:8000/social/github/callback/"
 
 # Set up the initial node in apps.py
-NODE_IP = os.getenv("LOCAL_IP")
 CURRENT_NODE_URL = f"http://{NODE_IP}/social/api/"
 CURRENT_NODE_NAME = "LocalNode"
 CURRENT_NODE_USERNAME = "admin"
