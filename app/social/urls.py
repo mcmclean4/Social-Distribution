@@ -53,6 +53,7 @@ urlpatterns = [
     path('post/<int:internal_id>/update/', post_views.update_post, name='update_post'),
     path('post/<int:internal_id>/delete/', post_views.delete_post, name='delete_post'),
     path('post/<int:internal_id>/', post_views.post_detail, name='post_detail'),
+    path('remote-post/<path:post_fqid>/', post_views.remote_post_detail, name='remote_post_detail'),
 
     # Video post
     path('post/video/', post_views.create_video_post, name='create_video_post'),

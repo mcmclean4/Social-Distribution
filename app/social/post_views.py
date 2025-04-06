@@ -485,6 +485,38 @@ def post_detail(request, internal_id):
 
     return render(request, 'social/post_detail.html', {'post': post, 'current_host': request.get_host() })
 
+@login_required
+def remote_post_detail(request, post_fqid):
+    post = get_object_or_404(Post, id=post_fqid)
+    can_view = False  # Flag to track if the user is allowed to see the post
+
+    # Author can always see their own posts
+    if post.author == request.user.author and post.visibility != 'DELETED':
+        can_view = True
+
+    elif post.visibility == 'PUBLIC':
+        can_view = True
+
+    elif post.visibility == 'FRIENDS':
+        if request.user.is_authenticated and request.user.author in post.author.friends:
+            can_view = True
+
+    elif post.visibility == 'UNLISTED':
+        can_view = True  # Anyone with the link can view
+
+    elif post.visibility == 'DELETED':
+        message = "This post has been deleted."
+        return render(request, 'social/restricted_post.html', {'message': message})
+
+    if not can_view:
+        message = "You do not have permission to view this post."
+        return render(request, 'social/restricted_post.html', {'message': message})
+
+    # Add like count for comments
+    for comment in post.comments.all():
+        comment.like_count = comment.get_likes_count()
+
+    return render(request, 'social/post_detail.html', {'post': post, 'current_host': request.get_host() })
 
 @api_view(['PUT'])
 def api_update_post(request, internal_id):
