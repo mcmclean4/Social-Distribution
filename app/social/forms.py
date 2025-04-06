@@ -8,6 +8,7 @@ import bleach
 import base64
 from PIL import Image
 from io import BytesIO
+from django.core.validators import RegexValidator
 
 class PostForm(forms.ModelForm):
     image = forms.ImageField(required=False, widget=forms.FileInput(attrs={'class': 'form-control'}), help_text="Upload a image (max 10MB)")
@@ -83,24 +84,6 @@ class PostForm(forms.ModelForm):
                     attributes={'a': ['href']},
                     strip=True
                 )
-
-            # elif content_type in ['image/png;base64', 'image/jpeg;base64', 'application/base64']:
-            #     try:
-            #         header, b64data = content.split(',', 1) if ',' in content else (None, content)
-            #         binary_data = base64.b64decode(b64data)
-            #         if len(binary_data) > 10 * 1024 * 1024:
-            #             self.add_error('content', 'Base64 image exceeds 10MB.')
-            #         img = Image.open(BytesIO(binary_data))
-            #         img.verify()
-
-            #         if content_type == 'image/png;base64' and img.format != 'PNG':
-            #             self.add_error('content', 'Expected PNG image.')
-            #         elif content_type == 'image/jpeg;base64' and img.format != 'JPEG':
-            #             self.add_error('content', 'Expected JPEG image.')
-            #         elif content_type == 'application/base64' and img.format in ['PNG', 'JPEG', 'GIF']:
-            #             self.add_error('content', 'Use correct image content type for PNG/JPEG.')
-            #     except Exception:
-            #         self.add_error('content', 'Invalid base64 image.')
 
         # Validate file uploads
         image = self.files.get('image')
@@ -183,11 +166,37 @@ class RegisterForm(forms.Form):
     displayName = forms.CharField(max_length=100)
     github = forms.CharField(required=False)
 
+    def clean_username(self):
+        """Ensure the username is unique and doesn't contain invalid characters."""
+        username = self.cleaned_data['username']
+        # Check if username is already taken
+        if Author.objects.filter(username=username).exists():
+            raise ValidationError("This username is already taken. Please choose another one.")
+        
+        # Ensure username contains only valid characters (letters, numbers, and underscores)
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            raise ValidationError("Username can only contain letters, numbers, and underscores.")
+        
+        return username
+
+    def clean_password(self):
+        """Ensure the password meets the complexity requirements."""
+        password = self.cleaned_data.get('password')
+        # Password must be at least 8 characters long and contain at least one letter and one number
+        if len(password) < 8:
+            raise ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'[A-Za-z]', password):
+            raise ValidationError("Password must contain at least one letter.")
+        if not re.search(r'[0-9]', password):
+            raise ValidationError("Password must contain at least one number.")
+        return password
+
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get("password")
-        confirm_password = cleaned_data.get("confirm_password")
+        password = cleaned_data.get("password", max_value=32)
+        confirm_password = cleaned_data.get("confirm_password", max_value=32)
 
         if password != confirm_password:
             raise ValidationError("The two password fields must match.")
+        
         return cleaned_data
