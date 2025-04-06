@@ -1,5 +1,6 @@
 from .test_setup import TestSetUp
-from social.models import Author    
+from social.models import Author
+import base64    
 
 
 class TestIdentity(TestSetUp):
@@ -17,8 +18,14 @@ class TestIdentity(TestSetUp):
         # Now get the author's id and retrieve it from /api/authors/{AUTHOR_SERIAL}/ endpoint
         # Using .last() since test_setup.py already creatd a separate Author manually, which is only used in other test files
         author_id = Author.objects.last().id
+
+        # auth header for django test client
+        auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
+        auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
+
         get_response = self.client.get(
-            author_id
+            author_id,
+            HTTP_AUTHORIZATION=auth_header
         )
         # Check id is the same and displayName is same as what was registered with
         self.assertEqual(get_response.status_code, 200)

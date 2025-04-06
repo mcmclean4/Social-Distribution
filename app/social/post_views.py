@@ -174,14 +174,12 @@ def send_post_to_remote_followers(post, author, post_type='post'):
     friends = author.friends.filter(host__startswith="http://")  # Only remote friends
     
     # Combine remote followers and friends
-    recipients = set(remote_followers + [friend.host for friend in friends])
+    recipients = set(remote_followers + [friend.id for friend in friends])
     
     print(f"remote recipients: {recipients}")
     
     # Get all unique remote hosts from recipients
     remote_hosts = set()
-    
-    print(f"REMOTE_HOSTS: {recipients}")
     
     for recipient_id in recipients:
         try:
@@ -192,16 +190,19 @@ def send_post_to_remote_followers(post, author, post_type='post'):
     
     # For each remote host, get the node and send the post
     for host in remote_hosts:
-        
-        
-        
+
         try:
             # Get or create the node
             
-            print(f"HOST IS: {f"{host}"}")
+            print(f"HOST before slash check IS: {f"{host}"}")
             
             #node, created = Node.objects.get_or_create(base_url=f"{host}/")
-            node = Node.objects.get(base_url=f"{host}/")
+            if not host[-1] == "/":
+                host += "/"
+            
+            print(f"HOST after slash check IS: {f"{host}"}")
+            node = Node.objects.get(base_url=f"{host}")
+
             if not node.enabled:
                 continue
             
@@ -238,11 +239,15 @@ def send_post_to_remote_followers(post, author, post_type='post'):
                     try:
                         # Extract the author ID from the full URL
                         recipient_author_id = recipient_id.split('/authors/')[-1]
-                        inbox_url = f"{host}/authors/{recipient_author_id}/inbox"
+                        inbox_url = f"{host}authors/{recipient_author_id}/inbox"
                         
                         print(f"{node.auth_username}, {node.auth_password}")
+                        print(f"sending post to inbox url: {inbox_url}")
+
+                        saved_post_type = post_data['type']
                         
                         # Send the post to the recipient's inbox
+                        # send POST req with custom 'type' fields: update or delete
                         response = requests.post(
                             inbox_url,
                             json=post_data,
@@ -251,6 +256,7 @@ def send_post_to_remote_followers(post, author, post_type='post'):
                             timeout=5
                         )
                         if not response.ok:
+                            # send POST req with 'type':post if custom field wasn't expected
                             post_data['type'] = 'post'
                             response = requests.post(
                             inbox_url,
@@ -259,6 +265,27 @@ def send_post_to_remote_followers(post, author, post_type='post'):
                             headers={"Content-Type": "application/json"},
                             timeout=5
                         )
+                        if not response.ok:
+                            # send PUT or DELETE req depending on what the 'type' field orginally was (to work with dottemod's group)
+                            if saved_post_type == 'delete':
+                                print("sending delete req")
+                                response = requests.delete(
+                                inbox_url,
+                                json=post_data,
+                                auth=(node.auth_username, node.auth_password),
+                                headers={"Content-Type": "application/json"},
+                                timeout=5
+                            )
+                            else:
+                                print("sending put req")
+                                response = requests.put(
+                                inbox_url,
+                                json=post_data,
+                                auth=(node.auth_username, node.auth_password),
+                                headers={"Content-Type": "application/json"},
+                                timeout=5
+                            )
+                                
                         response.raise_for_status()
                         print(response)
                         

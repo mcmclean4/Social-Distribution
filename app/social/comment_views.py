@@ -339,6 +339,8 @@ def comment_to_inbox(post, comment, author):
             headers={"Content-Type": "application/json"},
             timeout=5
         )
+        print(response.status_code)
+        print(response.json())
         response.raise_for_status()
         print(f"Successfully sent comment to {post.author.id}")
 
