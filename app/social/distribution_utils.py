@@ -50,7 +50,10 @@ def distribute_likes(like_obj, data, content_author_id):
                 # Find the node for this follower
                 node = None
                 if follower_host:
-                    node = Node.objects.filter(base_url__contains=follower_host).first()
+                    if follower_host[-1] != "/":
+                        node = Node.objects.filter(base_url__contains=(follower_host+"/")).first()
+                    else:
+                        node = Node.objects.filter(base_url__contains=follower_host).first()
                 
                 if not node:
                     print(f"From distribution_utils: No node found for remote follower: {follower_id}")

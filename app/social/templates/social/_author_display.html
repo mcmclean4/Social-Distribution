@@ -1,6 +1,6 @@
 {# social/_author_display.html #}
 <div class="author-display card mb-2">
-    <div class="card-body py-2">
+  <div class="card-body py-2">
     <div class="d-flex align-items-center">
       <div onclick="viewAuthorProfile('{{ author.id }}', '{{ author.page }}')" style="cursor: pointer;">
         {% if author.profileImage %}
@@ -23,6 +23,9 @@
                   onclick="event.stopPropagation();"
                   {% if data_attribute_name and data_attribute_value %}
                   data-{{ data_attribute_name }}="{{ data_attribute_value }}"
+                  {% endif %}
+                  {% if data_attribute_display_name and data_attribute_display_name_value %}
+                  data-{{ data_attribute_display_name }}="{{ data_attribute_display_name_value }}"
                   {% endif %}>
             {{ button_text|default:"Action" }}
           </button>
@@ -33,6 +36,9 @@
                   onclick="event.stopPropagation();"
                   {% if second_data_attribute_name and second_data_attribute_value %}
                   data-{{ second_data_attribute_name }}="{{ second_data_attribute_value }}"
+                  {% endif %}
+                  {% if second_data_attribute_display_name and second_data_attribute_display_name_value %}
+                  data-{{ second_data_attribute_display_name }}="{{ second_data_attribute_display_name_value }}"
                   {% endif %}>
             {{ second_button_text|default:"Action" }}
           </button>
@@ -40,7 +46,7 @@
       </div>
     </div>
     
-    {% if author.github %}
+    {% if author.github and author.github != "null" %}
     <div class="mt-1 small">
       <i class="bi bi-github"></i> {{ author.github }}
     </div>

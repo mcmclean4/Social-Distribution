@@ -48,7 +48,7 @@ class TestSetUp(TestCase):
         # Manually set author serial to 99 to avoid collision
         self.author = Author.objects.create(
             user=self.user,
-            id=f"http://localhost:8000/social/api/authors/99",
+            id=f"http://localhost:8000/social/api/authors/9",
             host="http://localhost:8000/social/api/",
             displayName="Test Author"
         )
@@ -61,6 +61,7 @@ class TestSetUp(TestCase):
         # Authenticate the test client
         self.client = APIClient()
         self.client.force_login(self.user)
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
 
         # Organized creating json objects and urls for different test cases
         self.setUpPosting()
@@ -127,17 +128,23 @@ class TestSetUp(TestCase):
         self.profile_page_url = lambda author_id: reverse('social:profile_page', kwargs={'id' : author_id})
         self.profile_edit_url = lambda author_id: reverse('social:profile_edit', kwargs={'id' : author_id})
 
+        # auth header for django test client
+        auth_str = f"{self.node.auth_username}:{self.node.auth_password}"
+        self.auth_header = f"Basic {base64.b64encode(auth_str.encode()).decode()}"
+
         # Set up needed for test_indentity.py
         self.register_data = {
             "username":"test_username",
             "password": "password",
-            "displayName": "test_displayName"
+            "displayName": "test_displayName",
+            "github": ""
         }
 
         self.register_data_2 = {
             "username":"test_username2",
             "password": "password2",
-            "displayName": "test_displayName2"
+            "displayName": "test_displayName2",
+            "github": ""
         }
 
 

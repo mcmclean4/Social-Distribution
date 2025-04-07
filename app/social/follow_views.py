@@ -14,9 +14,11 @@ from .models import Follow, Author, FollowRequest, Inbox, Node
 from requests.auth import HTTPBasicAuth
 from .utils import get_base_url 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from django.db import transaction
 from urllib.parse import urljoin
+from .authentication import NodeBasicAuthentication
 
 
 
@@ -60,6 +62,7 @@ def fetch_remote_authors_view(request):
         
         response.raise_for_status()
         authors_data = response.json()
+        #print(authors_data)
         if isinstance(authors_data, list):
             data = authors_data
         else:
@@ -71,6 +74,7 @@ def fetch_remote_authors_view(request):
             remote_authors = data
         else:
             remote_authors = data.get("items") or data.get("authors") or []
+        #print(f"remote_authors {remote_authors}")
 
         # Get IDs of authors already followed or requested
         requested_ids = set(
@@ -88,7 +92,7 @@ def fetch_remote_authors_view(request):
             author for author in remote_authors
             if author.get("id") not in blocked_ids
         ]
-
+        #print(f"filtered_authors {filtered_authors}")
         print(f"[DEBUG] Returning {len(filtered_authors)} authors after filtering.")
         return JsonResponse({"authors": filtered_authors, "user": request.user.author.id})
 
@@ -117,6 +121,7 @@ def local_follow_finalize(request):
     print(f"WE ARE: {follower.displayName}")
     
     data = request.data
+    print(f"DATA IN FOLLOW VIEWS: {data}")
     followee_id = data.get("followee_id")
     summary = data.get("summary", f"{follower.displayName} wants to follow you")
 
@@ -281,6 +286,8 @@ def send_follow_decision_to_inbox(request):
         headers={"Content-Type": "application/json"},
         timeout=5
     )
+    print(response.status_code)
+    print(response.json())
     response.raise_for_status()
     print(f"Successfully sent follow_decision to {follower_id}'s inbox")
     return Response({"message": "Follow decision sent to inbox"}, status=200)
@@ -337,6 +344,7 @@ def send_unfollow_to_inbox(request):
 
 class FollowersListView(APIView):
     """Manages the list of authors that are following an author."""
+    authentication_classes = [NodeBasicAuthentication, SessionAuthentication]
     
     def get(self, request, author_id):
         author_id = unquote(author_id)
@@ -437,6 +445,7 @@ class FollowersListView(APIView):
 
 class FollowerDetailView(APIView):
     """Check if a user follows an author, add, or remove a follower"""
+    authentication_classes = [NodeBasicAuthentication, SessionAuthentication]
 
     def get(self, request, author_id, follower_fqid):
         """

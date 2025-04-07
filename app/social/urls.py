@@ -12,7 +12,7 @@ from .image_views import( get_image_with_serial, get_image_with_fqid)
 from .github_activity import(github_authorize, github_callback)
 from .node_views import NodeListCreateAPIView, NodeRetrieveUpdateDestroyAPIView
 from .comment_views import(get_post_comments,get_comments_by_post_fqid, get_specific_comment,send_comment_to_inbox_view, create_local_comment)
-from .comment_like_views import(get_comment_likes,like_comment,send_comment_like_to_inbox)
+from .comment_like_views import(get_comment_likes,like_comment,send_comment_like_to_inbox, is_comment_liked)
 from .like_views import(send_like_to_inbox)
 from . import notifications_views
 
@@ -53,6 +53,7 @@ urlpatterns = [
     path('post/<int:internal_id>/update/', post_views.update_post, name='update_post'),
     path('post/<int:internal_id>/delete/', post_views.delete_post, name='delete_post'),
     path('post/<int:internal_id>/', post_views.post_detail, name='post_detail'),
+    path('remote-post/<path:post_fqid>/', post_views.remote_post_detail, name='remote_post_detail'),
 
     # Video post
     path('post/video/', post_views.create_video_post, name='create_video_post'),
@@ -122,6 +123,7 @@ urlpatterns = [
     # Comment like  
     path('api/authors/<str:author_id>/posts/<str:post_id>/comments/<path:comment_id>/like/', 
         comment_like_views.like_comment, name='like_comment'),
+    path('api/comments/<path:comment_id>/liked/', is_comment_liked, name='is_comment_liked'),
 
     # Commented API
     path('api/authors/<str:author_id>/commented',  # works

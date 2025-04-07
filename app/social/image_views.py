@@ -1,8 +1,11 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from .models import Post, Author
 import requests
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, JsonResponse, HttpResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import AllowAny
 import mimetypes
 from .models import Post
 from urllib.parse import unquote
@@ -23,6 +26,8 @@ def get_image_with_serial(request, author_serial, post_serial):
 
 
 @api_view(['GET'])
+@csrf_exempt
+@permission_classes([AllowAny])
 def get_image_with_fqid(request, post_fqid):
     '''
     Returns a post's image as binary given the post's fqid (assuming percent encoded)
