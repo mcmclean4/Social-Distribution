@@ -305,10 +305,11 @@ def comment_to_inbox(post, comment, author):
         author_serial = post.author.id.split('/')[-1]
         print(f"POST AUTHOR: {post.author.id}, OTHER AUTHOR: {author.id}")
         print(f"CURRENT AUTHOR HOST: {post.author.id}, AUTHOR SERIAL: {author_serial}")
+        print(f"post.author.host is {post.author.host}")
         if post.author.host[-1] != "/":
             post_node = Node.objects.get(base_url=post.author.host+'/')
         else:
-            post_node = Node.objects.get(base_url=post.author.host+'/')
+            post_node = Node.objects.get(base_url=post.author.host)
         
         print(f"POST NODE HOST: {post_node}")
         # Change to use post.author.id instead of author_serial if it turns out inbox should actually use fqid
