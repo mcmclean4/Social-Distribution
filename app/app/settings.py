@@ -203,7 +203,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://10.2.7.122",
     "http://10.2.4.238/",
 ]
-CSRF_TRUSTED_ORIGINS.append(f"http://{NODE_IP}")
 
 CORS_ALLOW_CREDENTIALS = True
 
