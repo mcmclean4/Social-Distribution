@@ -202,6 +202,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://{NODE_IP}",
     "http://10.2.7.122",
     "http://10.2.4.238/",
+
 ]
 
 CORS_ALLOW_CREDENTIALS = True
