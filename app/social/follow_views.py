@@ -344,8 +344,7 @@ def send_unfollow_to_inbox(request):
 
 class FollowersListView(APIView):
     """Manages the list of authors that are following an author."""
-    permission_classes = [AllowAny]
-    authentication_classes = [NodeBasicAuthentication, BasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication]
     
     def get(self, request, author_id):
         author_id = unquote(author_id)
