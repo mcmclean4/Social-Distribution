@@ -445,6 +445,7 @@ class FollowersListView(APIView):
 
 class FollowerDetailView(APIView):
     """Check if a user follows an author, add, or remove a follower"""
+    authentication_classes = [NodeBasicAuthentication]
 
     def get(self, request, author_id, follower_fqid):
         """
