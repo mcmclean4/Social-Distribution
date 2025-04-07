@@ -26,19 +26,17 @@ class FollowersAPITests(TestCase):
         # Create corresponding Author objects without specifying an explicit ID.
         self.author1 = Author.objects.create(
             user=self.user1,
+            id=f"http://localhost:8000/social/api/authors/1",
             displayName="Lara Croft",
             host="http://localhost:8000/social/api/",
-            github="http://github.com/laracroft",
-            profileImage=None,
-            page="http://localhost:8000/social/authors/1"
+            github="http://github.com/laracroft"
         )
         self.author2 = Author.objects.create(
             user=self.user2,
+            id=f"http://localhost:8000/social/api/authors/2",
             displayName="Greg Johnson",
             host="http://localhost:8000/social/api/",
-            github="http://github.com/gjohnson",
-            profileImage=None,
-            page="http://localhost:8000/social/authors/greg"
+            github="http://github.com/gjohnson"
         )
         # Refresh to obtain the actual generated IDs.
         self.author1.refresh_from_db()
@@ -55,6 +53,7 @@ class FollowersAPITests(TestCase):
         
         # Initialize the DRF APIClient.
         self.client = APIClient()
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
         
 
     def post_follow_request(self):
