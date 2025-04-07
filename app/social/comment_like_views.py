@@ -8,7 +8,28 @@ import uuid
 from datetime import datetime
 import traceback
 from .distribution_utils import distribute_likes, distribute_comment_likes
+from django.http import JsonResponse, HttpResponseNotFound
+from django.contrib.auth.decorators import login_required
 
+@login_required
+def is_comment_liked(request, comment_id):
+    """API endpoint to check if the current user has liked a specific comment"""
+    try:
+        # Try to find the comment by its ID
+        comment = Comment.objects.get(id__contains=comment_id)
+        
+        # Check if the current user has liked this comment
+        user = request.user
+        is_liked = Like.objects.filter(object=comment.id, author=user.author).exists()
+        
+        # Return JSON response with the like status
+        return JsonResponse({
+            'liked': is_liked,
+            'comment_id': comment_id
+        })
+    except Comment.DoesNotExist:
+        # Return 404 if comment doesn't exist
+        return HttpResponseNotFound('Comment not found')
 
 @api_view(['POST'])
 def send_comment_like_to_inbox(request):

@@ -133,6 +133,8 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
+
+        initializeCommentLikes();
         document.querySelectorAll(".like-section").forEach(section => {
             const postId = section.getAttribute("data-post-id");
             const isLiked = section.getAttribute("data-is-liked") === "true";
@@ -146,7 +148,53 @@
                 likeIcon.classList.add("bi-hand-thumbs-up");
             }
         });
+        
     });
+
+    // Function to initialize comment like buttons
+    function initializeCommentLikes() {
+        // Get all comment elements
+        const commentElements = document.querySelectorAll('.comment');
+        console.log("checking comment liked")
+        
+        commentElements.forEach(async (commentElement) => {
+            const commentId = commentElement.getAttribute('data-comment-id');
+            if (!commentId) return;
+            
+            const likeButton = commentElement.querySelector('.btn-link');
+            if (!likeButton) return;
+            
+            try {
+                // Call the API to check if this comment is liked
+                const response = await fetch(`/social/api/comments/${commentId}/liked/`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const likeIcon = likeButton.querySelector('i');
+                    
+                    // Update the icon based on like status
+                    if (data.liked) {
+                        console.log("Got liked")
+                        likeIcon.classList.remove('bi-hand-thumbs-up');
+                        likeIcon.classList.add('bi-hand-thumbs-up-fill');
+                    } else {
+                        likeIcon.classList.remove('bi-hand-thumbs-up-fill');
+                        likeIcon.classList.add('bi-hand-thumbs-up');
+                    }
+                }
+            } catch (error) {
+                console.error(`Error checking like status for comment ${commentId}:`, error);
+            }
+        });
+    }
+
 
     async function handleLike(authorId, postId) {
         try {
