@@ -8,21 +8,29 @@ from django.conf import settings
 
 class CommentedAPITests(TestCase):
     def setUp(self):
-        settings.HOST = "http://localhost:8000/social/"
+        settings.HOST = "http://localhost:8000/social/api"
         
         # Create test users
         self.user1 = User.objects.create_user(username="user1", password="password")
         self.user2 = User.objects.create_user(username="user2", password="password")
 
         # Create test authors
-        self.author1 = Author.objects.create(user=self.user1, displayName="Lara Croft", host=settings.HOST)
-        self.author2 = Author.objects.create(user=self.user2, displayName="Greg Johnson", host=settings.HOST)
+        self.author1 = Author.objects.create(user=self.user1,
+                            displayName="Lara Croft",
+                            host=settings.HOST,
+                            id=f"http://localhost:8000/social/api/authors/1")
+        self.author2 = Author.objects.create(user=self.user2, 
+                            displayName="Greg Johnson", 
+                            host=settings.HOST,
+                            id=f"http://localhost:8000/social/api/authors/2")
 
         # Create a test post
         self.post = Post.objects.create(
             author=self.author1,
             title="Test Post",
-            content="This is a test post."
+            content="This is a test post.",
+            id= "http://localhost:8000/social/api/authors/1/posts/1",
+            page="http://localhost:8000/social/post/1"            
         )
 
         # Refresh to get the actual ID
@@ -50,7 +58,9 @@ class CommentedAPITests(TestCase):
         # Initialize API client
         self.client = APIClient()
         self.client.force_login(self.user2)
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
 
+        self.node = Node.objects.create(name="TestNode", base_url=settings.HOST, auth_username="testNodeUsername", auth_password="testNodePassword")
     def test_get_author_comments(self):
         """Test retrieving all comments made by an author using author_id"""
         # For debugging, print the actual author ID and check its format
