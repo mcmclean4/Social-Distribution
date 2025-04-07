@@ -455,11 +455,11 @@ def profile_edit(request, id):
             else:
                 # Save the form data (including profileImage URL)
                 form.save()
-
                 # If we reach this point, the form is valid, and the image URL should be saved
                 messages.success(request, 'Profile updated successfully!')
                 return redirect('social:profile_page', id=id)
         else:
+            print("form errors:", form.errors)
             messages.error(request, 'There was an error updating your profile. Please check the image URL.')
 
     else:

@@ -25,19 +25,17 @@ class InboxPostTests(TestCase):
         # Do not provide explicit IDs so that the custom save() method generates them.
         self.author1 = Author.objects.create(
             user=self.user1,
+            id=f"http://localhost:8000/social/api/authors/1",
             displayName="Lara Croft",
             host="http://localhost:8000/social/api/",
-            github="http://github.com/laracroft",
-            profileImage=None,
-            page="http://localhost:8000/social/authors/1"
+            github="http://github.com/laracroft"
         )
         self.author2 = Author.objects.create(
             user=self.user2,
+            id=f"http://localhost:8000/social/api/authors/2",
             displayName="Greg Johnson",
             host="http://localhost:8000/social/api/",
-            github="http://github.com/gjohnson",
-            profileImage=None,
-            page="http://localhost:8000/social/authors/greg"
+            github="http://github.com/gjohnson"
         )
         
         # Refresh objects to get the actual generated IDs.
@@ -61,6 +59,7 @@ class InboxPostTests(TestCase):
 
         # Initialize the DRF APIClient and set its credentials to simulate a remote node.
         self.client = APIClient()
+        self.client.defaults['HTTP_HOST'] = 'localhost:8000'
         self.client.credentials(HTTP_AUTHORIZATION=self.remote_auth_header)
 
     def test_post_follow_request_to_inbox(self):
