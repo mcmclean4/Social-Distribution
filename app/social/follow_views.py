@@ -15,7 +15,7 @@ from requests.auth import HTTPBasicAuth
 from .utils import get_base_url 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from django.db import transaction
 from urllib.parse import urljoin
 from .authentication import NodeBasicAuthentication
@@ -344,7 +344,7 @@ def send_unfollow_to_inbox(request):
 
 class FollowersListView(APIView):
     """Manages the list of authors that are following an author."""
-    authentication_classes = [NodeBasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication, SessionAuthentication]
     
     def get(self, request, author_id):
         author_id = unquote(author_id)
@@ -445,7 +445,7 @@ class FollowersListView(APIView):
 
 class FollowerDetailView(APIView):
     """Check if a user follows an author, add, or remove a follower"""
-    authentication_classes = [NodeBasicAuthentication]
+    authentication_classes = [NodeBasicAuthentication, SessionAuthentication]
 
     def get(self, request, author_id, follower_fqid):
         """
