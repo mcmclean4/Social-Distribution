@@ -277,6 +277,8 @@ class InboxView(APIView):
 
         data = request.data
         item_type = data.get("type").lower()
+
+        print(f"data is {data}")
         
         if item_type == 'update':
             item_type = 'post'
