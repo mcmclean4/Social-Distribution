@@ -189,7 +189,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Hardcoded test user for local development
-MY_AUTHOR_ID = "http://localhost:8000/social/api/authors/1"
+MY_AUTHOR_ID = "http://{NODE_IP}/social/api/authors/1"
 
 TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in TRUSTED_ORIGINS.split(',') if origin.strip()]
