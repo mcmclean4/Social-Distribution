@@ -44,7 +44,7 @@ class Author(models.Model):
     host = models.URLField(null=True, blank=True)
     displayName = models.CharField(max_length=255)
     github = models.CharField(blank=True, null=True,max_length=100)
-    github_timestamp = models.DateTimeField(auto_now_add=True)
+    github_timestamp = models.DateTimeField(default=timezone.now)
     profileImage = models.URLField(blank=True, default=BLANK_PIC_URL)
     page = models.URLField(blank=True, null=True)
     isAdmin = models.BooleanField(default=False)
@@ -80,22 +80,22 @@ class Author(models.Model):
         
         return foreign_followers
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs):   
         if self._state.adding and not self.id:
-            local_ip = os.environ.get('LOCAL_IP', 'localhost')
-            last_author = Author.objects.filter(id__contains=local_ip).order_by('-id').first()
-
-            if last_author and last_author.id:
-                try:
-                    largest_current_id = int(last_author.id.rstrip('/').split('/')[-1])
-                except ValueError:
-                    largest_current_id = 0
-            else:
-                largest_current_id = 0
-
+            # Get the base URL for the host
             base_url = get_base_url(self.host) if self.host else "http://localhost:8000"
-            self.id = f"{base_url}/social/api/authors/{largest_current_id + 1}"
-            self.page = f"{base_url}/social/profile/{largest_current_id + 1}"
+            
+            # Get the largest User ID and add 1
+            largest_user_id = User.objects.all().order_by('-id').values_list('id', flat=True).first() or 0
+            next_id = largest_user_id + 1
+            
+            # Make sure this ID doesn't already exist (just in case)
+            while Author.objects.filter(id=f"{base_url}/social/api/authors/{next_id}").exists():
+                next_id += 1
+            
+            # Set the new author's ID and page URL
+            self.id = f"{base_url}/social/api/authors/{next_id}"
+            self.page = f"{base_url}/social/profile/{next_id}"
 
         super().save(*args, **kwargs)
 
