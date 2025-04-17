@@ -1,9 +1,2 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/18vkNgfz)
-| Name | CCID|
-|------------------|-----------------|
-| Majd Eissa      | meissa   | 
-| Sandhya Adhikari      | adhikar2    |
-| Marcus McLean  | mcmclean  |
-| Gagan Cheema| gcheema |
-| Sakib Rahman | sakib3 |
-| Khanh Bui    | kdbui  |
+# Distributed Social Networking
+Social Distribution is a decentralized social network platform inspired by ActivityPub and Diaspora, designed to enable peer-to-peer content sharing across nodes. Users can follow others across the network, view aggregated posts in their inbox-style feed, and interact via likes and comments—all without relying on a central server.
